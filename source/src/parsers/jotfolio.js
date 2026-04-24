@@ -1,7 +1,7 @@
 // JotFolio own export → Entry[]. All-or-nothing validation.
-import { TYPES } from '../lib/types.js'
+import { ALL_ENTRY_TYPES } from '../lib/types.js'
 
-const VALID_TYPES = new Set(TYPES)
+const VALID_TYPES = new Set(ALL_ENTRY_TYPES)
 
 export async function parse(input) {
   let data

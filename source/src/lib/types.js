@@ -1,15 +1,18 @@
 export const TYPES = ['note','video','podcast','article','journal','link'];
-export const ICON = {note:'📝',video:'🎬',podcast:'🎙️',article:'📄',journal:'📓',link:'🔗'};
-export const LABEL = {note:'Notes',video:'Videos',podcast:'Podcasts',article:'Articles',journal:'Journals',link:'Links'};
+export const KNOWLEDGE_TYPES = ['raw','wiki','review'];
+export const ALL_ENTRY_TYPES = [...TYPES,...KNOWLEDGE_TYPES];
+export const ICON = {note:'📝',video:'🎬',podcast:'🎙️',article:'📄',journal:'📓',link:'🔗',raw:'🧾',wiki:'🧠',review:'🧪'};
+export const LABEL = {note:'Notes',video:'Videos',podcast:'Podcasts',article:'Articles',journal:'Journals',link:'Links',raw:'Inbox',wiki:'Wiki',review:'Review'};
 export const STATUSES = {
   note:['draft','active','archived'],
   video:['backlog','watching','watched'],podcast:['saved','listening','done'],
-  article:['read later','reading','archived'],journal:['draft','complete'],link:['active','archived','broken']
+  article:['read later','reading','archived'],journal:['draft','complete'],link:['active','archived','broken'],
+  raw:['captured','processed','archived'],wiki:['seed','draft','reviewed','stale'],review:['pending','accepted','rejected']
 };
 // Types that do not require a URL. Note = pure text, no external reference.
-export const NO_URL_TYPES = new Set(['note']);
+export const NO_URL_TYPES = new Set(['note','wiki','review']);
 export const COMMON_FIELDS = ['title','url','notes','tags','status','entry_date'];
-export const TYPE_FIELDS = {note:[],video:['channel','duration'],podcast:['guest','episode','highlight'],article:[],journal:[],link:[]};
+export const TYPE_FIELDS = {note:[],video:['channel','duration'],podcast:['guest','episode','highlight'],article:[],journal:[],link:[],raw:[],wiki:[],review:[]};
 // Status tone: muted for "done" states, red for "broken", accent for "in-progress/not-started".
 // Keeps the card grid from looking like a stoplight.
 export const STATUS_DONE=new Set(['watched','done','complete','archived']);

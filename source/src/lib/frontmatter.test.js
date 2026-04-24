@@ -230,9 +230,9 @@ Body
     const entry = fileToEntry({ path: 'notes/Metadata.md', content });
 
     expect(entry[FRONTMATTER_EXTRAS_FIELD]).toEqual({
-      aliases: ['Alpha', 'Beta'],
       source: 'external: import',
     });
+    expect(entry.aliases).toEqual(['Alpha', 'Beta']);
 
     const { content: saved } = entryToFile({ ...entry, title: 'Metadata 2' });
     const { frontmatter } = parse(saved);
@@ -263,5 +263,52 @@ Body`,
       [MANUAL_LINKS_FIELD]: false,
     };
     expect(entryToFile(derivedOnly).content).not.toMatch(/^links:/m);
+  });
+
+  it('round-trips Karpathy wiki schema fields without breaking current entries', () => {
+    const entry = {
+      id: 'wiki-1',
+      type: 'wiki',
+      title: 'Compiler Notes',
+      tags: ['llm-wiki', 'compiler'],
+      status: 'reviewed',
+      starred: true,
+      aliases: ['knowledge compiler', 'memory compiler'],
+      canonical_key: 'compiler-notes',
+      confidence: 'high',
+      freshness: 'evergreen',
+      source_type: 'generated',
+      provenance: ['source:raw/transcript-1.md', 'source:notes/meeting.md'],
+      valid_from: '2026-04-24',
+      review_after: '2026-05-24',
+      review_status: 'accepted',
+      supersedes: ['wiki-0'],
+      superseded_by: 'wiki-2',
+      graph: true,
+      retrieval_priority: 90,
+      retrieval_keywords: ['compiler', 'memory', 'wiki'],
+      notes: 'Compiled durable summary.',
+      links: [],
+    };
+
+    const { path, content } = entryToFile(entry);
+    expect(path).toBe('wiki/Compiler Notes.md');
+    const parsed = fileToEntry({ path, content });
+
+    expect(parsed.type).toBe('wiki');
+    expect(parsed.aliases).toEqual(entry.aliases);
+    expect(parsed.canonical_key).toBe(entry.canonical_key);
+    expect(parsed.confidence).toBe(entry.confidence);
+    expect(parsed.freshness).toBe(entry.freshness);
+    expect(parsed.source_type).toBe(entry.source_type);
+    expect(parsed.provenance).toEqual(entry.provenance);
+    expect(parsed.valid_from).toBe(entry.valid_from);
+    expect(parsed.review_after).toBe(entry.review_after);
+    expect(parsed.review_status).toBe(entry.review_status);
+    expect(parsed.supersedes).toEqual(entry.supersedes);
+    expect(parsed.superseded_by).toBe(entry.superseded_by);
+    expect(parsed.graph).toBe(true);
+    expect(parsed.retrieval_priority).toBe(90);
+    expect(parsed.retrieval_keywords).toEqual(entry.retrieval_keywords);
   });
 });

@@ -1,4 +1,4 @@
-import { TYPES } from './types.js';
+import { ALL_ENTRY_TYPES } from './types.js';
 import { normalizeTags } from './storage.js';
 import { entryToFile } from './frontmatter.js';
 
@@ -27,7 +27,7 @@ export function exportEntriesMD(entries){
 export async function importEntriesJSON(file,existingIds){
   const data=JSON.parse(await file.text());
   if(!Array.isArray(data))throw new Error('File must contain an array of entries');
-  const valid=data.filter(e=>e&&typeof e==='object'&&e.id&&TYPES.includes(e.type)&&typeof e.title==='string');
+  const valid=data.filter(e=>e&&typeof e==='object'&&e.id&&ALL_ENTRY_TYPES.includes(e.type)&&typeof e.title==='string');
   if(!valid.length)throw new Error('No valid entries found');
   const have=existingIds instanceof Set?new Set(existingIds):new Set(existingIds||[]);
   // Also dedup within the import file itself — two entries in the same file

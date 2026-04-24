@@ -3,6 +3,7 @@ import { updateLastSeen, logEvent, isOnboarded, useActivation, recordEntryAdded 
 import { WelcomePanel } from './onboarding/WelcomePanel.jsx';
 import { ProgressPill, FirstSaveBanner, Day2ReturnCard, ActivationToast } from './onboarding/nudges.jsx';
 import { TYPES, ICON, LABEL } from './lib/types.js';
+import { DEFAULT_FEATURE_FLAGS, filterEntriesForUI, normalizeFeatureFlags } from './lib/featureFlags.js';
 import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
 import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
@@ -45,7 +46,7 @@ export default function App(){
   const isBrowserVault=typeof window!=='undefined'&&!window.electron?.vault;
   const[darkMode,setDarkMode]=useState('system');
   const[customColors,setCustomColors]=useState({});
-  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true};
+  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,featureFlags:DEFAULT_FEATURE_FLAGS};
   const[prefs,setPrefs]=useState(DEFAULT_PREFS);
   const[toasts,setToasts]=useState([]);
   const toast=useCallback((msg,type='success')=>{
@@ -134,7 +135,7 @@ export default function App(){
       // Legacy migration: old victoryColors → new customColors
       if(sp?.victoryColors&&!sp?.customColors)setCustomColors({victory:sp.victoryColors});
       if(typeof sp?.sidebarOpen==='boolean')setSidebarOpen(sp.sidebarOpen);
-      if(sp?.prefs){const p={...DEFAULT_PREFS,...sp.prefs};setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);}
+      if(sp?.prefs){const p={...DEFAULT_PREFS,...sp.prefs,featureFlags:normalizeFeatureFlags(sp.prefs?.featureFlags)};setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);}
       setPrefsLoaded(true);
     }).catch(err=>{
       if(!mounted)return;
@@ -180,7 +181,7 @@ export default function App(){
 
   // Celebration state for 3-entry activation
   const [celebrating,setCelebrating]=useState(false);
-  const activation=useActivation(entries.length);
+  const activation=useActivation(visibleEntries.length);
 
   const addEntry=useCallback(async(entry)=>{
     const date=new Date().toISOString();
@@ -235,9 +236,10 @@ export default function App(){
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
+  const visibleEntries=useMemo(()=>filterEntriesForUI(entries,prefs.featureFlags),[entries,prefs.featureFlags]);
 
   const filtered=useMemo(()=>{
-    let r=entries;
+    let r=visibleEntries;
     if(section==='starred')r=r.filter(e=>e.starred);else if(section!=='all')r=r.filter(e=>e.type===section);
     if(deferredQuery){const lq=deferredQuery.toLowerCase();r=r.filter(e=>(e.title||'').toLowerCase().includes(lq)||(e.notes||'').toLowerCase().includes(lq)||(e.tags||[]).some(t=>t.toLowerCase().includes(lq)));}
     if(filterStatus)r=r.filter(e=>e.status===filterStatus);
@@ -245,11 +247,11 @@ export default function App(){
     const dec=r.map(e=>({e,ts:Date.parse(e.date)||0}));
     dec.sort((a,b)=>sort==='title'?(a.e.title||'').localeCompare(b.e.title||''):sort==='starred'?(b.e.starred?1:0)-(a.e.starred?1:0):b.ts-a.ts);
     return dec.map(x=>x.e);
-  },[entries,section,deferredQuery,filterStatus,filterTag,sort]);
+  },[visibleEntries,section,deferredQuery,filterStatus,filterTag,sort]);
 
-  const allTags=useMemo(()=>[...new Set(entries.flatMap(e=>e.tags||[]))]  ,[entries]);
-  const tagCounts=useMemo(()=>{const m={};entries.forEach(e=>(e.tags||[]).forEach(t=>{m[t]=(m[t]||0)+1}));return m},[entries]);
-  const counts=useMemo(()=>{const m={all:entries.length,starred:entries.filter(e=>e.starred).length};TYPES.forEach(t=>{m[t]=entries.filter(e=>e.type===t).length});m.links=Math.round(entries.reduce((n,e)=>n+(e.links?.length||0),0)/2);return m},[entries]);
+  const allTags=useMemo(()=>[...new Set(visibleEntries.flatMap(e=>e.tags||[]))]  ,[visibleEntries]);
+  const tagCounts=useMemo(()=>{const m={};visibleEntries.forEach(e=>(e.tags||[]).forEach(t=>{m[t]=(m[t]||0)+1}));return m},[visibleEntries]);
+  const counts=useMemo(()=>{const m={all:visibleEntries.length,starred:visibleEntries.filter(e=>e.starred).length};TYPES.forEach(t=>{m[t]=visibleEntries.filter(e=>e.type===t).length});m.links=Math.round(visibleEntries.reduce((n,e)=>n+(e.links?.length||0),0)/2);return m},[visibleEntries]);
 
 
 
@@ -296,7 +298,7 @@ export default function App(){
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {section==='graph'?(
-          <ConstellationView entries={entries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}/>
+          <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}/>
         ):(<>
           <Toolbar query={query} setQuery={setQuery} section={section}
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
@@ -307,14 +309,14 @@ export default function App(){
             <div style={{display:'flex',alignItems:'baseline',gap:8}}>
               <h2 style={{margin:0,fontSize:17,fontWeight:700}}>{section==='all'?'All Entries':section==='starred'?'★ Starred':ICON[section]+' '+LABEL[section]}</h2>
               <span style={{fontSize:12,color:'var(--t3)'}}>{filtered.length} item{filtered.length!==1?'s':''}</span>
-              {section==='all'&&<ProgressPill count={entries.length}/>}
+              {section==='all'&&<ProgressPill count={visibleEntries.length}/>}
             </div>
           </div>
-          {section==='all'&&entries.length<3&&activation.showDay2&&(
-            <Day2ReturnCard count={entries.length} onAdd={openAdd} lastEntryTitle={entries[0]?.title}/>
+          {section==='all'&&visibleEntries.length<3&&activation.showDay2&&(
+            <Day2ReturnCard count={visibleEntries.length} onAdd={openAdd} lastEntryTitle={visibleEntries[0]?.title}/>
           )}
-          {section==='all'&&entries.length===1&&!activation.showDay2&&(
-            <FirstSaveBanner count={entries.length} onAdd={openAdd}/>
+          {section==='all'&&visibleEntries.length===1&&!activation.showDay2&&(
+            <FirstSaveBanner count={visibleEntries.length} onAdd={openAdd}/>
           )}
           <div style={{flex:1,overflowY:'auto',padding:14}}>
             {storageError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Storage recovery needed for {storageError.key}. A backup was written to {storageError.quarantineKey||'a quarantine key'}; writes are blocked until recovery.</div>)
@@ -334,9 +336,9 @@ export default function App(){
         </>)}
       </div>
 
-      {detail&&<DetailPanel entry={detail} entries={entries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
       {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
-      {loaded&&!isOnboarded()&&entries.length===0&&(
+      {loaded&&!isOnboarded()&&visibleEntries.length===0&&(
         <WelcomePanel
           onImport={async items=>{await Promise.all(items.map(e=>saveEntry(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}
           onPickTheme={()=>{setSettingsOpen(true);bumpOnboarding()}}
@@ -350,7 +352,7 @@ export default function App(){
       {settingsOpen&&<SettingsPanel
         theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
         victoryColors={customColors} setVictoryColors={setCustomColors}
-        onExportJSON={exportJSON} onExportMD={exportMD} onImportJSON={importJSON} entries={entries}
+        onExportJSON={exportJSON} onExportMD={exportMD} onImportJSON={importJSON} entries={visibleEntries}
         onLoadConstellationDemo={loadConstellationDemo}
         prefs={prefs} setPrefs={setPrefs}
         onClose={()=>setSettingsOpen(false)}/>}

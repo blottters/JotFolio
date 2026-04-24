@@ -144,6 +144,10 @@ const FIELD_ORDER = [
   'id', 'type', 'title', 'tags', 'status', 'starred',
   'created', 'modified', 'entry_date', 'date',
   'url', 'channel', 'duration', 'guest', 'episode', 'highlight',
+  'aliases', 'canonical_key', 'confidence', 'freshness', 'source_type',
+  'provenance', 'valid_from', 'review_after', 'review_status',
+  'supersedes', 'superseded_by', 'graph', 'retrieval_priority',
+  'retrieval_keywords',
   'links',
 ];
 
@@ -163,6 +167,16 @@ function frontmatterExtras(frontmatter) {
 function cleanStringArray(value) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.map(String).filter(Boolean))];
+}
+
+function cleanOptionalString(value) {
+  if (value == null || value === '') return undefined;
+  return String(value);
+}
+
+function cleanOptionalStringArray(value) {
+  const cleaned = cleanStringArray(value);
+  return cleaned.length ? cleaned : undefined;
 }
 
 /**
@@ -238,6 +252,9 @@ export const TYPE_FOLDER = {
   article: 'articles',
   journal: 'journals',
   link: 'links',
+  raw: 'inbox',
+  wiki: 'wiki',
+  review: 'review',
 };
 
 /**
@@ -278,6 +295,20 @@ export function entryToFile(entry, exists) {
   if (entry.guest) frontmatter.guest = entry.guest;
   if (entry.episode) frontmatter.episode = entry.episode;
   if (entry.highlight) frontmatter.highlight = entry.highlight;
+  if (entry.aliases?.length) frontmatter.aliases = cleanStringArray(entry.aliases);
+  if (entry.canonical_key) frontmatter.canonical_key = entry.canonical_key;
+  if (entry.confidence != null && entry.confidence !== '') frontmatter.confidence = entry.confidence;
+  if (entry.freshness) frontmatter.freshness = entry.freshness;
+  if (entry.source_type) frontmatter.source_type = entry.source_type;
+  if (entry.provenance?.length) frontmatter.provenance = cleanStringArray(entry.provenance);
+  if (entry.valid_from) frontmatter.valid_from = entry.valid_from;
+  if (entry.review_after) frontmatter.review_after = entry.review_after;
+  if (entry.review_status) frontmatter.review_status = entry.review_status;
+  if (entry.supersedes?.length) frontmatter.supersedes = cleanStringArray(entry.supersedes);
+  if (entry.superseded_by) frontmatter.superseded_by = entry.superseded_by;
+  if (typeof entry.graph === 'boolean') frontmatter.graph = entry.graph;
+  if (typeof entry.retrieval_priority === 'number') frontmatter.retrieval_priority = entry.retrieval_priority;
+  if (entry.retrieval_keywords?.length) frontmatter.retrieval_keywords = cleanOptionalStringArray(entry.retrieval_keywords);
   if (entry[MANUAL_LINKS_FIELD]) frontmatter.links = cleanStringArray(entry.links);
   const body = typeof entry.notes === 'string' ? entry.notes : '';
   return { path, content: serialize({ frontmatter, body }) };
@@ -308,6 +339,20 @@ export function fileToEntry({ path, content }) {
     guest: frontmatter.guest ? String(frontmatter.guest) : undefined,
     episode: frontmatter.episode ? String(frontmatter.episode) : undefined,
     highlight: frontmatter.highlight ? String(frontmatter.highlight) : undefined,
+    aliases: cleanStringArray(frontmatter.aliases),
+    canonical_key: cleanOptionalString(frontmatter.canonical_key),
+    confidence: frontmatter.confidence != null ? frontmatter.confidence : undefined,
+    freshness: cleanOptionalString(frontmatter.freshness),
+    source_type: cleanOptionalString(frontmatter.source_type),
+    provenance: cleanStringArray(frontmatter.provenance),
+    valid_from: cleanOptionalString(frontmatter.valid_from),
+    review_after: cleanOptionalString(frontmatter.review_after),
+    review_status: cleanOptionalString(frontmatter.review_status),
+    supersedes: cleanStringArray(frontmatter.supersedes),
+    superseded_by: cleanOptionalString(frontmatter.superseded_by),
+    graph: typeof frontmatter.graph === 'boolean' ? frontmatter.graph : undefined,
+    retrieval_priority: typeof frontmatter.retrieval_priority === 'number' ? frontmatter.retrieval_priority : undefined,
+    retrieval_keywords: cleanStringArray(frontmatter.retrieval_keywords),
     notes: body.trim(),
     links: manualLinks ? cleanStringArray(frontmatter.links) : [],
     [MANUAL_LINKS_FIELD]: manualLinks,

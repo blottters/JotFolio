@@ -1,0 +1,33 @@
+# Node
+**/node_modules/
+**/.vite/
+
+# Build output
+**/dist/
+**/dist-electron/
+source/dist/
+dist/
+
+# Bench fixtures (regenerated via seed.js)
+**/.tmp/
+
+# Env / secrets
+.env
+.env.local
+**/.env
+**/.env.local
+
+# Playwright
+**/playwright-report/
+**/test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

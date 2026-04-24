@@ -1,0 +1,14 @@
+{
+  "id": "daily-notes",
+  "name": "Daily Notes",
+  "version": "0.1.0",
+  "author": "JotFolio",
+  "description": "Creates a journal note for today. Run from the command palette or via Cmd+T.",
+  "main": "main.js",
+  "jotfolio_min_version": "0.3.0",
+  "permissions": {
+    "vault_read": true,
+    "vault_write": true,
+    "http_domains": []
+  }
+}

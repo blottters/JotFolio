@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content Security Policy. See docs/security/contextBridge-surface.md for
+      rationale per directive. 'unsafe-inline' in style-src + 'unsafe-eval' in
+      script-src are documented compromises; 0.5.0 tightens both.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-eval';
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' data: https://fonts.gstatic.com;
+      img-src 'self' data: blob:;
+      connect-src *;
+      frame-src 'none';
+      object-src 'none';
+      base-uri 'none';
+      form-action 'none';
+    " />
+    <title>JotFolio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Geist:wght@400;700&family=Geist+Mono:wght@400&family=Manrope:wght@400;700&family=Space+Grotesk:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Lora:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Crimson+Pro:wght@400;700&family=EB+Garamond:wght@400;700&family=Fraunces:wght@400;700&family=IBM+Plex+Serif:wght@400;700&family=Bodoni+Moda:wght@400;700&family=JetBrains+Mono:wght@400&family=Fira+Code:wght@400&family=IBM+Plex+Mono:wght@400&family=Space+Mono:wght@400;700&family=Caveat:wght@400;700&family=Kalam:wght@400;700&display=swap" />
+    <style>
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      html,body,#root{height:100%;overflow:hidden}
+      *:focus{outline:none}
+      *:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:inherit}
+      ::selection{background:var(--ac);color:var(--act)}
+      ::-webkit-scrollbar{width:10px;height:10px}
+      ::-webkit-scrollbar-track{background:transparent}
+      ::-webkit-scrollbar-thumb{background:var(--br);border-radius:6px}
+      ::-webkit-scrollbar-thumb:hover{background:var(--t3)}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

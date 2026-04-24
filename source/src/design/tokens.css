@@ -1,0 +1,154 @@
+/*
+ * JotFolio design tokens — semantic layer.
+ *
+ * These tokens are theme-agnostic. Colors live in the theme layer
+ * (see src/lib/theme/themes.js, exposed as --bg, --b2, --sb, --cd,
+ * --ac, --act, --tx, --t2, --t3, --br, --rd, --fn). Everything here
+ * is spacing, sizing, transitions, typography scale, shadows, z-index.
+ *
+ * Import site: src/main.jsx → `import './design/tokens.css'` before
+ * any feature CSS so tokens are available globally.
+ *
+ * Usage: in inline styles, read via `var(--jf-space-3)`. When migrating
+ * existing inline styles, prefer tokens over magic numbers. New UI
+ * should never use raw px for spacing/sizing — use the scale.
+ *
+ * Why semantic + theme are separate:
+ * - Theme change (user picks Sakura → Broadsheet) must not restart
+ *   spacing rhythm.
+ * - A future design refresh that retunes spacing shouldn't require
+ *   editing 26 theme objects.
+ * - Tokens work identically across light/dark — the theme layer
+ *   handles light/dark.
+ */
+
+:root {
+  /* ─── Spacing scale ───────────────────────────────────────── */
+  --jf-space-0: 0px;
+  --jf-space-1: 4px;
+  --jf-space-2: 8px;
+  --jf-space-3: 12px;
+  --jf-space-4: 16px;
+  --jf-space-5: 20px;
+  --jf-space-6: 24px;
+  --jf-space-7: 32px;
+  --jf-space-8: 48px;
+
+  /* ─── Control heights ─────────────────────────────────────── */
+  --jf-control-sm: 24px;      /* compact chips, filter pills */
+  --jf-control-md: 32px;      /* default buttons, inputs */
+  --jf-control-lg: 40px;      /* primary CTAs, toolbar search */
+
+  /* ─── Radii ───────────────────────────────────────────────────
+   * Compose with theme's --rd for theme-specific base shape.
+   * Tokens here are semantic: how "round" should this element be
+   * relative to the theme's baseline? */
+  --jf-radius-sm: 3px;
+  --jf-radius-md: 6px;
+  --jf-radius-lg: 12px;
+  --jf-radius-pill: 9999px;
+
+  /* ─── Shadows ─────────────────────────────────────────────────
+   * Subtle enough to read across 26 themes, light + dark. */
+  --jf-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --jf-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --jf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --jf-shadow-popover: 0 6px 24px rgba(0, 0, 0, 0.18);
+  --jf-shadow-focus: 0 0 0 2px var(--ac, #3b82f6);
+
+  /* ─── Transitions ─────────────────────────────────────────── */
+  --jf-t-fast: 80ms;
+  --jf-t-med: 180ms;
+  --jf-t-slow: 320ms;
+  --jf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --jf-ease-in-out: cubic-bezier(0.83, 0, 0.17, 1);
+
+  /* ─── Z-index layers ─────────────────────────────────────── */
+  --jf-z-sidebar: 10;
+  --jf-z-detail: 20;
+  --jf-z-command-palette: 80;
+  --jf-z-popover: 100;
+  --jf-z-modal: 300;
+  --jf-z-toast: 500;
+  --jf-z-tooltip: 600;
+
+  /* ─── Icon sizes ──────────────────────────────────────────── */
+  --jf-icon-xs: 12px;
+  --jf-icon-sm: 14px;
+  --jf-icon-md: 18px;
+  --jf-icon-lg: 24px;
+  --jf-icon-xl: 32px;
+
+  /* ─── Typography scale ─────────────────────────────────────
+   * Sizes pair with --fn from theme for font family. */
+  --jf-text-xs: 10px;
+  --jf-text-sm: 12px;
+  --jf-text-md: 13px;     /* body default matches existing inline styles */
+  --jf-text-lg: 15px;
+  --jf-text-xl: 17px;
+  --jf-text-h3: 19px;
+  --jf-text-h2: 22px;
+  --jf-text-h1: 28px;
+
+  --jf-lh-tight: 1.25;
+  --jf-lh-normal: 1.55;
+  --jf-lh-loose: 1.8;
+
+  --jf-weight-regular: 400;
+  --jf-weight-medium: 500;
+  --jf-weight-bold: 700;
+
+  /* ─── Focus ring ─────────────────────────────────────────── */
+  --jf-focus-ring: 0 0 0 2px var(--ac);
+  --jf-focus-ring-offset: 0 0 0 3px var(--bg), 0 0 0 5px var(--ac);
+
+  /* ─── Platform flags ────────────────────────────────────────
+   * Set by main.jsx on boot based on window.electron.platform.
+   * Used via html[data-jf-platform="mac"] selectors, not direct
+   * variable reads. These exist for documentation + future use. */
+  --jf-platform: unknown;   /* overwritten by runtime: 'mac' | 'win' | 'linux' | 'web' */
+
+  /* ─── Content widths ───────────────────────────────────────
+   * Used for readable column widths in editor + detail panel. */
+  --jf-content-prose: 680px;     /* optimal reading width */
+  --jf-content-narrow: 520px;    /* detail panel */
+  --jf-content-wide: 960px;      /* list views */
+
+  /* ─── Sidebar / detail panel widths ───────────────────────── */
+  --jf-sidebar-width: 240px;
+  --jf-sidebar-width-collapsed: 56px;
+  --jf-detail-width: 380px;
+
+  /* ─── Scrollbar ───────────────────────────────────────────── */
+  --jf-scrollbar-w: 8px;
+  --jf-scrollbar-thumb: var(--t3);
+  --jf-scrollbar-track: transparent;
+}
+
+/* Platform branches — added via <html data-jf-platform="..."> in main.jsx */
+html[data-jf-platform="mac"] {
+  --jf-control-sm: 22px;        /* slightly tighter on Mac */
+  --jf-control-md: 28px;
+  --jf-focus-ring: 0 0 0 3px color-mix(in srgb, var(--ac) 40%, transparent);
+}
+
+html[data-jf-platform="win"] {
+  --jf-control-sm: 26px;
+  --jf-control-md: 32px;
+  --jf-radius-sm: 2px;
+  --jf-radius-md: 4px;
+}
+
+html[data-jf-platform="linux"] {
+  /* Linux WMs vary; keep defaults. */
+}
+
+/* Reduced motion — respect OS setting. Any transition using
+ * --jf-t-* should fall back to instant. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --jf-t-fast: 0ms;
+    --jf-t-med: 0ms;
+    --jf-t-slow: 0ms;
+  }
+}

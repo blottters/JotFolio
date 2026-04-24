@@ -1,0 +1,72 @@
+name: Bench
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'  # nightly 02:00 UTC
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run bench
+        run: npm run bench
+
+  a11y:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Serve built dist
+        run: |
+          npx serve -l 5174 dist &
+          echo "SERVE_PID=$!" >> $GITHUB_ENV
+          npx wait-on http://localhost:5174 --timeout 30000
+
+      - name: Run a11y
+        env:
+          A11Y_BASE_URL: http://localhost:5174
+        run: npx playwright test bench/a11y/
+
+      - name: Stop server
+        if: always()
+        run: kill $SERVE_PID || true
+
+      - name: Upload a11y artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-failure
+          path: |
+            playwright-report/
+            test-results/

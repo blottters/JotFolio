@@ -8,6 +8,7 @@ import { buildThemeCss } from './lib/theme/themeCss.js';
 import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
 import { MANUAL_LINKS_FIELD } from './lib/frontmatter.js';
 import { exportEntriesJSON, exportEntriesMD, importEntriesJSON } from './lib/exports.js';
+import { getConstellationDemoEntries } from './lib/demoEntries.js';
 import { useSystemDark } from './lib/hooks.js';
 import { useOpenRouterCallback, useAppShortcuts } from './lib/appHooks.js';
 import { Toasts } from './features/primitives/Toasts.jsx';
@@ -254,6 +255,26 @@ export default function App(){
 
   const exportJSON=()=>{exportEntriesJSON(entries);toast('Exported JSON')};
   const exportMD=()=>{exportEntriesMD(entries);toast('Exported Markdown')};
+  const loadConstellationDemo=useCallback(async()=>{
+    const existingDemo=new Set(
+      entries.filter(e=>(e.tags||[]).includes('demo-constellation')).map(e=>e.id)
+    );
+    const demoEntries=getConstellationDemoEntries();
+    const fresh=demoEntries.filter(e=>!existingDemo.has(e.id));
+    if(fresh.length===0){
+      setSettingsOpen(false);
+      setSection('graph');
+      toast('Constellation demo already loaded','info');
+      return;
+    }
+    try{
+      for(const entry of fresh)await saveEntry(entry);
+      await refreshVault();
+      setSettingsOpen(false);
+      setSection('graph');
+      toast(`Loaded ${fresh.length} constellation demo files`);
+    }catch(err){reportError(err,'Demo load failed')}
+  },[entries,saveEntry,refreshVault,reportError,toast]);
   const importJSON=async(file)=>{
     try{
       const existingIds=new Set(entries.map(x=>x.id));
@@ -330,6 +351,7 @@ export default function App(){
         theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
         victoryColors={customColors} setVictoryColors={setCustomColors}
         onExportJSON={exportJSON} onExportMD={exportMD} onImportJSON={importJSON} entries={entries}
+        onLoadConstellationDemo={loadConstellationDemo}
         prefs={prefs} setPrefs={setPrefs}
         onClose={()=>setSettingsOpen(false)}/>}
       <Toasts toasts={toasts}/>

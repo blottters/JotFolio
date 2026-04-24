@@ -120,7 +120,7 @@ function AIPanel(){
   );
 }
 
-export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,entries,prefs,setPrefs,onClose}){
+export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,prefs,setPrefs,onClose}){
   const[tab,setTab]=useState('appearance');
   const[advanced,setAdvanced]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('mgn-settings-advanced'))===true}catch{return false}
@@ -295,6 +295,14 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
           </div>
         ))}
         {tab==='data'&&<>
+          <span style={sH}>Demo Vault</span>
+          <button onClick={onLoadConstellationDemo}
+            style={{width:'100%',padding:'10px 12px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--ac)',color:'var(--act)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,marginBottom:8}}>
+            Load constellation demo set
+          </button>
+          <div style={{fontSize:11,color:'var(--t3)',marginBottom:16,lineHeight:1.5}}>
+            Seeds the current vault with linked notes, articles, videos, journals, podcasts, and links so the graph has real clusters and bridges to render.
+          </div>
           <span style={sH}>Onboarding</span>
           <button onClick={()=>{localStorage.removeItem('mgn-onboarded');onClose();setTimeout(()=>location.reload(),50)}}
             style={{width:'100%',padding:'10px 12px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:600,marginBottom:16}}>↺ Reopen welcome</button>

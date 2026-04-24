@@ -15,26 +15,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { vault } from '../../adapters/index.js';
 import { entryToFile, fileToEntry, MANUAL_LINKS_FIELD } from '../../lib/frontmatter.js';
+import { buildVaultIndex } from '../../lib/index/vaultIndex.js';
 import { VaultError } from '../../adapters/VaultError.js';
 
 const LEGACY_KEY = 'mgn-e';
-const WIKI_LINK_RE = /\[\[([^\[\]\n]{1,120})\]\]/g;
-
-function deriveWikiLinks(entries) {
-  const byTitle = new Map();
-  entries.forEach(e => { if (e.title) byTitle.set(e.title.toLowerCase(), e.id); });
-  return entries.map(entry => {
-    const manual = entry[MANUAL_LINKS_FIELD] ? entry.links || [] : [];
-    const found = [];
-    const seen = new Set(manual);
-    String(entry.notes || '').replace(WIKI_LINK_RE, (_, raw) => {
-      const id = byTitle.get(raw.trim().toLowerCase());
-      if (id && id !== entry.id && !seen.has(id)) { seen.add(id); found.push(id); }
-      return '';
-    });
-    return { ...entry, links: [...manual, ...found] };
-  });
-}
 
 export function useVault() {
   const [entries, setEntries] = useState([]);
@@ -76,7 +60,10 @@ export function useVault() {
           badFiles.push({ path: f.path, error: { code: err.code || 'io-error', message: err.message } });
         }
       }
-      const derived = deriveWikiLinks(loaded);
+      const derived = buildVaultIndex(loaded).entries.map(entry => ({
+        ...entry,
+        [MANUAL_LINKS_FIELD]: entry[MANUAL_LINKS_FIELD] ?? false,
+      }));
       // Sync path registry: healthy entries + broken files. Broken files must
       // NOT be silently overwritten — saveEntry treats them as taken slots.
       const inUse = new Set();

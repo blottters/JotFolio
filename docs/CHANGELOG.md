@@ -10,6 +10,94 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.2] — 2026-04-24
+
+Remediation sweep of Codex's stress-test findings. 14 of 15 closed. Only #5 (RAF setOffsets re-render pressure) deferred — scoped as a performance refactor rather than a bug fix.
+
+### Tier A — data-loss + exfil (all closed)
+
+- **#7 Batch-save stale closure overwrite.** `useVault.saveEntry` no longer closes over `entries`. It reads a live `pathsInUseRef` updated synchronously on every refresh + every save. Multiple concurrent saves with the same title now correctly produce `-2`, `-3` suffixes instead of silently overwriting each other.
+- **#8 Corrupt files overwritable.** Broken files surfaced in `issues` during refresh are now tracked as "paths in use" — a new entry whose title would collide with a broken file gets suffixed around it. No silent overwrite of data we couldn't parse.
+- **#2 Non-string LocalAdapter writes.** `LocalAdapter.write` now throws `VaultError('invalid-path')` for non-string content; `writeBinary` requires a `Uint8Array`. Prevents objects/numbers getting stringified into the vault.
+
+### Tier B — correctness (all closed)
+
+- **#1 JSON import dedupes within file.** `importEntriesJSON` now tracks ids seen inside the same file. Result object adds `withinFileDuplicates` counter separate from `duplicates` (existing-id collisions).
+- **#9 `.jotfolio/*` skipped during vault refresh.** The plugin-manifest/settings/recovery/sync.log subtree is no longer parsed as notes. Non-`.md` files at the vault root also skipped (future attachment surface).
+- **#10 Frontmatter close-delimiter accepts EOF.** `---` at end of file without trailing newline is now valid. Added CRLF coverage too.
+- **#11 Quoted-scalar escapes round-trip.** Double-quoted YAML strings decoded via `JSON.parse` (matches serializer's `JSON.stringify`). Single-quoted strings decode YAML's `''` → `'` escape. Round-trip now preserves backslashes + embedded quotes.
+- **#12 Obsidian block-array tags.** `parseMarkdown` now handles the multi-line `tags:\n  - a\n  - b` form in addition to flow-array and space-separated forms. Quoted items + `#`-prefixes normalized.
+
+### Tier C — UX + security polish (4 of 5 closed)
+
+- **#3 DetailPanel prev/next preserves unsaved edits.** Prev/next buttons now route through `requestDiscard` — same dirty-check path as the Close button. If edits are dirty, the existing confirm-discard dialog pops; confirming navigates.
+- **#4 Constellation components are undirected.** BFS over wiki-link clusters now treats `A→B` as `A↔B`. A note linking to another no longer produces two disconnected components when the reverse link isn't also in storage.
+- **#6 Dropdown Escape stops at the dropdown.** `Select` added `stopPropagation` on Escape so closing a dropdown no longer bubbles into the Settings panel's own escape-to-close handler.
+- **#15 `isSafeUrl` rejects protocol-relative.** `//attacker.example/steal` no longer passes the sanitizer's URL check; previously caught under the generic `startsWith('/')` branch that allowed `/absolute` paths.
+- **#5 DEFERRED.** Constellation RAF loop still calls `setOffsets` every frame → React re-renders whole SVG at 60Hz. Known performance cost; no correctness impact. A proper fix is a direct-DOM animation path (mutate `style.transform` on node refs, bypass React state) — targeted for 0.5.0-beta or later.
+
+### Test counts
+
+- 114 → 137 passing (+23). Coverage per finding:
+  - Tier A: batch-save, overwrite-broken, non-string-write, non-Uint8Array-writeBinary
+  - Tier B: within-file dedup (×2), EOF close (×2), quoted-scalar escapes (×3), block-array tags (×2), skip .jotfolio
+  - Tier C: undirected components (×3), URL allowlist (×6)
+
+### Files changed
+
+- `src/features/vault/useVault.js` — pathsInUseRef, skip .jotfolio in refresh, synchronous path reservation
+- `src/adapters/LocalAdapter.js` — write/writeBinary type validation
+- `src/lib/exports.js` — within-file dedup in importEntriesJSON
+- `src/lib/frontmatter.js` — EOF close-delim regex, CRLF-safe split, quoted-scalar JSON.parse decode
+- `src/parsers/obsidian.js` — block-array tags, quote + hash stripping
+- `src/features/detail/DetailPanel.jsx` — prev/next through requestDiscard
+- `src/features/constellation/ConstellationView.jsx` — undirected adjacency in BFS
+- `src/features/dropdowns/Select.jsx` — stopPropagation on Escape
+- `src/lib/markdown.js` — isSafeUrl rejects protocol-relative
+
+### Build
+
+- 137 tests green. Build clean. Sandbox (`pluginWorker`) chunk unchanged at 6.69 KB.
+
+---
+
+## [0.5.0-alpha.1] — 2026-04-24
+
+Plugin sandbox closure. **Closes HIGH-severity finding #13 from Codex's stress-test handoff.**
+
+### Security
+- **Plugin code now runs inside a dedicated Web Worker per plugin.** Each plugin gets its own Worker spawned via Blob URL. The Worker bootstrap (`src/plugins/pluginWorker.js`) strips `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `importScripts`, `indexedDB`, `caches`, `BroadcastChannel`, `Worker`, `SharedWorker`, `ServiceWorker`, `Notification`, `localStorage`, `sessionStorage` from `self` before any plugin code runs. Web Workers have no `window`, no `document`, no DOM access by spec. The only channel out is `postMessage` to the parent.
+- **Permission gates moved out of the Worker.** `src/plugins/PluginBridge.js` is the parent-side RPC router that owns the permission checks. A plugin cannot bypass a permission by reaching around a proxy — the API in the Worker is a postMessage client, and the real gate lives in the parent. Before v0.5.0 a zero-permission plugin could still read `localStorage['mgn-ai']` (API keys) or call raw `fetch()`; that path is now closed.
+- **CSP partially tightened.** `worker-src 'self' blob:` added for Worker-based plugin loading. `'unsafe-eval'` remains in `script-src` — Workers inherit the parent document's CSP, and the plugin loader still uses `new Function()` inside the Worker to evaluate the plugin's `main.js` source. Tightening this requires moving plugin loading to `importScripts` or ESM dynamic-import from a Blob URL; queued as polish work, not blocking. The real isolation (no DOM, no `window`, no `localStorage`, no raw `fetch`) is delivered by the Worker sandbox itself, not by the CSP directive.
+- **Manifest-id prototype-pollution guard.** `PluginHost._loadSettings` now builds its enabled-map with `Object.create(null)` and only uses own-properties; a manifest with `id: "toString"` can no longer auto-enable via `settings.enabled.toString` being a truthy prototype method (closes finding #14).
+
+### Added
+- `src/plugins/pluginWorker.js` — Worker bootstrap. Strips unsafe globals, installs RPC bridge.
+- `src/plugins/PluginBridge.js` — parent-side Worker manager. Spawns Worker, routes RPC, enforces permissions, relays commands + events + http.fetch via postMessage.
+- `src/plugins/__tests__/sandbox.test.js` — 6 new tests verifying the sandbox boundary: stripped globals, permission-gated vault access, allowlist-enforced http.fetch, command round-trip, dispose cleanup.
+
+### Changed
+- `src/plugins/PluginHost.js` — `_instantiate` now creates a `PluginBridge` when `Worker` is available; falls back to pre-v0.5 unsandboxed `new Function()` path only when `Worker` is undefined (test envs like jsdom). Production always has Worker. Also hardens manifest-id handling + settings loading against prototype pollution.
+- `src/plugins/PluginAPI.js` — added `events.emit(event, payload)` so plugins can dispatch app-side events through the bridge (re-emitted on `window` as `plugin:<id>:<name>` + `jotfolio:<name>`).
+- `plugins/daily-notes/main.js` — replaced `window.dispatchEvent(...)` with `api.events.emit('open-note', ...)` (Worker has no window).
+- `plugins/git-sync/main.js` — same replacement for `jotfolio:toast` emissions.
+- `index.html` — CSP updated: dropped `'unsafe-eval'`, added `worker-src 'self' blob:`.
+
+### Docs
+- `docs/adr/ADR-0003-plugin-api-v0.md` — status upgraded to Accepted with amendment; alternative A split into A.1 (v0.4.x accepted-risk) and A.2 (v0.5.0 Web Worker mitigation).
+- `docs/security/threat-model.md` — R4 flipped from "accepted risk" to "MITIGATED" with full sandbox description. R5 upgraded to MITIGATED (plugin cannot reach raw fetch). Gap #1 and #5 in the accepted-risks list marked closed.
+- `docs/security/contextBridge-surface.md` — CSP rationale updated; `'unsafe-eval'` removal + `worker-src 'self' blob:` addition documented.
+
+### Test counts
+- 108 → 114 passing (+6 sandbox tests). All green.
+- Build clean: 430.82 KB main + 6.69 KB pluginWorker chunk + 2.45 KB index.html.
+
+### Remaining from Codex's 15 findings (separate tiers, not this release)
+- Tier B: #10 frontmatter close-delim, #11 quoted-scalar round-trip, #12 Obsidian block-array tags, #9 .jotfolio JSON parsed as notes, #1 duplicate-ID import
+- Tier C: #3 detail prev/next unsaved-edit drop, #4 constellation directed adjacency, #5 RAF setOffsets, #6 dropdown Esc leak, #15 protocol-relative URL acceptance
+
+---
+
 ## [0.4.1] — 2026-04-24
 
 Performance benchmarks + accessibility scaffold (Phase 7). Closes the roadmap for the 0.4.x cycle.

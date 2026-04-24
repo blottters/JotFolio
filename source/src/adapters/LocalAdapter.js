@@ -36,9 +36,16 @@ function loadStore() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { files: {}, mtimes: {} };
     const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Vault store root is not an object');
+    }
+    if ((parsed.files != null && (typeof parsed.files !== 'object' || Array.isArray(parsed.files)))
+      || (parsed.mtimes != null && (typeof parsed.mtimes !== 'object' || Array.isArray(parsed.mtimes)))) {
+      throw new Error('Vault store shape is invalid');
+    }
     return { files: parsed.files || {}, mtimes: parsed.mtimes || {} };
-  } catch {
-    return { files: {}, mtimes: {} };
+  } catch (err) {
+    throw new VaultError('corrupt-vault', KEY, err);
   }
 }
 
@@ -88,6 +95,9 @@ export class LocalAdapter extends VaultAdapter {
   }
 
   async write(path, content) {
+    if (typeof content !== 'string') {
+      throw new VaultError('invalid-path', 'write() expects string content; use writeBinary for bytes');
+    }
     const p = normalizePath(path);
     const store = loadStore();
     const isCreate = !(p in store.files);
@@ -139,7 +149,11 @@ export class LocalAdapter extends VaultAdapter {
   }
 
   async writeBinary(path, data) {
-    const text = new TextDecoder().decode(data);
+    if (!(data instanceof Uint8Array) && !(data?.buffer instanceof ArrayBuffer)) {
+      throw new VaultError('invalid-path', 'writeBinary() expects a Uint8Array');
+    }
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data.buffer);
+    const text = new TextDecoder().decode(bytes);
     return this.write(path, text);
   }
 

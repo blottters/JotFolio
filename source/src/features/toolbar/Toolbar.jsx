@@ -10,8 +10,8 @@ export function Toolbar({query,setQuery,section,filterStatus,setFilterStatus,sor
   const ph=section==='all'?'Search everything…':section==='starred'?'Search starred…':`Search ${LABEL[section]||section}…`;
   const sid=useId(),stid=useId(),soid=useId();
   return(
-    <div style={{padding:'10px 14px',borderBottom:'1px solid var(--br)',display:'flex',gap:8,alignItems:'center',background:'var(--b2)',flexShrink:0}}>
-      <div style={{flex:1,position:'relative'}}>
+    <div style={{padding:'10px 14px',borderBottom:'1px solid var(--br)',display:'flex',gap:8,alignItems:'center',background:'var(--b2)',flexShrink:0,flexWrap:'wrap',overflowX:'auto'}}>
+      <div style={{flex:'1 1 220px',minWidth:180,position:'relative'}}>
         <label htmlFor={sid}><SrOnly>Search entries</SrOnly></label>
         <span aria-hidden="true" style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--t3)',fontSize:13,pointerEvents:'none'}}>🔍</span>
         <input id={sid} value={query} onChange={e=>setQuery(e.target.value)} placeholder={ph} style={{...is,paddingLeft:32}}/>

@@ -26,6 +26,39 @@ Some body text here. Another #inline tag.
     expect(entry.title).toBe('some-file')
   })
 
+  it('handles block-array tags format (finding #12)', () => {
+    // Before fix: Obsidian's standard multi-line tag list either dropped
+    // silently (no match) or produced ['-','project'] garbage.
+    const md = `---
+tags:
+  - project
+  - research
+  - deep-work
+---
+
+# Block tag test
+
+Body.
+`
+    const entry = parseMarkdown(md, 'block.md')
+    expect(entry.tags).toEqual(expect.arrayContaining(['project', 'research', 'deep-work']))
+    expect(entry.tags).not.toContain('-')
+  })
+
+  it('ignores quoted and #-prefixed forms in block tags', () => {
+    const md = `---
+tags:
+  - "quoted tag"
+  - '#prefixed'
+---
+
+body
+`
+    const entry = parseMarkdown(md, 'q.md')
+    expect(entry.tags).toContain('quoted tag')
+    expect(entry.tags).toContain('prefixed')
+  })
+
   it('parseVault handles a list of File-like objects', async () => {
     const files = [
       fakeFile('note1.md', '# One\n\nBody of one. #a'),

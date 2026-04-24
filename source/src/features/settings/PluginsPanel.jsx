@@ -10,6 +10,7 @@ export function PluginsPanel() {
   const [plugins, setPlugins] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [pendingUninstall, setPendingUninstall] = useState(null);
 
   const refresh = useCallback(async () => {
     setBusy(true); setErr(null);
@@ -44,11 +45,10 @@ export function PluginsPanel() {
   };
 
   const uninstall = async (id) => {
-    if (!confirm(`Uninstall ${id}? Files removed from .jotfolio/plugins/${id}/.`)) return;
     setBusy(true); setErr(null);
     try { await pluginHost.uninstall(id); }
     catch (e) { setErr(e?.message || String(e)); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setPendingUninstall(null); }
   };
 
   const installedIds = new Set(plugins.map(p => p.manifest.id));
@@ -87,11 +87,25 @@ export function PluginsPanel() {
           {rec.status === 'failed' && (
             <div style={{ fontSize: 11, color: '#ef4444', marginTop: 6 }}>⚠ {rec.error}</div>
           )}
-          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-            <button type="button" onClick={() => uninstall(rec.manifest.id)} disabled={busy} style={smallBtn}>
-              Uninstall
-            </button>
-          </div>
+          {pendingUninstall === rec.manifest.id ? (
+            <div role="group" aria-label={`Confirm uninstall ${rec.manifest.name}`} style={confirmRow}>
+              <span style={{ flex: 1, fontSize: 11, color: 'var(--t2)' }}>
+                Remove files from <code>.jotfolio/plugins/{rec.manifest.id}/</code>?
+              </span>
+              <button type="button" onClick={() => uninstall(rec.manifest.id)} disabled={busy} style={dangerBtn}>
+                Remove
+              </button>
+              <button type="button" onClick={() => setPendingUninstall(null)} disabled={busy} style={smallBtn}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button type="button" onClick={() => setPendingUninstall(rec.manifest.id)} disabled={busy} style={smallBtn}>
+                Uninstall
+              </button>
+            </div>
+          )}
         </div>
       ))}
 
@@ -142,6 +156,15 @@ const toggleBtn = (on) => ({
 const smallBtn = {
   padding: '3px 10px', fontSize: 11, background: 'transparent', border: '1px solid var(--br)',
   borderRadius: 'var(--rd)', color: 'var(--t2)', cursor: 'pointer', fontFamily: 'var(--fn)',
+};
+const confirmRow = {
+  display: 'flex', gap: 6, alignItems: 'center', marginTop: 6, flexWrap: 'wrap',
+  padding: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.35)',
+  borderRadius: 'var(--rd)',
+};
+const dangerBtn = {
+  padding: '3px 10px', fontSize: 11, background: '#ef4444', border: '1px solid #ef4444',
+  borderRadius: 'var(--rd)', color: '#fff', cursor: 'pointer', fontFamily: 'var(--fn)', fontWeight: 700,
 };
 const installBtn = {
   padding: '4px 12px', fontSize: 12, background: 'var(--ac)', color: 'var(--act)', border: 'none',

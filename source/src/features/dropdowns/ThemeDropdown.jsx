@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { THEMES } from '../../lib/theme/themes.js';
+import { resolveThemeVars } from '../../lib/theme/resolve.js';
 import { useClickOutside, useSingleOpenDropdown } from './bus.js';
 
 export function themePreview(key,isDark,customColors){
-  const t=THEMES[key];
-  const palette=isDark&&t.dark?{...t.light,...t.dark}:t.light;
+  const {vars:palette}=resolveThemeVars({theme:key,darkMode:isDark?'dark':'light',customColors});
   const cc=customColors?.[key];
   return{
     bg:cc?.bg||palette['--bg']||'#111',

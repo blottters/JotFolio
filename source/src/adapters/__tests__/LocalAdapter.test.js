@@ -22,6 +22,24 @@ describe('LocalAdapter', () => {
     expect(back).toBe('# Hello\nBody.');
   });
 
+  it('throws corrupt-vault for invalid stored JSON', async () => {
+    localStorage.setItem('jf-vault-local', '{broken');
+    const v = new LocalAdapter();
+
+    await expect(v.list()).rejects.toMatchObject({
+      name: 'VaultError',
+      code: 'corrupt-vault',
+    });
+  });
+
+  it('does not overwrite raw corrupt vault data on write', async () => {
+    localStorage.setItem('jf-vault-local', '{broken');
+    const v = new LocalAdapter();
+
+    await expect(v.write('notes/new.md', 'new')).rejects.toMatchObject({ code: 'corrupt-vault' });
+    expect(localStorage.getItem('jf-vault-local')).toBe('{broken');
+  });
+
   it('list returns files with name + folder + mtime', async () => {
     const v = new LocalAdapter();
     await v.write('notes/a.md', 'a');
@@ -75,6 +93,22 @@ describe('LocalAdapter', () => {
     await expect(v.write('C:/evil.md', 'x')).rejects.toMatchObject({ code: 'invalid-path' });
     await expect(v.write('notes\\bad.md', 'x')).rejects.toMatchObject({ code: 'invalid-path' });
     await expect(v.write('/abs.md', 'x')).rejects.toMatchObject({ code: 'invalid-path' });
+  });
+
+  it('write rejects non-string content', async () => {
+    const v = new LocalAdapter();
+    await expect(v.write('notes/x.md', { obj: true })).rejects.toMatchObject({ code: 'invalid-path' });
+    await expect(v.write('notes/x.md', 123)).rejects.toMatchObject({ code: 'invalid-path' });
+    await expect(v.write('notes/x.md', null)).rejects.toMatchObject({ code: 'invalid-path' });
+    await expect(v.write('notes/x.md', undefined)).rejects.toMatchObject({ code: 'invalid-path' });
+    // Confirm the store wasn't touched.
+    await expect(v.read('notes/x.md')).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('writeBinary rejects non-Uint8Array payloads', async () => {
+    const v = new LocalAdapter();
+    await expect(v.writeBinary('notes/x.md', 'a string')).rejects.toMatchObject({ code: 'invalid-path' });
+    await expect(v.writeBinary('notes/x.md', [1, 2, 3])).rejects.toMatchObject({ code: 'invalid-path' });
   });
 
   it('unsubscribe stops receiving events', async () => {

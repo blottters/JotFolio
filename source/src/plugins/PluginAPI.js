@@ -58,7 +58,10 @@ export function createPluginAPI(manifest) {
 
   const commandsScoped = {
     register: (id, handler, opts = {}) => {
-      // Namespace under plugin id if author didn't prefix
+      if (typeof id !== 'string' || !id) throw new Error(`Plugin ${pluginId}: command id required`);
+      if (id.includes('.') && !id.startsWith(`${pluginId}.`)) {
+        throw new Error(`Plugin ${pluginId}: command id "${id}" must be namespaced as "${pluginId}.*"`);
+      }
       const fullId = id.includes('.') ? id : `${pluginId}.${id}`;
       const off = globalCommands.register(fullId, handler, { ...opts, pluginId });
       disposals.push(off);
@@ -71,6 +74,14 @@ export function createPluginAPI(manifest) {
       const off = appBus.on(event, cb);
       disposals.push(off);
       return off;
+    },
+    emit: (event, payload) => {
+      // Plugins emit events back to the app. Mirrors the Worker-sandboxed path
+      // where PluginBridge re-dispatches on window for app-side listeners.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(`plugin:${pluginId}:${event}`, { detail: payload }));
+        window.dispatchEvent(new CustomEvent(`jotfolio:${event}`, { detail: payload }));
+      }
     },
   };
 

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { marked } from 'marked';
 import { ICON } from '../../lib/types.js';
+import { MANUAL_LINKS_FIELD } from '../../lib/frontmatter.js';
 import { useDebouncedCallback } from '../../lib/hooks.js';
-import { injectNoteCss, renderWikiLinks, escapeHtml, getCaretCoords, detectWikiTrigger } from '../../lib/markdown.js';
+import { injectNoteCss, renderWikiLinks, escapeHtml, sanitizeHtml, getCaretCoords, detectWikiTrigger } from '../../lib/markdown.js';
 
 // ── Note Body: inline markdown editor ─────────────────────────────────────
 // Click read-view to edit. Debounced autosave on keystroke. Blur or "done"
@@ -36,10 +37,10 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
       if(id&&!seen.has(id)){seen.add(id);found.push(id)}
       return'';
     });
-    const existing=new Set(entry.links||[]);
-    const merged=[...(entry.links||[]),...found.filter(id=>!existing.has(id))];
-    const patch={notes:text};
-    if(merged.length!==(entry.links||[]).length)patch.links=merged;
+    const manual=entry[MANUAL_LINKS_FIELD]?(entry.links||[]):[];
+    const merged=[...manual,...found.filter(id=>!manual.includes(id))];
+    const patch={notes:text,links:merged};
+    if(manual.length)patch[MANUAL_LINKS_FIELD]=true;
     onUpdate(patch);
     setSavedAt(Date.now());
   },250);
@@ -102,7 +103,7 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
     if(!entry.notes)return'';
     try{
       const pre=renderWikiLinks(entry.notes,titleIndex);
-      return marked.parse(pre,{breaks:true,gfm:true});
+      return sanitizeHtml(marked.parse(pre,{breaks:true,gfm:true}));
     }catch(err){console.error('marked.parse failed',err);return escapeHtml(entry.notes)}
   },[entry.notes,titleIndex]);
 

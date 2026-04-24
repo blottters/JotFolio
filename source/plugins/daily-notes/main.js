@@ -22,11 +22,10 @@ async function openToday() {
     await api.vault.mkdir('journals');
     await api.vault.write(path, content);
   }
-  // Let the editor know to open this path
-  // (Editor component listens for 'plugin:open-note' via its own wiring; v0)
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('jotfolio:open-note', { detail: { path } }));
-  }
+  // Let the editor know to open this path. Uses api.events.emit because
+  // plugin code runs inside a Worker with no `window` access; the bridge
+  // re-dispatches on window for app-side listeners.
+  api.events.emit('open-note', { path });
 }
 
 function buildTemplate(iso) {

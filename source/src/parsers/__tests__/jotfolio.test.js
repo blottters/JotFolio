@@ -13,6 +13,14 @@ describe('jotfolio parser', () => {
     expect(out[0].id).toBe('a1')
   })
 
+  it('accepts note entries', async () => {
+    const out = await parse(JSON.stringify([
+      { id: 'n1', type: 'note', title: 'Scratch note', tags: [], notes: 'body' },
+    ]))
+    expect(out[0].type).toBe('note')
+    expect(out[0].status).toBe('backlog')
+  })
+
   it('rejects non-array', async () => {
     await expect(parse(JSON.stringify({ x: 1 }))).rejects.toThrow(/array/)
   })

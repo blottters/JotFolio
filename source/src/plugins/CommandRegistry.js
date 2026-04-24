@@ -12,7 +12,7 @@ export class CommandRegistry {
   register(id, handler, opts = {}) {
     if (typeof id !== 'string' || !id) throw new Error('Command id required');
     if (typeof handler !== 'function') throw new Error('Command handler required');
-    if (this._commands.has(id)) console.warn(`CommandRegistry: overwriting "${id}"`);
+    if (this._commands.has(id)) throw new Error(`Command already registered: ${id}`);
     this._commands.set(id, { id, handler, ...opts });
     return () => this.unregister(id);
   }

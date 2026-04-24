@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { parse, serialize, entryToFile, fileToEntry, slugify, FrontmatterError } from './frontmatter.js';
+import {
+  parse,
+  serialize,
+  entryToFile,
+  fileToEntry,
+  slugify,
+  FrontmatterError,
+  FRONTMATTER_EXTRAS_FIELD,
+  MANUAL_LINKS_FIELD,
+} from './frontmatter.js';
 
 describe('frontmatter.parse', () => {
   it('returns empty frontmatter when no --- block', () => {
@@ -51,6 +60,22 @@ body`;
     expect(() => parse('---\ntitle: Broken\nbody')).toThrow(FrontmatterError);
   });
 
+  it('accepts a frontmatter block closed at EOF without trailing newline', () => {
+    // Finding #10: `---` at end of file (no trailing `\n`) was rejected.
+    const src = `---\ntitle: Tight\ntype: note\nid: n1\n---`;
+    const { frontmatter, body } = parse(src);
+    expect(frontmatter.title).toBe('Tight');
+    expect(frontmatter.type).toBe('note');
+    expect(body).toBe('');
+  });
+
+  it('accepts frontmatter closed at EOF with CRLF line endings', () => {
+    const src = `---\r\ntitle: Tight\r\nid: n1\r\n---`;
+    const { frontmatter } = parse(src);
+    expect(frontmatter.title).toBe('Tight');
+    expect(frontmatter.id).toBe('n1');
+  });
+
   it('throws on invalid line inside frontmatter', () => {
     expect(() => parse('---\nno colon here\n---\nbody')).toThrow(FrontmatterError);
   });
@@ -83,6 +108,38 @@ describe('frontmatter.serialize', () => {
   it('empty arrays serialize as []', () => {
     const out = serialize({ frontmatter: { tags: [] }, body: 'x' });
     expect(out).toMatch(/tags: \[\]/);
+  });
+});
+
+describe('frontmatter quoted-scalar escape handling (finding #11)', () => {
+  it('round-trips a string containing embedded double-quotes', () => {
+    const original = {
+      frontmatter: { id: 'n1', type: 'note', title: 'She said "hi"' },
+      body: 'Body',
+    };
+    const out = serialize(original);
+    const { frontmatter } = parse(out);
+    expect(frontmatter.title).toBe('She said "hi"');
+  });
+
+  it('round-trips a string containing a backslash', () => {
+    const original = {
+      frontmatter: { id: 'n1', type: 'note', title: 'C:\\path\\to\\thing' },
+      body: 'Body',
+    };
+    const out = serialize(original);
+    const { frontmatter } = parse(out);
+    expect(frontmatter.title).toBe('C:\\path\\to\\thing');
+  });
+
+  it('round-trips a string with both quotes and backslashes', () => {
+    const original = {
+      frontmatter: { id: 'n1', type: 'note', title: 'a\\"b' },
+      body: 'Body',
+    };
+    const out = serialize(original);
+    const { frontmatter } = parse(out);
+    expect(frontmatter.title).toBe('a\\"b');
   });
 });
 
@@ -158,5 +215,53 @@ describe('entryToFile + fileToEntry', () => {
     expect(() => fileToEntry({ path: 'notes/x.md', content: noId })).toThrow(FrontmatterError);
     const noType = serialize({ frontmatter: { id: '1', title: 'x' }, body: '' });
     expect(() => fileToEntry({ path: 'notes/x.md', content: noType })).toThrow(FrontmatterError);
+  });
+
+  it('preserves unknown frontmatter extras through entry save', () => {
+    const content = `---
+id: id-1
+type: note
+title: Metadata
+aliases: [Alpha, Beta]
+source: "external: import"
+---
+Body
+`;
+    const entry = fileToEntry({ path: 'notes/Metadata.md', content });
+
+    expect(entry[FRONTMATTER_EXTRAS_FIELD]).toEqual({
+      aliases: ['Alpha', 'Beta'],
+      source: 'external: import',
+    });
+
+    const { content: saved } = entryToFile({ ...entry, title: 'Metadata 2' });
+    const { frontmatter } = parse(saved);
+    expect(frontmatter.aliases).toEqual(['Alpha', 'Beta']);
+    expect(frontmatter.source).toBe('external: import');
+    expect(frontmatter.title).toBe('Metadata 2');
+  });
+
+  it('round-trips manual links only when links were present in frontmatter', () => {
+    const withManualLinks = fileToEntry({
+      path: 'notes/Linked.md',
+      content: `---
+id: id-1
+type: note
+title: Linked
+links: [id-2, id-3]
+---
+Body`,
+    });
+
+    expect(withManualLinks.links).toEqual(['id-2', 'id-3']);
+    expect(withManualLinks[MANUAL_LINKS_FIELD]).toBe(true);
+    expect(entryToFile(withManualLinks).content).toMatch(/links: \[id-2, id-3\]/);
+
+    const derivedOnly = {
+      ...withManualLinks,
+      links: ['derived-id'],
+      [MANUAL_LINKS_FIELD]: false,
+    };
+    expect(entryToFile(derivedOnly).content).not.toMatch(/^links:/m);
   });
 });

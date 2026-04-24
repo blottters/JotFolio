@@ -20,11 +20,7 @@ api.commands.register('now', async () => {
   } catch (err) {
     console.error('git-sync: failed to append sync.log', err);
   }
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('jotfolio:toast', {
-      detail: { msg: 'Git sync queued (stub — real sync requires desktop).', type: 'info' },
-    }));
-  }
+  api.events.emit('toast', { msg: 'Git sync queued (stub — real sync requires desktop).', type: 'info' });
 }, {
   name: 'Sync Now',
   hotkey: 'Cmd+S',
@@ -32,11 +28,7 @@ api.commands.register('now', async () => {
 });
 
 api.commands.register('configure', async () => {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('jotfolio:toast', {
-      detail: { msg: 'Git Sync configuration UI lands in Phase 4b.5.', type: 'info' },
-    }));
-  }
+  api.events.emit('toast', { msg: 'Git Sync configuration UI lands in Phase 4b.5.', type: 'info' });
 }, {
   name: 'Configure Remote',
   icon: '⚙',

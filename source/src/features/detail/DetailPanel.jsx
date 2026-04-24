@@ -8,26 +8,48 @@ import { TagSuggestions } from '../primitives/TagSuggestions.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 import { NoteBody } from '../editor/NoteBody.jsx';
 
+function formFromEntry(entry){
+  return {...entry,tags:(entry.tags||[]).join(', ')};
+}
+function comparableForm(form,entry){
+  const cleaned=pickEntryFields(form,entry.type);
+  return {...cleaned,tags:normalizeTags(form.tags)};
+}
+
 // ── Detail Panel ──────────────────────────────────────────────────────────
-export function DetailPanel({entry,entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry}){
+export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry}){
   const[editing,setEditing]=useState(false);
-  const[form,setForm]=useState({...entry,tags:(entry.tags||[]).join(', ')});
+  const[form,setForm]=useState(()=>formFromEntry(entry));
   const[recording,setRecording]=useState(false);
   const[voiceError,setVoiceError]=useState('');
   const[urlError,setUrlError]=useState('');
   const[confirmingDelete,setConfirmingDelete]=useState(false);
   const[confirmDelete,setConfirmDelete]=useState(false);
+  const[confirmDiscard,setConfirmDiscard]=useState(null);
   const recognitionRef=useRef(null);
   const editButtonRef=useRef(null);
-  useEscapeKey(true,onClose);
   useAutoFocus(editButtonRef);
-  useEffect(()=>{setForm({...entry,tags:(entry.tags||[]).join(', ')});setEditing(false);setConfirmingDelete(false);setConfirmDelete(false);setUrlError('');setVoiceError('')},[entry.id]);
+  useEffect(()=>{setForm(formFromEntry(entry));setEditing(false);setConfirmingDelete(false);setConfirmDelete(false);setConfirmDiscard(null);setUrlError('');setVoiceError('')},[entry.id]);
   useEffect(()=>()=>recognitionRef.current?.stop?.(),[]);
   const update=key=>ev=>{if(key==='url')setUrlError('');setForm(prev=>({...prev,[key]:ev.target.value}))};
-  const cancelEdit=()=>{setForm({...entry,tags:(entry.tags||[]).join(', ')});setUrlError('');setVoiceError('');setConfirmingDelete(false);setEditing(false)};
+  const isDirty=useMemo(()=>JSON.stringify(comparableForm(form,entry))!==JSON.stringify(comparableForm(formFromEntry(entry),entry)),[form,entry]);
+  const resetEdit=()=>{setForm(formFromEntry(entry));setUrlError('');setVoiceError('');setConfirmingDelete(false);setConfirmDiscard(null);setEditing(false)};
+  const applyDiscardAction=(action)=>{
+    if(action==='close')onClose();
+    else if(action==='prev'&&onNavigate)onNavigate(-1);
+    else if(action==='next'&&onNavigate)onNavigate(1);
+  };
+  const requestDiscard=(action)=>{
+    if(editing&&isDirty){setConfirmDiscard(action);return;}
+    resetEdit();
+    applyDiscardAction(action);
+  };
+  const confirmDiscardAction=()=>{const action=confirmDiscard;resetEdit();applyDiscardAction(action)};
+  const cancelEdit=()=>requestDiscard('cancel');
   const save=()=>{if(form.url&&!isSafeUrl(form.url)){setUrlError('URL must start with http:// or https://');return;}const cleaned=pickEntryFields(form,entry.type);onUpdate({...cleaned,tags:normalizeTags(form.tags)});setUrlError('');setEditing(false)};
   const handleVoice=()=>{if(recording){recognitionRef.current?.stop?.();setRecording(false);return;}setVoiceError('');const rec=startVoiceRecognition(t=>{setForm(p=>({...p,notes:(p.notes||'')+'\n\n🎤 '+t}));setRecording(false)},err=>{setVoiceError(String(err));setRecording(false)});if(rec){recognitionRef.current=rec;setRecording(true)}};
   const copyUrl=()=>navigator.clipboard.writeText(entry.url).then(()=>onToast('URL copied','info')).catch(()=>onToast('Copy failed','error'));
+  useEscapeKey(true,()=>requestDiscard('close'));
 
   // FIX: deps use entry.id + stringified tags for value-based memoization, not entry object reference
   const related=useMemo(()=>{
@@ -55,6 +77,9 @@ export function DetailPanel({entry,entries,allTags,onClose,onUpdate,onDelete,onT
   const ls={fontSize:11,fontWeight:700,color:'var(--t3)',display:'block',marginBottom:3};
   const ids={title:useId(),url:useId(),status:useId(),tags:useId(),notes:useId(),editDate:useId()};
   const displayDate=entry.entry_date||entry.date?.slice(0,10);
+  const navIndex=navEntries.findIndex(e=>e.id===entry.id);
+  const hasPrev=navIndex>0;
+  const hasNext=navIndex>=0&&navIndex<navEntries.length-1;
   return(
     <div role="dialog" aria-modal="true" aria-labelledby="detail-title" className="mgn-panel"
       style={{position:'fixed',right:0,top:0,bottom:0,width:'min(380px,100vw)',background:'var(--bg)',borderLeft:'1px solid var(--br)',display:'flex',flexDirection:'column',zIndex:100,overflowY:'auto'}}>
@@ -69,17 +94,17 @@ export function DetailPanel({entry,entries,allTags,onClose,onUpdate,onDelete,onT
           <>
             <span aria-hidden="true" style={{fontSize:16}}>{ICON[entry.type]}</span>
             <span id="detail-title" style={{fontWeight:700,fontSize:14,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{entry.title||'Untitled'}</span>
-            <button onClick={()=>onNavigate&&onNavigate(-1)} disabled={!entries.length||entries[0].id===entry.id} aria-label="Previous entry"
-              style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:entries.length&&entries[0].id!==entry.id?'var(--t2)':'var(--t3)',cursor:entries.length&&entries[0].id!==entry.id?'pointer':'not-allowed',opacity:entries.length&&entries[0].id!==entry.id?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>‹</button>
-            <button onClick={()=>onNavigate&&onNavigate(1)} disabled={!entries.length||entries[entries.length-1].id===entry.id} aria-label="Next entry"
-              style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:entries.length&&entries[entries.length-1].id!==entry.id?'var(--t2)':'var(--t3)',cursor:entries.length&&entries[entries.length-1].id!==entry.id?'pointer':'not-allowed',opacity:entries.length&&entries[entries.length-1].id!==entry.id?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>›</button>
+            <button onClick={()=>requestDiscard('prev')} disabled={!hasPrev} aria-label="Previous entry"
+              style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:hasPrev?'var(--t2)':'var(--t3)',cursor:hasPrev?'pointer':'not-allowed',opacity:hasPrev?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>‹</button>
+            <button onClick={()=>requestDiscard('next')} disabled={!hasNext} aria-label="Next entry"
+              style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:hasNext?'var(--t2)':'var(--t3)',cursor:hasNext?'pointer':'not-allowed',opacity:hasNext?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>›</button>
             <button onClick={()=>setConfirmDelete(true)} aria-label="Delete entry"
               style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'#ef4444',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Delete</button>
             <button ref={editButtonRef} onClick={()=>editing?cancelEdit():setEditing(true)} aria-label={editing?'Cancel editing':'Edit entry'} aria-pressed={editing}
               style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>
               {editing?'Cancel':'Edit'}
             </button>
-            <IconButton onClick={onClose} label="Close panel" style={{fontSize:22}}>×</IconButton>
+            <IconButton onClick={()=>requestDiscard('close')} label="Close panel" style={{fontSize:22}}>×</IconButton>
           </>
         )}
       </div>
@@ -87,6 +112,13 @@ export function DetailPanel({entry,entries,allTags,onClose,onUpdate,onDelete,onT
         {entry.status&&!editing&&<span style={{display:'inline-block',fontSize:12,padding:'3px 10px',borderRadius:99,background:statusBg(color),color,fontWeight:700,marginBottom:12}}><SrOnly>Status:</SrOnly>{entry.status}</span>}
         {editing?(
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {confirmDiscard&&(
+              <div role="alert" style={{padding:10,background:'rgba(245,158,11,0.10)',border:'1px solid rgba(245,158,11,0.45)',borderRadius:'var(--rd)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                <span style={{flex:1,fontSize:12,color:'var(--tx)',fontWeight:700}}>Discard unsaved edits?</span>
+                <button type="button" onClick={confirmDiscardAction} style={{padding:'5px 10px',fontSize:12,border:'1px solid #f59e0b',borderRadius:'var(--rd)',background:'#f59e0b',color:'#111827',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>Discard</button>
+                <button type="button" onClick={()=>setConfirmDiscard(null)} style={{padding:'5px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Keep editing</button>
+              </div>
+            )}
             <div><label htmlFor={ids.title} style={ls}>Title</label><input id={ids.title} style={is} value={form.title||''} onChange={update('title')}/></div>
             {!NO_URL_TYPES.has(entry.type)&&(
               <div>

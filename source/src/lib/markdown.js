@@ -39,6 +39,77 @@ export function renderWikiLinks(text,titleIndex){
 }
 export function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
+const ALLOWED_TAGS=new Set([
+  'a','blockquote','br','code','del','em','h1','h2','h3','h4','h5','h6','hr',
+  'img','li','ol','p','pre','span','strong','table','tbody','td','th','thead','tr','ul',
+]);
+const DROP_WITH_CONTENT=new Set(['script','style','iframe','form','object','embed','meta','link','base']);
+const GLOBAL_ATTRS=new Set(['class','title']);
+const ATTRS_BY_TAG={
+  a:new Set(['href','title','class','data-jfid']),
+  img:new Set(['src','alt','title']),
+  ol:new Set(['start']),
+  td:new Set(['align']),
+  th:new Set(['align']),
+  span:new Set(['title','class']),
+};
+const SAFE_URL_PROTOCOLS=new Set(['http:','https:','mailto:','tel:']);
+
+export function sanitizeHtml(html){
+  if(typeof document==='undefined')return escapeHtml(html);
+  const template=document.createElement('template');
+  template.innerHTML=String(html);
+  sanitizeChildren(template.content);
+  return template.innerHTML;
+}
+
+function sanitizeChildren(parent){
+  [...parent.childNodes].forEach(node=>sanitizeNode(node));
+}
+
+function sanitizeNode(node){
+  if(node.nodeType===Node.COMMENT_NODE){node.remove();return}
+  if(node.nodeType!==Node.ELEMENT_NODE)return;
+
+  const tag=node.tagName.toLowerCase();
+  if(DROP_WITH_CONTENT.has(tag)){node.remove();return}
+  if(!ALLOWED_TAGS.has(tag)){
+    const fragment=document.createDocumentFragment();
+    while(node.firstChild)fragment.appendChild(node.firstChild);
+    sanitizeChildren(fragment);
+    node.replaceWith(fragment);
+    return;
+  }
+
+  sanitizeAttributes(node,tag);
+  sanitizeChildren(node);
+}
+
+function sanitizeAttributes(node,tag){
+  const allowedForTag=ATTRS_BY_TAG[tag]||new Set();
+  [...node.attributes].forEach(attr=>{
+    const name=attr.name.toLowerCase();
+    if(name.startsWith('on')||name==='style'){node.removeAttribute(attr.name);return}
+    if(!GLOBAL_ATTRS.has(name)&&!allowedForTag.has(name)){node.removeAttribute(attr.name);return}
+    if((name==='href'||name==='src')&&!isSafeUrl(attr.value)){node.removeAttribute(attr.name)}
+  });
+}
+
+function isSafeUrl(value){
+  const raw=String(value||'').trim();
+  // Reject protocol-relative URLs (`//host/path`) outright — they inherit
+  // the page's scheme and let a rendered `<a href="//attacker.com">` or
+  // `<img src="//attacker.com/track.png">` bypass the scheme allowlist.
+  if(raw.startsWith('//'))return false;
+  if(raw===''||raw.startsWith('#')||raw.startsWith('/')||raw.startsWith('./')||raw.startsWith('../'))return true;
+  try{
+    const parsed=new URL(raw,window.location?.href||'http://localhost/');
+    return SAFE_URL_PROTOCOLS.has(parsed.protocol);
+  }catch{
+    return false;
+  }
+}
+
 // Caret pixel position inside a textarea using the hidden-mirror technique.
 // Clones computed styles onto an offscreen div, injects value-up-to-caret
 // followed by a marker span, then reads the span's offset. Returns top-left

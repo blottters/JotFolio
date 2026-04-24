@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useDeferredValue, useCallback } from "react";
-import { migrateIfNeeded, updateLastSeen, logEvent, isOnboarded, useActivation, recordEntryAdded } from './onboarding/activation.js';
+import { updateLastSeen, logEvent, isOnboarded, useActivation, recordEntryAdded } from './onboarding/activation.js';
 import { WelcomePanel } from './onboarding/WelcomePanel.jsx';
 import { ProgressPill, FirstSaveBanner, Day2ReturnCard, ActivationToast } from './onboarding/nudges.jsx';
 import { TYPES, ICON, LABEL } from './lib/types.js';
-import { THEMES } from './lib/theme/themes.js';
-import { deriveVictoryTheme } from './lib/theme/victoryTheme.js';
+import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
-import { storage, uid, normalizeTags } from './lib/storage.js';
+import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
+import { MANUAL_LINKS_FIELD } from './lib/frontmatter.js';
 import { exportEntriesJSON, exportEntriesMD, importEntriesJSON } from './lib/exports.js';
 import { useSystemDark } from './lib/hooks.js';
 import { useOpenRouterCallback, useAppShortcuts } from './lib/appHooks.js';
@@ -20,23 +20,47 @@ import { AddModal } from './features/add/AddModal.jsx';
 import { DetailPanel } from './features/detail/DetailPanel.jsx';
 import { ConstellationView } from './features/constellation/ConstellationView.jsx';
 import { SettingsPanel } from './features/settings/SettingsPanel.jsx';
+import { useVault } from './features/vault/useVault.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
-  const[entries,setEntries]=useState([]);
-  const[loaded,setLoaded]=useState(false);
-  const[theme,setTheme]=useState(()=>{
-    try{
-      const raw=localStorage.getItem('mgn-p');
-      if(raw){const parsed=JSON.parse(raw);if(parsed?.theme)return parsed.theme}
-    }catch{}
-    const prefersDark=typeof window!=='undefined'&&window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-    return prefersDark?'glass':'minimal';
-  });
+  const[theme,setTheme]=useState('minimal');
+  const[prefsLoaded,setPrefsLoaded]=useState(false);
+  const[storageError,setStorageError]=useState(null);
+  const[migratingLegacy,setMigratingLegacy]=useState(false);
+  const[migrationDone,setMigrationDone]=useState(false);
+  const{
+    entries,
+    vaultInfo,
+    loading:vaultLoading,
+    error:vaultError,
+    pickVault,
+    saveEntry,
+    deleteEntry:deleteVaultEntry,
+    migrateFromLocalStorage,
+    refresh:refreshVault,
+  }=useVault();
+  const loaded=prefsLoaded&&!vaultLoading&&!migratingLegacy;
+  const isBrowserVault=typeof window!=='undefined'&&!window.electron?.vault;
   const[darkMode,setDarkMode]=useState('system');
   const[customColors,setCustomColors]=useState({});
+  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true};
+  const[prefs,setPrefs]=useState(DEFAULT_PREFS);
+  const[toasts,setToasts]=useState([]);
+  const toast=useCallback((msg,type='success')=>{
+    const id=uid();setToasts(p=>[...p,{id,msg,type}]);
+    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),3000);
+  },[]);
+  const reportError=useCallback((err, fallback='Operation failed')=>{
+    if(isStorageCorruptionError(err)){
+      setStorageError(err);
+      toast(`Storage recovery needed for ${err.key}`,'error');
+      return;
+    }
+    toast(`${fallback}: ${err?.message||'error'}`,'error');
+  },[toast]);
   const systemDark=useSystemDark();
-  const isDark=darkMode==='dark'||(darkMode==='system'&&systemDark);
+  const isDark=resolveColorScheme(darkMode,systemDark)==='dark';
   const[section,setSection]=useState('all');
   const[view,setView]=useState('grid');
   const[query,setQuery]=useState('');
@@ -50,15 +74,7 @@ export default function App(){
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[detailId,setDetailId]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
-  const[toasts,setToasts]=useState([]);
   const[settingsOpen,setSettingsOpen]=useState(false);
-  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true};
-  const[prefs,setPrefs]=useState(DEFAULT_PREFS);
-
-  const toast=useCallback((msg,type='success')=>{
-    const id=uid();setToasts(p=>[...p,{id,msg,type}]);
-    setTimeout(()=>setToasts(p=>p.filter(t=>t.id!==id)),3000);
-  },[]);
 
   // Onboarding: log app.open + stamp lastSeen once per mount
   useEffect(()=>{
@@ -94,21 +110,11 @@ export default function App(){
 
   // CSS vars
   useEffect(()=>{
-    const safeTheme=THEMES[theme]?theme:'glass';
+    const {safeTheme,scheme,vars}=resolveThemeVars({theme,darkMode,systemDark,customColors,fontFamily:prefs.fontFamily});
     if(safeTheme!==theme)setTheme(safeTheme);
-    const t=THEMES[safeTheme];
-    let vars={...t.light,...(isDark?t.dark:{})};
-    const cc=customColors[safeTheme];
-    if(cc){
-      const derived=deriveVictoryTheme(cc.bg,cc.fg,cc.ac,cc.b2);
-      // Preserve theme-specific font and border-radius
-      derived['--fn']=vars['--fn']||derived['--fn'];
-      derived['--rd']=vars['--rd']||derived['--rd'];
-      vars=derived;
-    }
-    if(prefs.fontFamily)vars['--fn']=prefs.fontFamily;
+    document.documentElement.dataset.colorScheme=scheme;
     Object.entries(vars).forEach(([k,v])=>document.documentElement.style.setProperty(k,v));
-  },[theme,isDark,customColors,prefs.fontFamily]);
+  },[theme,darkMode,systemDark,customColors,prefs.fontFamily]);
 
   // Theme-specific CSS injection
   useEffect(()=>{
@@ -117,31 +123,54 @@ export default function App(){
     s.textContent=buildThemeCss(theme,isDark);
   },[theme,isDark]);
 
-  // Load
+  // Load preferences. Entries are loaded through the VaultAdapter via useVault.
   useEffect(()=>{
     let mounted=true;
-    Promise.all([storage.get('mgn-e'),storage.get('mgn-p')]).then(([se,sp])=>{
+    storage.get('mgn-p').then(sp=>{
       if(!mounted)return;
-      if(se){
-        const normalized=se.map(e=>({...e,tags:normalizeTags(e.tags||[]),links:Array.isArray(e.links)?e.links:[]}));
-        migrateIfNeeded(normalized); // seed activation before setState (sync localStorage)
-        setEntries(normalized);
-      }
       if(sp?.theme)setTheme(sp.theme);if(sp?.darkMode)setDarkMode(sp.darkMode);
       if(sp?.customColors)setCustomColors(sp.customColors);
       // Legacy migration: old victoryColors → new customColors
       if(sp?.victoryColors&&!sp?.customColors)setCustomColors({victory:sp.victoryColors});
       if(typeof sp?.sidebarOpen==='boolean')setSidebarOpen(sp.sidebarOpen);
       if(sp?.prefs){const p={...DEFAULT_PREFS,...sp.prefs};setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);}
-      setLoaded(true);
+      setPrefsLoaded(true);
+    }).catch(err=>{
+      if(!mounted)return;
+      if(isStorageCorruptionError(err))setStorageError(err);
+      else toast('Settings load failed: '+(err?.message||'error'),'error');
+      setPrefsLoaded(true);
     });
     return()=>{mounted=false};
-  },[]);
+  },[toast]);
   useEffect(()=>{
-    if(!loaded)return;
-    storage.set('mgn-e',entries);
-    storage.set('mgn-p',{theme,darkMode,sidebarOpen,customColors,prefs});
-  },[loaded,entries,theme,darkMode,sidebarOpen,customColors,prefs]);
+    if(!isBrowserVault||vaultInfo||vaultLoading)return;
+    pickVault().catch(err=>reportError(err,'Vault open failed'));
+  },[isBrowserVault,vaultInfo,vaultLoading,pickVault,reportError]);
+  useEffect(()=>{
+    if(!prefsLoaded||!vaultInfo||vaultLoading||migrationDone)return;
+    let cancelled=false;
+    setMigratingLegacy(true);
+    (async()=>{
+      try{
+        const done=await storage.get('mgn-vault-migrated');
+        if(!done){
+          const result=await migrateFromLocalStorage();
+          if(result.total>0){
+            toast(`Imported ${result.migrated} legacy entries into vault${result.skipped?` (${result.skipped} skipped)`:''}`,'info');
+            await refreshVault();
+          }
+          await storage.set('mgn-vault-migrated',true);
+        }
+      }catch(err){reportError(err,'Legacy migration failed')}
+      finally{if(!cancelled){setMigrationDone(true);setMigratingLegacy(false)}}
+    })();
+    return()=>{cancelled=true};
+  },[prefsLoaded,vaultInfo,vaultLoading,migrationDone,migrateFromLocalStorage,refreshVault,reportError,toast]);
+  useEffect(()=>{
+    if(!prefsLoaded)return;
+    storage.set('mgn-p',{theme,darkMode,sidebarOpen,customColors,prefs}).catch(err=>reportError(err,'Settings save failed'));
+  },[prefsLoaded,theme,darkMode,sidebarOpen,customColors,prefs,reportError]);
 
   // Apply font size preference to document root
   // UI scale: `zoom` on body scales the whole app (fonts, spacing, icons).
@@ -152,42 +181,56 @@ export default function App(){
   const [celebrating,setCelebrating]=useState(false);
   const activation=useActivation(entries.length);
 
-  // FIX: addEntry no longer does the dup check (moved to AddModal) so deps are just [toast]
-  const addEntry=useCallback((entry)=>{
-    setEntries(prev=>{
-      const date=new Date().toISOString();
-      const next=[{...entry,id:uid(),date,starred:false,links:[]},...prev];
-      const newCount=next.length;
+  const addEntry=useCallback(async(entry)=>{
+    const date=new Date().toISOString();
+    const next={...entry,id:uid(),date,starred:false,links:[]};
+    try{
+      await saveEntry(next);
+      const newCount=entries.length+1;
       recordEntryAdded(newCount,date);
       if(newCount===3)setCelebrating(true);
-      return next;
-    });
-    toast(`${ICON[entry.type]} Entry saved`);
-  },[toast]);
+      toast(`${ICON[entry.type]} Entry saved`);
+    }catch(err){reportError(err,'Entry save failed')}
+  },[entries.length,saveEntry,toast,reportError]);
 
-  const updateEntry=useCallback((id,patch)=>setEntries(prev=>prev.map(e=>e.id===id?{...e,...patch}:e)),[]);
+  const updateEntry=useCallback(async(id,patch)=>{
+    const current=entries.find(e=>e.id===id);
+    if(!current)return;
+    try{await saveEntry({...current,...patch})}
+    catch(err){reportError(err,'Entry update failed')}
+  },[entries,saveEntry,reportError]);
 
-  const linkEntries=useCallback((a,b)=>{
+  const linkEntries=useCallback(async(a,b)=>{
     if(!a||!b||a===b)return;
-    setEntries(prev=>prev.map(e=>{
-      if(e.id===a)return{...e,links:[...new Set([...(e.links||[]),b])]};
-      if(e.id===b)return{...e,links:[...new Set([...(e.links||[]),a])]};
-      return e;
-    }));
-  },[]);
-  const unlinkEntries=useCallback((a,b)=>{
-    setEntries(prev=>prev.map(e=>{
-      if(e.id===a)return{...e,links:(e.links||[]).filter(x=>x!==b)};
-      if(e.id===b)return{...e,links:(e.links||[]).filter(x=>x!==a)};
-      return e;
-    }));
-  },[]);
+    const left=entries.find(e=>e.id===a),right=entries.find(e=>e.id===b);
+    if(!left||!right)return;
+    try{
+      await Promise.all([
+        saveEntry({...left,links:[...new Set([...(left.links||[]),b])],[MANUAL_LINKS_FIELD]:true}),
+        saveEntry({...right,links:[...new Set([...(right.links||[]),a])],[MANUAL_LINKS_FIELD]:true}),
+      ]);
+    }catch(err){reportError(err,'Link save failed')}
+  },[entries,saveEntry,reportError]);
+  const unlinkEntries=useCallback(async(a,b)=>{
+    const left=entries.find(e=>e.id===a),right=entries.find(e=>e.id===b);
+    if(!left||!right)return;
+    try{
+      await Promise.all([
+        saveEntry({...left,links:(left.links||[]).filter(x=>x!==b),[MANUAL_LINKS_FIELD]:true}),
+        saveEntry({...right,links:(right.links||[]).filter(x=>x!==a),[MANUAL_LINKS_FIELD]:true}),
+      ]);
+    }catch(err){reportError(err,'Unlink save failed')}
+  },[entries,saveEntry,reportError]);
 
-  const deleteEntry=useCallback((id)=>{
-    setEntries(prev=>prev.filter(e=>e.id!==id).map(e=>e.links?.includes(id)?{...e,links:e.links.filter(x=>x!==id)}:e));
-    if(detailId===id)setDetailId(null);
-    toast('Entry deleted','info');
-  },[detailId,toast]);
+  const deleteEntry=useCallback(async(id)=>{
+    const affected=entries.filter(e=>e.id!==id&&e.links?.includes(id));
+    try{
+      await Promise.all(affected.map(e=>saveEntry({...e,links:e.links.filter(x=>x!==id),[MANUAL_LINKS_FIELD]:true})));
+      await deleteVaultEntry(id);
+      if(detailId===id)setDetailId(null);
+      toast('Entry deleted','info');
+    }catch(err){reportError(err,'Entry delete failed')}
+  },[entries,detailId,saveEntry,deleteVaultEntry,toast,reportError]);
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
@@ -215,7 +258,7 @@ export default function App(){
     try{
       const existingIds=new Set(entries.map(x=>x.id));
       const{fresh,duplicates}=await importEntriesJSON(file,existingIds);
-      setEntries(prev=>[...fresh,...prev]);
+      await Promise.all(fresh.map(e=>saveEntry(e)));
       toast(`Imported ${fresh.length} entries${duplicates?` (${duplicates} duplicates skipped)`:''}`);
     }catch(err){toast('Import failed: '+(err.message||'invalid file'),'error')}
   };
@@ -253,7 +296,9 @@ export default function App(){
             <FirstSaveBanner count={entries.length} onAdd={openAdd}/>
           )}
           <div style={{flex:1,overflowY:'auto',padding:14}}>
-            {!loaded?(<div style={{textAlign:'center',padding:'80px 20px',color:'var(--t3)'}}>Loading…</div>)
+            {storageError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Storage recovery needed for {storageError.key}. A backup was written to {storageError.quarantineKey||'a quarantine key'}; writes are blocked until recovery.</div>)
+            :vaultError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Vault error: {vaultError.message}</div>)
+            :!loaded?(<div style={{textAlign:'center',padding:'80px 20px',color:'var(--t3)'}}>Loading…</div>)
             :filtered.length===0?(<EmptyState section={section} onAdd={openAdd} hasFilters={hasFilters} onClear={clearFilters} query={query}/>)
             :view==='grid'?(
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:12}}>
@@ -268,11 +313,11 @@ export default function App(){
         </>)}
       </div>
 
-      {detail&&<DetailPanel entry={detail} entries={entries} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onNavigate={dir=>{const i=entries.findIndex(e=>e.id===detail.id);const nx=entries[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {detail&&<DetailPanel entry={detail} entries={entries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
       {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
       {loaded&&!isOnboarded()&&entries.length===0&&(
         <WelcomePanel
-          onImport={items=>{setEntries(prev=>[...items,...prev]);toast(`Imported ${items.length} entries`);bumpOnboarding()}}
+          onImport={async items=>{await Promise.all(items.map(e=>saveEntry(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}
           onPickTheme={()=>{setSettingsOpen(true);bumpOnboarding()}}
           onOpenAdd={()=>{openAdd();bumpOnboarding()}}
           onOpenGraph={()=>{setSection('graph');bumpOnboarding()}}

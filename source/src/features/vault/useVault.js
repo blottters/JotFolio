@@ -14,10 +14,27 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { vault } from '../../adapters/index.js';
-import { entryToFile, fileToEntry } from '../../lib/frontmatter.js';
+import { entryToFile, fileToEntry, MANUAL_LINKS_FIELD } from '../../lib/frontmatter.js';
 import { VaultError } from '../../adapters/VaultError.js';
 
 const LEGACY_KEY = 'mgn-e';
+const WIKI_LINK_RE = /\[\[([^\[\]\n]{1,120})\]\]/g;
+
+function deriveWikiLinks(entries) {
+  const byTitle = new Map();
+  entries.forEach(e => { if (e.title) byTitle.set(e.title.toLowerCase(), e.id); });
+  return entries.map(entry => {
+    const manual = entry[MANUAL_LINKS_FIELD] ? entry.links || [] : [];
+    const found = [];
+    const seen = new Set(manual);
+    String(entry.notes || '').replace(WIKI_LINK_RE, (_, raw) => {
+      const id = byTitle.get(raw.trim().toLowerCase());
+      if (id && id !== entry.id && !seen.has(id)) { seen.add(id); found.push(id); }
+      return '';
+    });
+    return { ...entry, links: [...manual, ...found] };
+  });
+}
 
 export function useVault() {
   const [entries, setEntries] = useState([]);
@@ -27,6 +44,11 @@ export function useVault() {
   // Skip list tracks files that failed to parse (corruption recovery surface)
   const [issues, setIssues] = useState([]);
   const watchOffRef = useRef(null);
+  // Live set of every vault-path currently in use (healthy entries + known
+  // broken files). Used synchronously by saveEntry to pick a non-colliding
+  // slug during batch imports and to avoid overwriting files whose
+  // frontmatter failed to parse. Updated on every refresh + every save.
+  const pathsInUseRef = useRef(new Set());
 
   // Refresh = re-scan vault → reload entries
   const refresh = useCallback(async () => {
@@ -37,6 +59,14 @@ export function useVault() {
       const loaded = [];
       const badFiles = [];
       for (const f of files) {
+        // `.jotfolio/` is app-internal storage (plugin manifests, settings,
+        // recovery snapshots, sync.log, etc). It is NOT user-authored notes
+        // and must not be parsed as entries. Skip the whole subtree.
+        if (f.path === '.jotfolio' || f.path.startsWith('.jotfolio/')) continue;
+        // Only parse markdown files. Non-`.md` files that happen to live
+        // at the vault root (images, PDFs, etc.) are future attachment
+        // surface — ignore for entry parsing.
+        if (!f.name.endsWith('.md')) continue;
         if (f.error) { badFiles.push({ path: f.path, error: f.error }); continue; }
         try {
           const content = await vault.read(f.path);
@@ -46,7 +76,14 @@ export function useVault() {
           badFiles.push({ path: f.path, error: { code: err.code || 'io-error', message: err.message } });
         }
       }
-      setEntries(loaded);
+      const derived = deriveWikiLinks(loaded);
+      // Sync path registry: healthy entries + broken files. Broken files must
+      // NOT be silently overwritten — saveEntry treats them as taken slots.
+      const inUse = new Set();
+      for (const e of derived) { if (e._path) inUse.add(e._path); }
+      for (const b of badFiles) { if (b.path) inUse.add(b.path); }
+      pathsInUseRef.current = inUse;
+      setEntries(derived);
       setIssues(badFiles);
     } catch (err) {
       setError(VaultError.is(err) ? err : new VaultError('io-error', err?.message || String(err)));
@@ -115,15 +152,42 @@ export function useVault() {
     }
   }, [refresh]);
 
+  // saveEntry reads from pathsInUseRef (a live set updated synchronously
+  // below) rather than from the `entries` closure. This fixes the batch-import
+  // stale-closure bug: before, multiple concurrent saveEntry calls all saw
+  // the same snapshot of `entries` and could generate colliding paths. Now
+  // each save reserves its path in the ref immediately, so subsequent saves
+  // in the same tick get the correct -2 / -3 suffix.
+  //
+  // The ref also includes paths of broken files (from `issues`), so we never
+  // silently overwrite a file whose frontmatter failed to parse. Corrupt
+  // data = treated as a used slot; new entries suffix around it.
   const saveEntry = useCallback(async (entry) => {
-    const existingByPath = new Set(entries.filter(e => e.id !== entry.id && e._path).map(e => e._path));
-    const { path, content } = entryToFile(entry, p => existingByPath.has(p));
-    const prev = entries.find(e => e.id === entry.id);
-    // If the entry moved (title rename → different slug), remove the old file
-    if (prev?._path && prev._path !== path) {
-      try { await vault.remove(prev._path); } catch { /* noop if already gone */ }
+    const inUse = new Set(pathsInUseRef.current);
+    // Exclude the entry's own current path (rename case — the slot it occupies
+    // is "free" for itself).
+    const ownPath = typeof entry._path === 'string' ? entry._path : null;
+    if (ownPath) inUse.delete(ownPath);
+
+    const { path, content } = entryToFile(entry, p => inUse.has(p));
+
+    // Reserve path synchronously BEFORE awaiting the write, so a second
+    // saveEntry firing in the same tick sees this slot as taken.
+    pathsInUseRef.current.add(path);
+
+    try {
+      await vault.write(path, content);
+    } catch (err) {
+      pathsInUseRef.current.delete(path);
+      throw err;
     }
-    await vault.write(path, content);
+
+    // Remove old file if renamed (write succeeded first — atomic-enough).
+    if (ownPath && ownPath !== path) {
+      try { await vault.remove(ownPath); } catch { /* noop if already gone */ }
+      pathsInUseRef.current.delete(ownPath);
+    }
+
     const updated = { ...entry, _path: path };
     setEntries(list => {
       const idx = list.findIndex(e => e.id === entry.id);
@@ -133,7 +197,7 @@ export function useVault() {
       return next;
     });
     return updated;
-  }, [entries]);
+  }, []);
 
   const deleteEntry = useCallback(async (id) => {
     const entry = entries.find(e => e.id === id);
@@ -141,6 +205,7 @@ export function useVault() {
     if (entry._path) {
       try { await vault.remove(entry._path); }
       catch (err) { if (err?.code !== 'not-found') throw err; }
+      pathsInUseRef.current.delete(entry._path);
     }
     setEntries(list => list.filter(e => e.id !== id));
   }, [entries]);

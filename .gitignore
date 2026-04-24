@@ -21,6 +21,10 @@ dist/
 **/playwright-report/
 **/test-results/
 
+# Dev-server captured logs
+**/vite-dev.out.log
+**/vite-dev.err.log
+
 # OS
 .DS_Store
 Thumbs.db

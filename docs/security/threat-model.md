@@ -78,27 +78,31 @@ Not in scope for v0: WebRTC, native drag-drop outside window, shared memory.
 - `src-electron/main.js` `resolveSafe` resolves the relative path against `vaultRoot` and rejects if the result does not start with `vaultRoot + path.sep`. This catches `..` even after `path.resolve`.
 - **Gap (Phase 6):** symlink following is not yet rejected. If an attacker places `a-symlink → /etc/passwd` inside the vault, `resolveSafe` still accepts it because the resolved path is technically under vault root (symlink resolution happens later). Add `realpath` check + reject files whose realpath escapes vault.
 
-### R4 — Malicious plugin runs in renderer (A2)
+### R4 — Malicious plugin code reaches outside the permission gate
 
-**Risk:** plugin `main.js` has full access to `window`, DOM, and anything reachable from the renderer global scope.
+**Risk (original):** plugin `main.js` has full access to `window`, DOM, and anything reachable from the renderer global scope.
 
-**Status:** accepted risk for v0 per ADR-0003.
-- Plugin API v0 is the advertised surface — but `main.js` can reach around it via `window.fetch`, `window.localStorage`, DOM, etc.
-- Mitigations in place (Phase 5):
-  - Plugin manifest + API object are `Object.freeze`d so plugin cannot swap out functions at runtime.
-  - Permissions checked inside PluginAPI before every `vault.*` call; bypassable via `window.vault` direct access because adapter is not frozen.
-  - `window.electron.vault` is exposed to renderer (not scoped per plugin); a malicious plugin can call it directly and ignore its manifest permissions. **This is the real gap.**
-- **v1 plan:** run plugins in a sandboxed extension host (separate `BrowserWindow` with `nodeIntegration: false, contextIsolation: true, sandbox: true`, postMessage bridge, no DOM access). Plugin code gets the frozen API and nothing else. Tracked as "Phase 5.5 — sandboxed plugins" in the roadmap.
-- Until then: **users should only enable trusted plugins**. The permission dialog in wireframe 10 sets expectations; it does not enforce them at runtime.
+**Status: MITIGATED (v0.5.0-alpha.1, 2026-04-24).** Plugin code now runs inside a dedicated Web Worker per plugin.
+
+**Mitigation details:**
+- `src/plugins/pluginWorker.js` is the Worker bootstrap. First thing it runs: `self.fetch = undefined; self.XMLHttpRequest = undefined; self.WebSocket = undefined; self.EventSource = undefined; self.importScripts = undefined; self.indexedDB = undefined; self.caches = undefined; self.BroadcastChannel = undefined; self.Worker = undefined; self.SharedWorker = undefined; self.ServiceWorker = undefined; self.Notification = undefined; self.localStorage = undefined; self.sessionStorage = undefined;`
+- A Web Worker by spec has no `window`, no `document`, no DOM access. The bootstrap removes the remaining network + storage primitives that Workers would otherwise have.
+- The only channel out of the Worker is `postMessage` to the parent. The parent (`src/plugins/PluginBridge.js`) runs the permission-gated API. A plugin cannot bypass the gate by reaching around a proxy, because there is no proxy — the API is RPC over postMessage and permissions are enforced in the parent's RPC router.
+- Plugin `main.js` is loaded via Blob URL (`worker-src 'self' blob:` in CSP), not `eval` — `'unsafe-eval'` dropped from `script-src`.
+- Verified by `src/plugins/__tests__/sandbox.test.js`: zero-permission plugin cannot read/write vault; `self.fetch`, `self.localStorage`, `self.XMLHttpRequest`, `self.WebSocket`, `self.EventSource`, `self.importScripts`, `self.indexedDB`, `self.caches`, `self.BroadcastChannel`, `self.Worker` all `typeof === 'undefined'` after bootstrap; `http.fetch` allowlist enforced in parent (plugin can't call raw fetch); terminating the bridge unregisters all commands.
+
+**Residual risk:** a plugin can still CPU-spin or attempt denial-of-service by posting large/frequent messages. The host has a 30-second command timeout per RPC; rate limiting is not yet implemented. **Accepted risk** — renderer is trusted context, self-DoS is low impact, user can disable the plugin.
+
+**Compat note:** v0.4.x tests (non-Worker environments like jsdom) fall back to the pre-v0.5 unsandboxed path inside `PluginHost._instantiateUnsandboxed`. Production always has `Worker`. Fallback is only used if `typeof Worker === 'undefined'`.
 
 ### R5 — Plugin network exfiltration (A2, A3)
 
 **Risk:** plugin uses `http.fetch` to POST notes to attacker server.
 
-**Status:** partially mitigated.
-- `http.fetch` checks `new URL(url).hostname` against manifest's `http_domains` allowlist.
-- Plugin can bypass by using `window.fetch` directly (R4 applies).
-- CSP `connect-src` restricts origins the renderer can reach to `self` + explicitly allowed domains. Plugin allowlist entries must be injected into CSP dynamically, which is fragile. **Current compromise:** CSP allows `connect-src *` for v0 because the allowlist is per-plugin, not global. Revisit in v1 when plugins run in their own context with their own CSP.
+**Status: MITIGATED (v0.5.0-alpha.1).**
+- `http.fetch` checks `new URL(url).hostname` against manifest's `http_domains` allowlist — enforced in the parent RPC router, not in the Worker.
+- Plugin can no longer bypass by using raw `fetch()` in the Worker scope: the bootstrap strips `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` from `self` before any plugin code runs. A real Web Worker has no other path to the network.
+- CSP `connect-src *` remains — per-plugin allowlist is not composable into a single meta-CSP value without runtime rewrites. The effective allowlist now lives in the parent RPC router, which is the actual guard. CSP `connect-src` is a belt-and-suspenders defense only; main guard moved to the parent-side `http.fetch` handler.
 
 ### R6 — Unsafe IPC input (A1, A2)
 
@@ -156,11 +160,12 @@ Not in scope for v0: WebRTC, native drag-drop outside window, shared memory.
 
 ## Known v0 gaps accepted
 
-1. Plugins run in renderer JS context (R4). Users trust plugins.
-2. CSP `connect-src *` because plugin allowlist is not yet composable into CSP (R5).
-3. Symlink traversal not yet blocked (R3 gap).
-4. IPC rate limiting absent (R6 gap).
-5. Extension-host sandbox not yet implemented (ADR-0003 accepted risk).
+1. ~~Plugins run in renderer JS context (R4).~~ **Closed 2026-04-24 in v0.5.0-alpha.1 via Web Worker sandbox.**
+2. CSP `connect-src *` because plugin allowlist is not yet composable into CSP. **Deprioritized** — post-sandbox, the effective guard is the parent-side RPC router, not CSP. CSP is now belt-and-suspenders only.
+3. Symlink traversal not yet blocked (R3 gap) — still open, targets 0.5.x.
+4. IPC rate limiting absent (R6 gap) — still open, low priority.
+5. ~~Extension-host sandbox not yet implemented.~~ **Closed 2026-04-24** — sandboxed via Web Worker.
+6. Worker is a less strict boundary than a separate OS process. An attacker who finds a Worker-escape bug in Chromium/V8 can still reach the renderer. That is a browser bug, not a JotFolio bug — tracked as a known engineering risk but not an app-level accepted risk.
 
 All tracked in the project roadmap with target version. No gap is silent.
 

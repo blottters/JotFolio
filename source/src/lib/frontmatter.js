@@ -38,7 +38,10 @@ export function parse(content) {
     return { frontmatter: {}, body: content, raw };
   }
   const afterOpen = content.replace(/^---\r?\n/, '');
-  const closeMatch = afterOpen.match(/\n---\r?\n/);
+  // Match either `\n---\n` / `\n---\r\n` (body follows) or `\n---` at EOF
+  // (no trailing newline). Files that end at the close delimiter without
+  // a trailing newline are valid and should not be rejected.
+  const closeMatch = afterOpen.match(/\n---(?:\r?\n|$)/);
   if (!closeMatch) {
     // Open but no close → treat as broken frontmatter
     throw new FrontmatterError('Frontmatter opened with --- but no closing --- found', 1);
@@ -53,7 +56,9 @@ export function parse(content) {
 const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function parseYaml(src, baseLine) {
-  const lines = src.split(/\r?\n/);
+  // Split on LF, then strip any trailing CR. Handles CRLF and lone-CR edge
+  // cases without polluting scalar values with stray \r.
+  const lines = src.split('\n').map(l => l.endsWith('\r') ? l.slice(0, -1) : l);
   const obj = Object.create(null); // no prototype chain; safer target
   let i = 0;
   while (i < lines.length) {
@@ -115,9 +120,16 @@ function parseScalar(s, lineNum) {
   if (s === 'null' || s === '~' || s === '') return null;
   if (s === 'true') return true;
   if (s === 'false') return false;
-  // Quoted strings
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    return s.slice(1, -1);
+  // Double-quoted: decode JSON-style escape sequences so round-trip with
+  // serializeScalar (which uses JSON.stringify) is lossless for `\\` and `\"`.
+  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
+    try { return JSON.parse(s); }
+    catch { return s.slice(1, -1); }
+  }
+  // Single-quoted: no escape processing (YAML spec). Only escape sequence
+  // is `''` for a literal single quote.
+  if (s.length >= 2 && s.startsWith("'") && s.endsWith("'")) {
+    return s.slice(1, -1).replace(/''/g, "'");
   }
   // Number
   if (/^-?\d+$/.test(s)) return parseInt(s, 10);
@@ -132,7 +144,26 @@ const FIELD_ORDER = [
   'id', 'type', 'title', 'tags', 'status', 'starred',
   'created', 'modified', 'entry_date', 'date',
   'url', 'channel', 'duration', 'guest', 'episode', 'highlight',
+  'links',
 ];
+
+export const FRONTMATTER_EXTRAS_FIELD = '_frontmatterExtras';
+export const MANUAL_LINKS_FIELD = '_manualLinks';
+
+const ENTRY_FRONTMATTER_FIELDS = new Set(FIELD_ORDER);
+
+function frontmatterExtras(frontmatter) {
+  const extras = {};
+  for (const [key, value] of Object.entries(frontmatter)) {
+    if (!ENTRY_FRONTMATTER_FIELDS.has(key)) extras[key] = value;
+  }
+  return extras;
+}
+
+function cleanStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(String).filter(Boolean))];
+}
 
 /**
  * @param {{ frontmatter: Object, body: string }} arg
@@ -228,6 +259,9 @@ export function entryToFile(entry, exists) {
   }
   const now = new Date().toISOString();
   const frontmatter = {
+    ...(entry[FRONTMATTER_EXTRAS_FIELD] && typeof entry[FRONTMATTER_EXTRAS_FIELD] === 'object'
+      ? entry[FRONTMATTER_EXTRAS_FIELD]
+      : {}),
     id: entry.id,
     type: entry.type,
     title: entry.title || 'Untitled',
@@ -244,6 +278,7 @@ export function entryToFile(entry, exists) {
   if (entry.guest) frontmatter.guest = entry.guest;
   if (entry.episode) frontmatter.episode = entry.episode;
   if (entry.highlight) frontmatter.highlight = entry.highlight;
+  if (entry[MANUAL_LINKS_FIELD]) frontmatter.links = cleanStringArray(entry.links);
   const body = typeof entry.notes === 'string' ? entry.notes : '';
   return { path, content: serialize({ frontmatter, body }) };
 }
@@ -256,6 +291,8 @@ export function fileToEntry({ path, content }) {
   const { frontmatter, body } = parse(content);
   if (!frontmatter.id) throw new FrontmatterError(`Missing required field: id (${path})`);
   if (!frontmatter.type) throw new FrontmatterError(`Missing required field: type (${path})`);
+  const manualLinks = Array.isArray(frontmatter.links);
+  const extras = frontmatterExtras(frontmatter);
   return {
     id: String(frontmatter.id),
     type: String(frontmatter.type),
@@ -272,7 +309,9 @@ export function fileToEntry({ path, content }) {
     episode: frontmatter.episode ? String(frontmatter.episode) : undefined,
     highlight: frontmatter.highlight ? String(frontmatter.highlight) : undefined,
     notes: body.trim(),
-    links: [],
+    links: manualLinks ? cleanStringArray(frontmatter.links) : [],
+    [MANUAL_LINKS_FIELD]: manualLinks,
+    [FRONTMATTER_EXTRAS_FIELD]: extras,
     _path: path,
   };
 }

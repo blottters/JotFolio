@@ -2,28 +2,85 @@ import { COMMON_FIELDS, TYPE_FIELDS } from './types.js';
 
 // ── Utils ──────────────────────────────────────────────────────────────────
 // Storage: uses window.storage when available (claude.ai artifact host),
-// falls back to localStorage for the Vite/static build. On JSON.parse
-// failure it logs and returns null — corrupt data is treated as "no data"
-// rather than crashing the app.
+// falls back to localStorage for the Vite/static build. Corrupt JSON is
+// recoverable: the raw value is copied to a quarantine key and callers get a
+// typed error instead of silently treating it as empty.
+const corruptKeys = new Set();
+
+export const CORRUPT_STORAGE_CODE = 'corrupt-storage';
+
+export class StorageCorruptionError extends Error {
+  constructor(key, raw, cause, quarantineKey) {
+    super(`corrupt-storage: ${key}`);
+    this.name = 'StorageCorruptionError';
+    this.code = CORRUPT_STORAGE_CODE;
+    this.key = key;
+    this.raw = raw;
+    this.cause = cause;
+    this.quarantineKey = quarantineKey;
+    this.recoverable = true;
+  }
+}
+
+export function isStorageCorruptionError(err) {
+  return err instanceof StorageCorruptionError
+    || (err != null && typeof err === 'object' && err.code === CORRUPT_STORAGE_CODE);
+}
+
+export function storageQuarantineKey(key, stamp = Date.now()) {
+  return `${key}.corrupt.${stamp}`;
+}
+
+async function quarantineValue(key, raw, cause) {
+  corruptKeys.add(key);
+  const quarantineKey = storageQuarantineKey(key);
+  try {
+    if (typeof window !== 'undefined' && window.storage?.set) {
+      await window.storage.set(quarantineKey, raw);
+    } else {
+      localStorage.setItem(quarantineKey, raw);
+    }
+  } catch (err) {
+    console.error('storage: failed to quarantine corrupt value for', key, err);
+  }
+  throw new StorageCorruptionError(key, raw, cause, quarantineKey);
+}
+
+async function parseStoredValue(key, raw) {
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('storage: corrupt value for', key, err);
+    return quarantineValue(key, raw, err);
+  }
+}
+
 export const storage = {
   async get(k){
     try{
       if(typeof window!=='undefined'&&window.storage?.get){
         const r=await window.storage.get(k);
         if(!r)return null;
-        try{return JSON.parse(r.value)}catch(e){console.error('storage: corrupt value for',k,e);return null}
+        return parseStoredValue(k,r.value);
       }
       const v=localStorage.getItem(k);
       if(v==null)return null;
-      try{return JSON.parse(v)}catch(e){console.error('storage: corrupt value for',k,e);return null}
-    }catch(e){console.error('storage.get',k,e);return null}
+      return parseStoredValue(k,v);
+    }catch(e){
+      if(isStorageCorruptionError(e))throw e;
+      console.error('storage.get',k,e);return null
+    }
   },
   async set(k,v){
     try{
+      if(corruptKeys.has(k))throw new StorageCorruptionError(k, null);
       const s=JSON.stringify(v);
       if(typeof window!=='undefined'&&window.storage?.set){await window.storage.set(k,s);return}
       localStorage.setItem(k,s);
-    }catch(e){console.error('storage.set',k,e)}
+    }catch(e){
+      if(isStorageCorruptionError(e))throw e;
+      console.error('storage.set',k,e)
+    }
   }
 };
 

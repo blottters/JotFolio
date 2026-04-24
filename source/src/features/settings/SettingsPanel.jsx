@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import { TYPES } from '../../lib/types.js';
 import { THEMES as THEMES_MAP } from '../../lib/theme/themes.js';
 import { getThemeDefaults } from '../../lib/theme/defaults.js';
@@ -50,6 +50,7 @@ function AIPanel(){
   const update=(patch)=>save({...cfg,...patch});
   const sH={fontSize:10,fontWeight:700,letterSpacing:2,color:'var(--t3)',textTransform:'uppercase',marginBottom:8,marginTop:16,display:'block'};
   const inputS={width:'100%',padding:'8px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)',color:'var(--tx)',fontFamily:'var(--fn)',outline:'none',boxSizing:'border-box'};
+  const ids={customUrl:useId(),model:useId(),apiKey:useId()};
   const provider=AI_PROVIDERS[cfg.provider]||AI_PROVIDERS.anthropic;
   const models=provider.models;
   const runTest=async()=>{
@@ -66,8 +67,9 @@ function AIPanel(){
         BYOK — your API key, never sent anywhere except the provider you pick. Used by features like auto-tagging and related-entry suggestions when they run.
       </div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--br)'}}>
-        <span style={{fontSize:13,color:'var(--tx)'}}>Enable AI features</span>
+        <span id="ai-enabled-label" style={{fontSize:13,color:'var(--tx)'}}>Enable AI features</span>
         <button onClick={()=>update({enabled:!cfg.enabled})}
+          aria-labelledby="ai-enabled-label" aria-pressed={cfg.enabled}
           style={{width:40,height:22,borderRadius:11,border:'none',cursor:'pointer',background:cfg.enabled?'var(--ac)':'var(--br)',position:'relative',transition:'background 0.2s'}}>
           <span style={{position:'absolute',top:2,left:cfg.enabled?20:2,width:18,height:18,borderRadius:9,background:cfg.enabled?'var(--act)':'var(--t3)',transition:'left 0.2s'}}/>
         </button>
@@ -76,17 +78,17 @@ function AIPanel(){
       <Select ariaLabel="AI provider" value={cfg.provider} onChange={v=>update({provider:v,model:AI_PROVIDERS[v]?.models?.[0]||'',customUrl:v==='custom'?cfg.customUrl:''})}
         options={Object.entries(AI_PROVIDERS).map(([k,p])=>({value:k,label:p.label}))}/>
       {cfg.provider==='custom'&&<>
-        <span style={sH}>Custom endpoint URL</span>
-        <input type="text" value={cfg.customUrl||''} onChange={e=>update({customUrl:e.target.value})} placeholder="https://api.example.com/v1/chat/completions" style={inputS} spellCheck={false}/>
+        <label htmlFor={ids.customUrl} style={sH}>Custom endpoint URL</label>
+        <input id={ids.customUrl} type="text" value={cfg.customUrl||''} onChange={e=>update({customUrl:e.target.value})} placeholder="https://api.example.com/v1/chat/completions" style={inputS} spellCheck={false}/>
       </>}
       <span style={sH}>Model</span>
       {models.length>0?(
         <Select ariaLabel="AI model" value={cfg.model} onChange={v=>update({model:v})}
           options={models.map(m=>({value:m,label:m}))}/>
       ):(
-        <input type="text" value={cfg.model||''} onChange={e=>update({model:e.target.value})} placeholder="Model name" style={inputS} spellCheck={false}/>
+        <input id={ids.model} aria-label="AI model" type="text" value={cfg.model||''} onChange={e=>update({model:e.target.value})} placeholder="Model name" style={inputS} spellCheck={false}/>
       )}
-      <span style={sH}>API key</span>
+      <label htmlFor={ids.apiKey} style={sH}>API key</label>
       {cfg.provider==='openrouter'&&(
         <button onClick={async()=>{setLoggingIn(true);try{await startOpenRouterLogin()}catch(e){setLoggingIn(false);setTest({state:'fail',msg:e.message})}}}
           disabled={loggingIn}
@@ -95,10 +97,10 @@ function AIPanel(){
         </button>
       )}
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
-        <input type={show?'text':'password'} value={cfg.key||''} onChange={e=>update({key:e.target.value})}
+        <input id={ids.apiKey} type={show?'text':'password'} value={cfg.key||''} onChange={e=>update({key:e.target.value})}
           placeholder={cfg.provider==='ollama'?'(optional for local)':cfg.provider==='openrouter'?'sk-or-… (or use Log in above)':'sk-...'} spellCheck={false} autoComplete="off"
           style={{...inputS,flex:1,fontFamily:'monospace'}}/>
-        <button onClick={()=>setShow(s=>!s)} title={show?'Hide':'Show'}
+        <button onClick={()=>setShow(s=>!s)} title={show?'Hide':'Show'} aria-label={show?'Hide API key':'Show API key'}
           style={{padding:'7px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
           {show?'🙈':'👁'}
         </button>
@@ -132,6 +134,7 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
     setAiEnabled(!!next.enabled);
   };
   const fileRef=useRef(null);
+  const importId=useId();
   useEscapeKey(true,onClose);
   const sH={fontSize:10,fontWeight:700,letterSpacing:2,color:'var(--t3)',textTransform:'uppercase',marginBottom:8,marginTop:16,display:'block'};
   const rowStyle={display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--br)'};
@@ -160,10 +163,10 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
         <span id="settings-title" style={{fontWeight:700,fontSize:14,flex:1}}>Settings</span>
         <IconButton onClick={onClose} label="Close settings" style={{fontSize:22}}>×</IconButton>
       </div>
-      <div style={{display:'flex',borderBottom:'1px solid var(--br)',flexShrink:0}}>
+      <div style={{display:'flex',borderBottom:'1px solid var(--br)',flexShrink:0,overflowX:'auto'}}>
         {tabs.map(([key,label])=>(
           <button key={key} onClick={()=>setTab(key)}
-            style={{flex:1,padding:'10px 4px',fontSize:11,fontWeight:tab===key?700:400,color:tab===key?'var(--ac)':'var(--t3)',background:'transparent',border:'none',borderBottom:tab===key?'2px solid var(--ac)':'2px solid transparent',cursor:'pointer',fontFamily:'var(--fn)'}}>
+            style={{flex:'0 0 auto',minWidth:58,padding:'10px 8px',fontSize:11,fontWeight:tab===key?700:400,color:tab===key?'var(--ac)':'var(--t3)',background:'transparent',border:'none',borderBottom:tab===key?'2px solid var(--ac)':'2px solid transparent',cursor:'pointer',fontFamily:'var(--fn)'}}>
             {label}
           </button>
         ))}
@@ -302,7 +305,7 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
           </div>
           {advanced&&<>
             <span style={sH}>Import</span>
-            <input ref={fileRef} type="file" accept=".json,application/json" style={{display:'none'}}
+            <input ref={fileRef} id={importId} aria-label="Import JSON file" type="file" accept=".json,application/json" style={{display:'none'}}
               onChange={e=>{const f=e.target.files?.[0];if(f){onImportJSON(f);e.target.value=''}}}/>
             <button onClick={()=>fileRef.current?.click()}
               style={{width:'100%',padding:'10px 12px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:600,marginBottom:16}}>↑ Import JSON</button>

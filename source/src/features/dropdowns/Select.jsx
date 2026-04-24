@@ -20,7 +20,7 @@ export function Select({value,onChange,options,placeholder,ariaLabel,width}){
     if(e.key==='ArrowDown'){e.preventDefault();if(open)setHighlight(h=>Math.min(options.length-1,(h<0?idx:h)+1));else setOpen(true)}
     else if(e.key==='ArrowUp'){e.preventDefault();if(open)setHighlight(h=>Math.max(0,(h<0?idx:h)-1))}
     else if(e.key==='Enter'||e.key===' '){e.preventDefault();if(open&&highlight>=0)pick(options[highlight].value??options[highlight]);else setOpen(o=>!o)}
-    else if(e.key==='Escape'&&open){e.preventDefault();setOpen(false)}
+    else if(e.key==='Escape'&&open){e.preventDefault();e.stopPropagation();setOpen(false)}
   };
   const current=options.find(o=>(o.value??o)===value);
   const label=current?(current.label??current):(placeholder||'Select…');

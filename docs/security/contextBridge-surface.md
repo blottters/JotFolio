@@ -90,7 +90,8 @@ form-action 'none';
 ### Rationale per directive
 
 - `default-src 'self'` — block everything else by default.
-- `script-src 'self'` — no inline scripts, no `eval`. **Note:** plugin `main.js` is currently loaded via `new Function(code)`, which CSP counts as `unsafe-eval` — this violates the policy unless plugins are disabled. Temporary exemption: `'unsafe-eval'` added conditionally when any plugin is enabled. Proper fix = sandboxed extension host in 0.5.0.
+- `script-src 'self' 'unsafe-eval'` — no inline scripts. `'unsafe-eval'` remains because Workers inherit the parent document's CSP, and the plugin loader inside the Worker still uses `new Function()` to evaluate the plugin's `main.js`. The real isolation is delivered by the Worker sandbox (no `window`, no `localStorage`, no raw `fetch`), not by the `eval` ban. Tightening to drop `'unsafe-eval'` requires migrating the plugin loader to `importScripts` or ESM dynamic-import from a Blob URL — polish work, queued.
+- `worker-src 'self' blob:` — the plugin sandbox spawns one Web Worker per enabled plugin, loaded via Blob URL. `blob:` is required for this; `'self'` covers Vite-built workers if any are added later.
 - `style-src 'self' 'unsafe-inline'` — inline styles are used throughout the codebase (26 themes worth). Tokenization to classes is a separate refactor.
 - `img-src 'self' data: blob:` — support pasted image data URIs + blobs (future attachment UI).
 - `connect-src *` — wide open for v0 because plugin HTTP allowlist is per-plugin, not global. Tightens in 0.5.0.
@@ -102,7 +103,7 @@ form-action 'none';
 ### Known compromises
 
 1. `'unsafe-inline'` for styles — required by current inline-style patterns across 26 themes. Migration target: CSS custom properties in classes (Phase 7 polish work).
-2. `'unsafe-eval'` for scripts when a plugin is enabled — required by `new Function(code)` plugin loader. Removed when sandbox ships.
+2. `'unsafe-eval'` for scripts — plugin Worker still evaluates plugin source via `new Function()`. Workers inherit parent CSP so removing `'unsafe-eval'` breaks the loader. Migration target: `importScripts` from a Blob URL (or ESM dynamic import) so the eval is never needed. Not a sandbox-escape risk; the Worker has no `window`/`localStorage`/`fetch` regardless.
 3. `connect-src *` — widened to accommodate plugin allowlists without recompiling CSP per-plugin. Narrowed in 0.5.0.
 
 These three are the known CSP gaps; everything else is strict.

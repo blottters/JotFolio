@@ -8,7 +8,7 @@ import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from 
 // Polar layout — nodes on circles, no physics sim (keeps bundle tiny, no hover
 // jitter). Node size encodes link-count. Node color encodes type. Starred
 // entries get a halo. Click node = open detail.
-export const TYPE_HUE={video:'#ef4444',podcast:'#a855f7',article:'#3b82f6',journal:'#10b981',link:'#f59e0b'};
+export const TYPE_HUE={video:'#ef4444',podcast:'#a855f7',article:'#3b82f6',journal:'#10b981',link:'#f59e0b',note:'#14b8a6'};
 export function ConstellationView({entries,onOpen,onBack,onAdd}){
   const[filter,setFilter]=useState('all');
   const[hover,setHover]=useState(null);
@@ -30,6 +30,17 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
   const pool=useMemo(()=>entries.filter(e=>filter==='all'||e.type===filter),[entries,filter]);
   const poolById=useMemo(()=>{const m={};pool.forEach(e=>m[e.id]=e);return m},[pool]);
   const components=useMemo(()=>{
+    // Build undirected adjacency first. A wiki-link on A targeting B is
+    // visually bidirectional (they belong to the same cluster) even though
+    // the stored `links` array only records the direction that authored the
+    // link. Directed BFS would artificially split those clusters.
+    const adj=Object.create(null);
+    for(const n of pool){if(!adj[n.id])adj[n.id]=new Set();(n.links||[]).forEach(t=>{
+      if(!poolById[t])return;
+      adj[n.id].add(t);
+      if(!adj[t])adj[t]=new Set();
+      adj[t].add(n.id);
+    });}
     const visited=new Set();const comps=[];
     for(const seed of pool){
       if(visited.has(seed.id))continue;
@@ -40,7 +51,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
         visited.add(id);
         const n=poolById[id];if(!n)continue;
         group.push(n);
-        (n.links||[]).forEach(l=>{if(poolById[l]&&!visited.has(l))stack.push(l)});
+        (adj[id]||[]).forEach(l=>{if(poolById[l]&&!visited.has(l))stack.push(l)});
       }
       comps.push(group);
     }

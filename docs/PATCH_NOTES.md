@@ -2,13 +2,13 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-_Current version: **0.4.1** (2026-04-24)_
+*Current version: **0.4.1** (2026-04-24)*
 
 ---
 
-## Birth — as a Claude.ai artifact (pre-0.1.0)
+## Birth — as a [Claude.ai](http://Claude.ai) artifact (pre-0.1.0)
 
-JotFolio started inside a normal Claude.ai web-chat conversation as an artifact — a single-file React app with inline styles, `window.storage` persistence, and a BYOK AI router. No vault, no Electron, no plugin system. Just a prototype that proved the "unified media library + constellation graph" concept.
+JotFolio started inside a normal [Claude.ai](http://Claude.ai) web-chat conversation as an artifact — a single-file React app with inline styles, `window.storage` persistence, and a BYOK AI router. No vault, no Electron, no plugin system. Just a prototype that proved the "unified media library + constellation graph" concept.
 
 ---
 
@@ -61,7 +61,7 @@ Made notes first-class and laid the architectural groundwork to become a disk-ba
 - `VaultAdapter` interface with `LocalAdapter` (browser) + `NodeFsAdapter` (Electron) implementations
 - YAML frontmatter parser/serializer + `entryToFile` / `fileToEntry` round-trip
 - Electron main process scaffold — IPC handlers, atomic writes, chokidar watch, native menus
-- Settings > Vault tab with migration flow: 33/33 browser-storage entries → `.md` files verified live
+- Settings &gt; Vault tab with migration flow: 33/33 browser-storage entries → `.md` files verified live
 
 ---
 
@@ -81,7 +81,7 @@ Plugin system designed + installed the first official plugin.
 
 Users can install, enable, and uninstall plugins from Settings.
 
-- Settings > Plugins tab with toggle switches, uninstall, permission summary per plugin
+- Settings &gt; Plugins tab with toggle switches, uninstall, permission summary per plugin
 - Vite `?raw` import wiring to bundle official plugins into the app binary (no separate download)
 - `installOfficial(id)` copies plugin files into the active vault
 - Git Sync plugin stub — registers commands, logs intent to `.jotfolio/sync.log` (real git operations pending IPC in a later release)
@@ -127,6 +127,48 @@ Established performance baselines and seeded an accessibility harness.
 - Documented a11y gaps with target fix phase (Constellation keyboard nav, theme contrast audit, focus-visible, toast live-region)
 - Separate `bench.yml` CI workflow — PR trigger, push-to-main trigger, nightly at 02:00 UTC
 - New convention: each phase starts with a specialist-authored plan at `docs/phase-plans/NN-<name>.md` executed inline
+
+---
+
+## 0.5.0-alpha.1 — Plugin sandbox (2026-04-24)
+
+Closed the biggest accepted-risk from the v0.4 era: plugins no longer run in the renderer.
+
+- Every enabled plugin now runs inside its own Web Worker spawned via Blob URL
+- The Worker bootstrap strips `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `importScripts`, `indexedDB`, `caches`, `BroadcastChannel`, `Worker`, `localStorage`, `sessionStorage` from `self` before any plugin code runs
+- The only path out of the Worker is `postMessage` to the parent; the permission gate lives in the parent, not in the Worker (so a plugin can't bypass by reaching around a proxy)
+- A zero-permission plugin can no longer read `localStorage['mgn-ai']` (API keys) or call raw `fetch()`
+- `new Function()` moved out of the main renderer into the plugin Worker; `worker-src 'self' blob:` added to CSP. `'unsafe-eval'` remains because Workers inherit the parent's CSP and the Worker still uses `new Function` to load plugin code — tightening further is polish work, not a blocker
+- Manifest id `toString` (and other `Object.prototype` names) can no longer auto-enable via prototype-chain truthy-check
+- 6 new tests cover the sandbox boundary
+
+---
+
+## 0.5.0-alpha.2 — Stress-test sweep (2026-04-24)
+
+Second batch of fixes from Codex's stress-test handoff. **14 of 15 findings closed.** Only #5 (constellation RAF re-render pressure) deferred as a perf refactor.
+
+### Data-loss + exfil (Tier A)
+- Batch imports with duplicate titles no longer silently overwrite each other (live `pathsInUseRef` replaces stale-closure path collision check)
+- Corrupt files surfaced during vault refresh are treated as taken slots — new entries suffix around them instead of overwriting
+- `LocalAdapter.write` rejects non-string content; `writeBinary` requires `Uint8Array`
+
+### Correctness (Tier B)
+- JSON import dedupes within the file itself, not only against existing ids
+- `.jotfolio/*` (plugin manifests, settings, sync.log, recovery snapshots) no longer parsed as notes during refresh
+- Frontmatter block closed at end of file with no trailing newline is now accepted
+- Quoted-scalar round-trip preserves embedded quotes and backslashes (double-quoted uses `JSON.parse`; single-quoted uses YAML `''` escape)
+- Obsidian block-array tags (`tags:\n  - a\n  - b`) parsed correctly — previously dropped or produced `['-','project']` garbage
+
+### UX + security (Tier C)
+- Detail panel prev/next buttons route through the existing dirty-check path; pressing them on an edited entry now prompts the same discard confirmation as the Close button
+- Constellation clusters are undirected: a single `A→B` wiki-link groups both nodes, no more artificial splits when the reverse link isn't stored
+- Dropdown Escape stops at the dropdown (previously bubbled up and closed the whole Settings panel)
+- `isSafeUrl` rejects protocol-relative URLs like `//attacker.example/...` in rendered markdown
+- Deferred: constellation RAF setOffsets call shape causes full SVG re-render at 60Hz — no correctness issue; scoped as a direct-DOM refactor rather than a bug fix
+
+### Test counts
+84 → 137 this session (+53). All green.
 
 ---
 

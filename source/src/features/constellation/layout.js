@@ -81,7 +81,16 @@ export function computeClusterLayout(components){
   const compCount=components.length;
   const cols=Math.max(1,Math.ceil(Math.sqrt(compCount*1.3)));
   const rows=Math.max(1,Math.ceil(compCount/cols));
-  const W=Math.max(800,cols*420),H=Math.max(600,rows*380);
+  // Adaptive cell sizing: small cells when most components are singletons
+  // (sparse vault — keep the grid inside the visible viewBox), bigger
+  // cells when components have multiple linked nodes (so the per-cluster
+  // force sim has room to breathe). Without this, cols*420 produced cells
+  // far outside the 800x600 viewBox in sparse vaults — most nodes ended
+  // up off-screen at default zoom.
+  const singletons=components.filter(g=>g.length===1).length;
+  const denseRatio=compCount?1-singletons/compCount:0;
+  const cellMin=100+denseRatio*220;        // 100 → 320 across density range
+  const W=Math.max(800,cols*cellMin),H=Math.max(600,rows*Math.max(80,cellMin*0.9));
   const cellW=W/cols,cellH=H/rows;
   components.forEach((grp,ci)=>{
     const col=ci%cols,row=Math.floor(ci/cols);

@@ -14,6 +14,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   const[tagFilter,setTagFilter]=useState('');
   const[titleQuery,setTitleQuery]=useState('');
   const[showUnresolved,setShowUnresolved]=useState(true);
+  const[infoOpen,setInfoOpen]=useState(null); // null | 'ghosts' | 'messy' | 'clusters' | 'affinity'
   const[hover,setHover]=useState(null);
   // Stack of focal ids. Top = current view. Empty = full web.
   // Click node deeper → push. Back / Esc / click same → pop.
@@ -95,35 +96,21 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   // pool changes and caches the result.
   const affinityLayout=useMemo(()=>computeAffinityLayout(pool),[pool]);
 
-  // Sparse-link vaults break the Clusters layout: when most components are
-  // singletons, computeClusterLayout drops every node at its cell center
-  // and the result is a graph-paper grid. Auto-fall-back to messy
-  // positioning when ≥80% of components are size 1, so the toggle still
-  // says "Clusters" but the user sees an organic spread until they have
-  // enough links for cluster shapes to actually emerge.
-  const singletonRatio=useMemo(()=>{
-    if(!components.length)return 0;
-    const singletons=components.filter(g=>g.length===1).length;
-    return singletons/components.length;
-  },[components]);
-  const effectiveLayoutMode=useMemo(()=>{
-    if(layoutMode==='clusters'&&singletonRatio>=0.8)return 'messy';
-    return layoutMode;
-  },[layoutMode,singletonRatio]);
-
   // Three layouts: 'messy' | 'clusters' | 'affinity'. CSS transition on each
   // node's outer <g> smoothly animates position changes when mode toggles.
+  // No auto-fallback — user-selected mode always renders. Sparse-link vaults
+  // produce a sparse grid in Clusters; that's the honest visualization.
   const nodes=useMemo(()=>{
-    if(effectiveLayoutMode==='affinity'){
+    if(layoutMode==='affinity'){
       const compOf={};components.forEach((g,ci)=>g.forEach(n=>{compOf[n.id]=ci}));
       return pool.map(e=>{
         const p=affinityLayout[e.id]||{x:400,y:300};
         return{...e,x:p.x,y:p.y,comp:compOf[e.id]??0,depth:0};
       });
     }
-    if(effectiveLayoutMode==='messy')return computeMessyLayout(pool,components);
+    if(layoutMode==='messy')return computeMessyLayout(pool,components);
     return computeClusterLayout(components);
-  },[components,pool,effectiveLayoutMode,affinityLayout]);
+  },[components,pool,layoutMode,affinityLayout]);
   // Unresolved pseudo-nodes for [[wikilinks]] that don't match any real
   // entry. Rendered with dashed stroke + muted fill in the SVG below.
   // Click handler routes to onCreateFromMissing so the user can
@@ -508,24 +495,37 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',justifyContent:'flex-end',rowGap:6,minWidth:0}}>
           {/* Layout buttons render first so they stay pinned to the right
               and never clip; other controls below shrink/wrap as needed. */}
-          <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden',flexShrink:0,order:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0,order:0}}>
+          <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden'}}>
             {[['messy','◉ Messy','C'],['clusters','✦ Clusters','C'],['affinity','⚛ Affinity','A']].map(([k,label,hint])=>{
               const isActive=layoutMode===k;
-              const fellBack=k==='clusters'&&isActive&&effectiveLayoutMode!=='clusters';
               return(
                 <button key={k} onClick={()=>setLayoutMode(k)}
-                  title={fellBack?`Layout: ${label} (${hint}) — vault has too few links for cluster shapes; showing messy positions until you link more entries.`:`Layout: ${label} (${hint})`}
-                  style={{padding:'4px 10px',fontSize:11,background:isActive?'var(--ac)':'transparent',color:isActive?'var(--act)':'var(--t2)',border:'none',borderRight:'1px solid var(--br)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,opacity:fellBack?0.7:1}}>
-                  {label}{fellBack?'*':''}
+                  title={`Layout: ${label} (${hint})`}
+                  style={{padding:'4px 10px',fontSize:11,background:isActive?'var(--ac)':'transparent',color:isActive?'var(--act)':'var(--t2)',border:'none',borderRight:'1px solid var(--br)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
+                  {label}
                 </button>
               );
             })}
           </div>
-          <button onClick={()=>setShowUnresolved(s=>!s)}
-            title={showUnresolved?'Hide unresolved [[wikilink]] targets':'Show unresolved [[wikilink]] targets'}
-            style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:showUnresolved?'var(--ac)':'transparent',color:showUnresolved?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>
-            {showUnresolved?'? Unresolved: on':'? Unresolved: off'}
-          </button>
+            <InfoButton open={infoOpen==='layout'} onToggle={()=>setInfoOpen(o=>o==='layout'?null:'layout')}
+              title="Layout modes"
+              body={(<>
+                <div style={{marginBottom:4}}><strong>◉ Messy</strong>: organic spiral. Notes scattered evenly around the canvas. Best for any vault.</div>
+                <div style={{marginBottom:4}}><strong>✦ Clusters</strong>: groups of linked notes get their own cell on a grid. Best when you have lots of links between notes.</div>
+                <div><strong>⚛ Affinity</strong>: notes that share tags / type / dates pull together. Best for finding hidden similarities.</div>
+              </>)}/>
+          </div>
+          <div style={{position:'relative',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <button onClick={()=>setShowUnresolved(s=>!s)}
+              title={showUnresolved?'Hide ghost notes':'Show ghost notes'}
+              style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:showUnresolved?'var(--ac)':'transparent',color:showUnresolved?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
+              {showUnresolved?'◌ Ghost notes: on':'◌ Ghost notes: off'}
+            </button>
+            <InfoButton open={infoOpen==='ghosts'} onToggle={()=>setInfoOpen(o=>o==='ghosts'?null:'ghosts')}
+              title="Ghost notes"
+              body="Notes you mention with [[wiki-link]] syntax but haven't created yet show up as dashed ghost circles in the graph. Click a ghost to create the real note instantly. Toggle this off if you want a clean view of only the notes that already exist."/>
+          </div>
           <button onClick={resetAll} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Reset</button>
           <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace',flexShrink:0}}>{displayedZoom}%</span>
           <input value={titleQuery} onChange={e=>setTitleQuery(e.target.value)}
@@ -651,6 +651,37 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             style={{position:'absolute',top:14,left:14,width:28,height:28,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontSize:13,fontFamily:'var(--fn)',fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center'}}>ⓘ</button>
         )}
       </div>
+    </div>
+  );
+}
+
+// Small ⓘ button paired with an inline popover that explains a control
+// in plain language. Click toggles open/closed; click outside the
+// popover OR press Esc closes it (handled by the consumer's state).
+function InfoButton({open,onToggle,title,body}){
+  return(
+    <div style={{position:'relative',display:'inline-flex',alignItems:'center'}}>
+      <button onClick={onToggle} aria-label={`What is ${title}?`} aria-expanded={open}
+        title={open?'Close info':'About this'}
+        style={{
+          width:18,height:18,border:'1px solid var(--br)',borderRadius:'50%',
+          background:open?'var(--ac)':'transparent',color:open?'var(--act)':'var(--t3)',
+          cursor:'pointer',padding:0,fontSize:11,fontFamily:'var(--fn)',
+          display:'inline-flex',alignItems:'center',justifyContent:'center',
+          lineHeight:1,fontStyle:'italic',fontWeight:700,
+        }}>i</button>
+      {open&&(
+        <div role="tooltip" style={{
+          position:'absolute',top:'calc(100% + 6px)',right:0,zIndex:60,
+          width:280,padding:'10px 12px',
+          background:'var(--bg)',border:'1px solid var(--br)',borderRadius:'var(--rd)',
+          boxShadow:'0 8px 24px rgba(0,0,0,0.18)',
+          fontSize:12,lineHeight:1.5,color:'var(--tx)',
+        }}>
+          <div style={{fontWeight:700,marginBottom:4,fontSize:12}}>{title}</div>
+          <div style={{color:'var(--t2)'}}>{body}</div>
+        </div>
+      )}
     </div>
   );
 }

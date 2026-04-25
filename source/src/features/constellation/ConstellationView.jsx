@@ -298,20 +298,27 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     e.currentTarget.releasePointerCapture?.(d.pointerId);
     const wasDrag=d.moved,wasAlt=d.alt,wasShift=d.shift;
     compDragRef.current=null;
-    if(wasDrag)return;
-    // Swapped bindings (per user pref):
-    //   Alt+click   → open note in DetailPanel
-    //   Plain click → focal-drill into the local graph
-    //   Shift+click → focal-drill (kept for muscle memory)
-    if(wasAlt){
-      onOpen(nodeId);
-      return;
-    }
-    if(wasShift){
+    // True swap of plain-click and alt-click:
+    //   Alt+click             → open note in DetailPanel
+    //   Plain click (no drag) → snap detached node back to layout (the
+    //                            old alt-click no-drag behavior)
+    //   Plain drag            → moves the cluster (component drag) — the
+    //                            move occurs during pointermove, no
+    //                            pointerup action needed
+    //   Alt+drag              → detached single-node drag (handled in
+    //                            pointermove via d.alt)
+    //   Shift+click           → focal-drill into local graph
+    if(wasShift&&!wasDrag){
       onFocalDrill(nodeId);
       return;
     }
-    onFocalDrill(nodeId);
+    if(wasAlt&&!wasDrag){
+      onOpen(nodeId);
+      return;
+    }
+    if(wasDrag)return;
+    // Plain click no-drag — snap any detached offset back to layout
+    setNodeOffsets(prev=>{if(!(nodeId in prev))return prev;const n={...prev};delete n[nodeId];return n});
   };
 
   // Drill into a node's local graph. Click the same focal node again

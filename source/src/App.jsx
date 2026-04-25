@@ -29,6 +29,8 @@ import { registerBuiltinCommands } from './features/commandPalette/builtinComman
 import { parseSearchQuery, matchesQuery } from './lib/search/searchVault.js';
 import { BaseExplorer } from './features/bases/BaseExplorer.jsx';
 import { normalizeBase, serializeBase, basePath, BASE_FILE_EXT, BASE_DIR } from './lib/base/baseTypes.js';
+import { CanvasExplorer } from './features/canvas/CanvasExplorer.jsx';
+import { normalizeCanvas, serializeCanvas, canvasPath, CANVAS_DIR, CANVAS_FILE_EXT } from './lib/canvas/canvasTypes.js';
 import { vault as vaultAdapter } from './adapters/index.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
@@ -92,6 +94,13 @@ export default function App(){
   const[bases,setBases]=useState([]);
   const currentBaseId=section.startsWith('base:')?section.slice(5):null;
   const currentBase=useMemo(()=>bases.find(b=>b.id===currentBaseId)||null,[bases,currentBaseId]);
+
+  // Canvases — same TDZ-prevention pattern as bases. Declared above the
+  // big effects + before useActivation reads. The `currentCanvasId` is
+  // derived from the section convention `canvas:<id>`.
+  const[canvases,setCanvases]=useState([]);
+  const currentCanvasId=section.startsWith('canvas:')?section.slice(7):null;
+  const currentCanvas=useMemo(()=>canvases.find(c=>c.id===currentCanvasId)||null,[canvases,currentCanvasId]);
 
   // Command palette: registry instance lives once per App mount; the
   // open flag drives the modal. Builtin commands are registered after
@@ -274,6 +283,58 @@ export default function App(){
     await persistBase(created);
     setSection(`base:${created.id}`);
   },[persistBase]);
+
+  // Load all .canvas.json files from the vault. Same skip-on-malformed
+  // convention as bases — a hand-edit typo in one canvas shouldn't keep
+  // the rest from loading.
+  useEffect(()=>{
+    if(!vaultInfo||vaultLoading)return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const files=await vaultAdapter.list();
+        const canvasFiles=files.filter(f=>f.path&&f.path.startsWith(`${CANVAS_DIR}/`)&&f.name.endsWith(CANVAS_FILE_EXT));
+        const loaded=[];
+        for(const cf of canvasFiles){
+          try{
+            const content=await vaultAdapter.read(cf.path);
+            const parsed=JSON.parse(content);
+            loaded.push(normalizeCanvas(parsed));
+          }catch{ /* skip malformed canvas */ }
+        }
+        if(!cancelled)setCanvases(loaded);
+      }catch{ /* vault list failure already surfaced via useVault */ }
+    })();
+    return()=>{cancelled=true};
+  },[vaultInfo,vaultLoading,entries.length]);
+
+  // Persist a single canvas (insert-or-update). Mirrors persistBase: the
+  // in-memory list is authoritative for instant UI feedback, the disk
+  // write is async with errors surfaced via toast.
+  const persistCanvas=useCallback(async(nextCanvas)=>{
+    const normalized=normalizeCanvas(nextCanvas);
+    setCanvases(list=>{
+      const idx=list.findIndex(c=>c.id===normalized.id);
+      if(idx===-1)return[...list,normalized];
+      const next=list.slice();
+      next[idx]=normalized;
+      return next;
+    });
+    try{
+      await vaultAdapter.write(canvasPath(normalized.id),JSON.stringify(serializeCanvas(normalized),null,2));
+    }catch(err){reportError(err,'Canvas save failed')}
+  },[reportError]);
+  const handleNewCanvas=useCallback(async()=>{
+    const created={
+      version:1,
+      id:`canvas-${Date.now().toString(36)}`,
+      name:'New Canvas',
+      nodes:[],
+      edges:[],
+    };
+    await persistCanvas(created);
+    setSection(`canvas:${created.id}`);
+  },[persistCanvas]);
 
   // Apply font size preference to document root
   // UI scale: `zoom` on body scales the whole app (fonts, spacing, icons).
@@ -467,10 +528,23 @@ export default function App(){
         onOpenSettings={()=>setSettingsOpen(s=>!s)}
         bases={bases}
         onSelectBase={id=>setSection(`base:${id}`)}
-        onNewBase={handleNewBase}/>
+        onNewBase={handleNewBase}
+        canvases={canvases}
+        onSelectCanvas={id=>setSection(`canvas:${id}`)}
+        onNewCanvas={handleNewCanvas}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
-        {currentBaseId?(
+        {currentCanvasId?(
+          <CanvasExplorer
+            canvases={canvases}
+            canvasId={currentCanvasId}
+            entries={visibleEntries}
+            onSelect={id=>setSection(`canvas:${id}`)}
+            onCreate={handleNewCanvas}
+            onCanvasChange={persistCanvas}
+            onOpenEntry={id=>setDetailId(id)}
+            onClose={()=>setSection('all')}/>
+        ):currentBaseId?(
           <BaseExplorer
             entries={visibleEntries}
             base={currentBase}

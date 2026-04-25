@@ -2,7 +2,7 @@ import { TYPES, ICON, LABEL } from '../../lib/types.js';
 import { Pressable } from '../primitives/Pressable.jsx';
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,bases=[],onSelectBase,onNewBase}){
+export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,bases=[],onSelectBase,onNewBase,canvases=[],onSelectCanvas,onNewCanvas}){
   return(
     <aside className="mgn-sb" style={{width,background:'var(--sb)',borderRight:'1px solid var(--br)',display:'flex',flexDirection:'column',flexShrink:0,transition:'width 0.2s',overflow:'hidden',zIndex:10}}>
       <Pressable onPress={onToggle} ariaLabel={open?'Collapse sidebar':'Expand sidebar'}
@@ -53,6 +53,26 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
             <Pressable onPress={onNewBase} ariaLabel="Create new base"
               style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:11,color:'var(--t3)',display:'flex',alignItems:'center',gap:6,marginTop:2}}>
               <span style={{flexShrink:0}}>+</span><span>New base</span>
+            </Pressable>
+          )}
+          <NavHeader>Canvases</NavHeader>
+          {canvases.length===0&&(
+            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',fontStyle:'italic'}}>No canvases yet</div>
+          )}
+          {canvases.map(c=>{
+            const active=section===`canvas:${c.id}`;
+            return(
+              <Pressable key={c.id} onPress={()=>onSelectCanvas&&onSelectCanvas(c.id)} ariaLabel={`Open canvas ${c.name}`} ariaPressed={active}
+                style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
+                <span style={{flexShrink:0,opacity:.6}}>◫</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
+              </Pressable>
+            );
+          })}
+          {onNewCanvas&&(
+            <Pressable onPress={onNewCanvas} ariaLabel="Create new canvas"
+              style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:11,color:'var(--t3)',display:'flex',alignItems:'center',gap:6,marginTop:2}}>
+              <span style={{flexShrink:0}}>+</span><span>New canvas</span>
             </Pressable>
           )}
         </>}

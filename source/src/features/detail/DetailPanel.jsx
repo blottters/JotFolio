@@ -17,7 +17,7 @@ function comparableForm(form,entry){
 }
 
 // ── Detail Panel ──────────────────────────────────────────────────────────
-export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry}){
+export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing}){
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState(()=>formFromEntry(entry));
   const[recording,setRecording]=useState(false);
@@ -62,6 +62,23 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
   },[entries,entry.id,(entry.tags||[]).join(','),(entry.links||[]).join(',')]);
 
   const linkedEntries=useMemo(()=>(entry.links||[]).map(id=>entries.find(e=>e.id===id)).filter(Boolean),[entries,entry.id,(entry.links||[]).join(',')]);
+
+  // Backlinks: entries whose links array includes this entry's id but
+  // that aren't already in this entry's links list (i.e. one-way wiki
+  // refs we haven't reciprocated). Manual bidirectional links already
+  // live in linkedEntries, so we filter them out to avoid duplicates.
+  const backlinkEntries=useMemo(()=>{
+    const ownLinks=new Set(entry.links||[]);
+    return entries
+      .filter(other=>other.id!==entry.id&&(other.links||[]).includes(entry.id)&&!ownLinks.has(other.id))
+      .slice(0,20);
+  },[entries,entry.id,(entry.links||[]).join(',')]);
+
+  // Unresolved wiki-link targets carried from buildVaultIndex via useVault.
+  // These are body refs like [[Missing Note]] that don't match any entry.
+  // The "Create" affordance lets the user materialize a real note for the
+  // missing target with a single click — Phase 3 of the SlateVault spec.
+  const unresolvedTargets=Array.isArray(entry.unresolvedTargets)?entry.unresolvedTargets:[];
   const[pickerOpen,setPickerOpen]=useState(false);
   const[pickerQuery,setPickerQuery]=useState('');
   useEffect(()=>{setPickerOpen(false);setPickerQuery('')},[entry.id]);
@@ -204,6 +221,38 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
                 </div>
               )}
             </div>
+            {backlinkEntries.length>0&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Backlinks ({backlinkEntries.length})</div>
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  {backlinkEntries.map(r=>(
+                    <button key={r.id} onClick={()=>onOpenEntry(r.id)}
+                      style={{padding:'7px 10px',background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',fontSize:12,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:'var(--fn)',textAlign:'left',color:'var(--tx)'}}>
+                      <span style={{flexShrink:0}}>{ICON[r.type]}</span>
+                      <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.title||'Untitled'}</span>
+                      <span style={{fontSize:10,color:'var(--t3)',flexShrink:0}}>↩</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {unresolvedTargets.length>0&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Unresolved Links ({unresolvedTargets.length})</div>
+                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                  {unresolvedTargets.map(u=>(
+                    <div key={u.target} style={{padding:'7px 10px',background:'transparent',border:'1px dashed var(--t3)',borderRadius:'var(--rd)',fontSize:12,display:'flex',alignItems:'center',gap:8,color:'var(--t2)'}}>
+                      <span aria-hidden="true" style={{flexShrink:0,color:'var(--t3)'}}>?</span>
+                      <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.target}</span>
+                      {onCreateFromMissing&&(
+                        <button onClick={()=>onCreateFromMissing(u.target)} aria-label={`Create note: ${u.target}`}
+                          style={{padding:'2px 8px',fontSize:11,border:'1px solid var(--ac)',borderRadius:99,background:'transparent',color:'var(--ac)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>+ Create</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {related.length>0&&(
               <div>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Related by tags</div>

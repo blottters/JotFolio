@@ -200,6 +200,24 @@ export default function App(){
     }catch(err){reportError(err,'Entry save failed')}
   },[entries.length,saveEntry,toast,reportError]);
 
+  // Phase 3: create a real note from an unresolved [[wikilink]] target.
+  // Title-matched so the existing wikilink resolver picks it up on the
+  // next index rebuild, which auto-resolves both the source entry's
+  // outgoing link and any other entries pointing at the same name.
+  const createFromMissing=useCallback(async(targetTitle)=>{
+    const cleanTitle=String(targetTitle||'').trim();
+    if(!cleanTitle){toast('Empty link target','error');return null}
+    const date=new Date().toISOString();
+    const next={type:'note',title:cleanTitle,notes:'',tags:[],status:'draft',id:uid(),date,starred:false,links:[]};
+    try{
+      await saveEntry(next);
+      await refreshVault();
+      toast(`Created "${cleanTitle}"`);
+      setDetailId(next.id);
+      return next.id;
+    }catch(err){reportError(err,'Create from missing failed');return null}
+  },[saveEntry,refreshVault,toast,reportError]);
+
   const updateEntry=useCallback(async(id,patch)=>{
     const current=entries.find(e=>e.id===id);
     if(!current)return;
@@ -304,7 +322,8 @@ export default function App(){
         {section==='graph'?(
           <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}
             layoutMode={prefs.defaultLayoutMode||'messy'}
-            onLayoutModeChange={mode=>setPrefs(p=>({...p,defaultLayoutMode:mode}))}/>
+            onLayoutModeChange={mode=>setPrefs(p=>({...p,defaultLayoutMode:mode}))}
+            onCreateFromMissing={createFromMissing}/>
         ):(<>
           <Toolbar query={query} setQuery={setQuery} section={section}
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
@@ -342,7 +361,7 @@ export default function App(){
         </>)}
       </div>
 
-      {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
       {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
       {loaded&&!isOnboarded()&&visibleEntries.length===0&&(
         <WelcomePanel

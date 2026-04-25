@@ -6,6 +6,7 @@ import {
   getCluster,
   getMemoryHealth,
   getNeighbors,
+  getUnresolvedTargets,
   searchRaw,
   searchWiki,
 } from './vaultIndex.js';
@@ -79,6 +80,48 @@ describe('vaultIndex', () => {
   it('returns affinity matches from the indexed corpus', () => {
     const index = buildVaultIndex(FIXTURE);
     expect(getAffinityMatches(index, 'wiki-1', { limit: 2 }).map(entry => entry.id)).toEqual(['review-1', 'wiki-2']);
+  });
+
+  it('tracks unresolved wiki-link targets across the vault', () => {
+    const fixture = [
+      { id: 'a', type: 'note', title: 'A', tags: [], status: 'draft',
+        notes: 'Links to [[Missing Note]] and existing [[B]].', links: [] },
+      { id: 'b', type: 'note', title: 'B', tags: [], status: 'draft',
+        notes: 'Also links [[Missing Note]] and [[Other Missing]].', links: [] },
+    ];
+    const index = buildVaultIndex(fixture);
+    const unresolved = getUnresolvedTargets(index);
+    expect(unresolved).toHaveLength(2);
+    const missing = unresolved.find(u => u.target === 'Missing Note');
+    expect(missing.sourceIds.sort()).toEqual(['a', 'b']);
+    const other = unresolved.find(u => u.target === 'Other Missing');
+    expect(other.sourceIds).toEqual(['b']);
+  });
+
+  it('parses wikilink alias, heading, and block syntax for resolution', () => {
+    const fixture = [
+      { id: 'a', type: 'note', title: 'A', tags: [], status: 'draft',
+        notes: 'See [[Target|alias text]] and [[Target#Heading]] and [[Target#^block-id]].',
+        links: [] },
+      { id: 'b', type: 'note', title: 'Target', tags: [], status: 'draft',
+        notes: 'I am the target.', links: [] },
+    ];
+    const index = buildVaultIndex(fixture);
+    expect(index.byId.get('a').links).toEqual(['b']);
+    expect(getUnresolvedTargets(index)).toHaveLength(0);
+  });
+
+  it('does not resolve or track wikilinks inside fenced code', () => {
+    const fixture = [
+      { id: 'a', type: 'note', title: 'A', tags: [], status: 'draft',
+        notes: 'real [[B]]\n```\n[[Ghost]]\n```\nmore [[Also Missing]]',
+        links: [] },
+      { id: 'b', type: 'note', title: 'B', tags: [], status: 'draft', notes: '', links: [] },
+    ];
+    const index = buildVaultIndex(fixture);
+    expect(index.byId.get('a').links).toEqual(['b']);
+    const unresolved = getUnresolvedTargets(index);
+    expect(unresolved.map(u => u.target)).toEqual(['Also Missing']);
   });
 
   it('reports duplicate canonical keys and hidden graph islands', () => {

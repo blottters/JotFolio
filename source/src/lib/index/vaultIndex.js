@@ -1,4 +1,4 @@
-const WIKI_LINK_RE = /\[\[([^\[\]\n]{1,120})\]\]/g;
+import { parseWikilinks } from '../parser/wikilinks.js';
 
 function normalizeLookupKey(value) {
   return String(value || '').trim().toLowerCase();
@@ -76,20 +76,38 @@ export function createLookupMaps(entries) {
   return { byId, lookup, duplicates, canonicalToIds };
 }
 
+// Resolve wiki-link targets in each entry's body to entry ids using the
+// shared lookup map. Returns entries with `links` containing both
+// manual links (from frontmatter) and inferred wiki-link targets, plus
+// `unresolvedTargets` listing wiki-link targets that did not match any
+// entry. The unresolved list is what the UI uses to show dashed nodes
+// and the "create from missing link" affordance (Phase 3).
 export function resolveEntryLinks(entries, lookupMaps = createLookupMaps(entries)) {
   return entries.map(entry => {
     const manual = Array.isArray(entry?.links) ? [...entry.links] : [];
     const found = [];
     const seen = new Set(manual);
-    String(entry?.notes || '').replace(WIKI_LINK_RE, (_, raw) => {
-      const resolvedId = lookupMaps.lookup.get(normalizeLookupKey(raw));
-      if (resolvedId && resolvedId !== entry.id && !seen.has(resolvedId)) {
-        seen.add(resolvedId);
-        found.push(resolvedId);
+    const unresolved = [];
+    const unresolvedSeen = new Set();
+    const wikilinks = parseWikilinks(String(entry?.notes || ''));
+    for (const link of wikilinks) {
+      const key = normalizeLookupKey(link.target);
+      const resolvedId = lookupMaps.lookup.get(key);
+      if (resolvedId) {
+        if (resolvedId !== entry.id && !seen.has(resolvedId)) {
+          seen.add(resolvedId);
+          found.push(resolvedId);
+        }
+      } else if (!unresolvedSeen.has(key) && key) {
+        unresolvedSeen.add(key);
+        unresolved.push({ target: link.target, alias: link.alias, line: link.line });
       }
-      return '';
-    });
-    return { ...entry, links: [...manual, ...found] };
+    }
+    return {
+      ...entry,
+      links: [...manual, ...found],
+      unresolvedTargets: unresolved,
+    };
   });
 }
 
@@ -138,6 +156,22 @@ export function buildVaultIndex(entries, { includeHidden = true } = {}) {
     components.push(component);
   });
 
+  // Aggregate unresolved wiki-link targets across the whole vault. Same
+  // target referenced by multiple entries is recorded once per source
+  // entry id so the UI can show "3 entries link to [[Foo]]" and the
+  // graph can render a single dashed pseudo-node per missing target.
+  const unresolvedTargets = new Map(); // normalizedKey → { target, sourceIds: Set, lines: [] }
+  resolvedEntries.forEach(entry => {
+    (entry.unresolvedTargets || []).forEach(u => {
+      const key = normalizeLookupKey(u.target);
+      if (!key) return;
+      const existing = unresolvedTargets.get(key) || { target: u.target, sourceIds: new Set(), lines: [] };
+      existing.sourceIds.add(entry.id);
+      existing.lines.push({ entryId: entry.id, line: u.line, alias: u.alias });
+      unresolvedTargets.set(key, existing);
+    });
+  });
+
   return {
     entries: resolvedEntries,
     byId: resolvedById,
@@ -149,7 +183,24 @@ export function buildVaultIndex(entries, { includeHidden = true } = {}) {
     canonicalToIds: lookupMaps.canonicalToIds,
     duplicates: lookupMaps.duplicates,
     typeBuckets,
+    unresolvedTargets,
   };
+}
+
+// Convenience accessor for the UI: list unresolved targets as plain
+// objects with sourceIds as arrays so they're easy to map over.
+export function getUnresolvedTargets(index) {
+  if (!index?.unresolvedTargets) return [];
+  const out = [];
+  index.unresolvedTargets.forEach((info, key) => {
+    out.push({
+      key,
+      target: info.target,
+      sourceIds: [...info.sourceIds],
+      lines: [...info.lines],
+    });
+  });
+  return out.sort((a, b) => b.sourceIds.length - a.sourceIds.length || a.target.localeCompare(b.target));
 }
 
 export function getBacklinks(index, id) {

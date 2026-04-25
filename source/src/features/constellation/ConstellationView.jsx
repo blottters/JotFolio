@@ -287,10 +287,12 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     const sy=(e.clientY-d.startClientY)/d.scaleY/Math.max(0.001,view.s);
     if(!d.moved&&Math.abs(sx)+Math.abs(sy)>CLICK_THRESHOLD)d.moved=true;
     if(!d.moved)return;
+    // Swapped (per user pref): plain drag detaches and moves the single
+    // node freely; alt+drag moves the whole cluster together.
     if(d.alt){
-      setNodeOffsets(prev=>({...prev,[d.nodeId]:{dx:d.origNodeDx+sx,dy:d.origNodeDy+sy}}));
-    }else{
       setComponentOffsets(prev=>({...prev,[d.compIdx]:{dx:d.origCompDx+sx,dy:d.origCompDy+sy}}));
+    }else{
+      setNodeOffsets(prev=>({...prev,[d.nodeId]:{dx:d.origNodeDx+sx,dy:d.origNodeDy+sy}}));
     }
   };
   const onNodePointerUp=(e,nodeId)=>{

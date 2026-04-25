@@ -18,13 +18,19 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
   const focal=focalStack[focalStack.length-1]||null;
   // View = {s: scale, tx, ty}. Wheel zoom is cursor-anchored.
   const[view,setView]=useState({s:1,tx:0,ty:0});
-  const[offsets,setOffsets]=useState({}); // per-node bob {dx,dy}
+  // Bob offsets live in a ref, not state. RAF loop writes directly to DOM
+  // refs at 60Hz — going through setState would re-render the entire graph
+  // (every node + every edge) every frame. See nodeBobRef / edgeElsRef below.
+  const bobRef=useRef({}); // {[id]: {dx, dy}} — read-shared between RAF + drag math
   const[componentOffsets,setComponentOffsets]=useState({}); // per-cluster drag offset
   const[nodeOffsets,setNodeOffsets]=useState({}); // per-node detached offset (Alt+drag)
   const[layoutMode,setLayoutMode]=useState('messy'); // 'messy' | 'clusters' | 'affinity'
   const[legendOpen,setLegendOpen]=useState(true);
   const svgRef=useRef(null);
   const phasesRef=useRef({});
+  const nodeBobRef=useRef(new Map()); // id → inner <g> element (bob target)
+  const edgeElsRef=useRef(new Map()); // `${aId}|${bId}` → {a, b, el}
+  const positionsRef=useRef({}); // mirror of positions for RAF edge math
 
   // Connected components via BFS over links. Each becomes its own "solar system".
   const pool=useMemo(()=>entries.filter(e=>filter==='all'||e.type===filter),[entries,filter]);
@@ -224,20 +230,40 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
     phasesRef.current=phases;
   },[nodes]);
 
-  // Anti-gravity bob: RAF loop updates every node's dx/dy. Edges follow.
-  // Falls back to setInterval when RAF throttles (hidden tabs, preview iframes).
+  // Anti-gravity bob: RAF loop mutates SVG attributes directly via refs at
+  // 60Hz. Going through setState here would re-render every node + every
+  // edge every frame — the whole point of this rewrite was to stop doing
+  // that. setOffsets is gone; bobRef.current is the single source of truth
+  // for bob deltas, mirrored into the DOM each frame.
   useEffect(()=>{
     let raf=0,iv=0,lastRaf=performance.now();
     const start=performance.now();
     const compute=(t)=>{
       const el=t-start;
-      const next={};
+      const bob=bobRef.current;
+      // 1. Compute new bob offsets and mutate node <g> transforms.
       for(const id in phasesRef.current){
         const p=phasesRef.current[id];
         const a=p.phase+el*p.speed;
-        next[id]={dx:Math.cos(a)*p.ampX,dy:Math.sin(a*p.ratio)*p.ampY};
+        const dx=Math.cos(a)*p.ampX;
+        const dy=Math.sin(a*p.ratio)*p.ampY;
+        bob[id]={dx,dy};
+        const node=nodeBobRef.current.get(id);
+        if(node)node.setAttribute('transform',`translate(${dx} ${dy})`);
       }
-      setOffsets(next);
+      // 2. Update each edge's endpoints with positions+bob in the same frame.
+      const pos=positionsRef.current;
+      edgeElsRef.current.forEach(({a,b,el:line})=>{
+        if(!line)return;
+        const pa=pos[a]||{x:0,y:0};
+        const pb=pos[b]||{x:0,y:0};
+        const oa=bob[a]||{dx:0,dy:0};
+        const ob=bob[b]||{dx:0,dy:0};
+        line.setAttribute('x1',pa.x+oa.dx);
+        line.setAttribute('y1',pa.y+oa.dy);
+        line.setAttribute('x2',pb.x+ob.dx);
+        line.setAttribute('y2',pb.y+ob.dy);
+      });
     };
     const tick=(t)=>{lastRaf=t;compute(t);raf=requestAnimationFrame(tick)};
     raf=requestAnimationFrame(tick);
@@ -290,6 +316,12 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
     }
     return out;
   },[focal,focalSet,nodes,componentOffsets,nodeOffsets]);
+
+  // Mirror positions into a ref so the RAF loop can read them without
+  // depending on render. positions changes on layout / focal / drag —
+  // not at 60Hz — so this re-syncs only when those low-frequency inputs
+  // shift, while the RAF loop still mutates each frame.
+  useEffect(()=>{positionsRef.current=positions},[positions]);
 
   // Whenever the focal stack changes, snap the view to the target cluster
   // (zoom in, centered). Afterward the user can still wheel-zoom or drag-pan.
@@ -393,14 +425,18 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
             onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
             <g transform={transform} style={{transition:isDragging||panRef.current||compDragRef.current?'none':'transform 0.5s cubic-bezier(0.4,0,0.2,1)'}}>
               {edges.map(({a,b},i)=>{
+                // Initial endpoints = base positions only; the RAF loop adds
+                // bob deltas via setAttribute on each frame. Reading offsets
+                // here would re-render every edge every tick.
                 const pa=positions[a.id]||{x:a.x,y:a.y};
                 const pb=positions[b.id]||{x:b.x,y:b.y};
-                const oa=offsets[a.id]||{dx:0,dy:0};
-                const ob=offsets[b.id]||{dx:0,dy:0};
                 const bothHover=hoverSet&&hoverSet.has(a.id)&&hoverSet.has(b.id);
                 const bothFocal=focalSet&&focalSet.has(a.id)&&focalSet.has(b.id);
+                const edgeKey=`${a.id}|${b.id}`;
                 return(
-                  <line key={i} x1={pa.x+oa.dx} y1={pa.y+oa.dy} x2={pb.x+ob.dx} y2={pb.y+ob.dy}
+                  <line key={i}
+                    ref={el=>{if(el)edgeElsRef.current.set(edgeKey,{a:a.id,b:b.id,el});else edgeElsRef.current.delete(edgeKey);}}
+                    x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
                     stroke={bothHover||bothFocal?'var(--ac)':'var(--tx)'}
                     strokeWidth={bothHover||bothFocal?1.6:0.8}
                     opacity={edgeOpacity(a,b)}
@@ -416,14 +452,16 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
                 const active=hover===n.id||focal===n.id;
                 const op=nodeOpacity(n)*depthOp;
                 const p=positions[n.id]||{x:n.x,y:n.y};
-                const o=offsets[n.id]||{dx:0,dy:0};
                 return(
                   // Outer: layout position with CSS transition (smooth glide on focal change)
-                  // Inner: per-frame bob offset (no transition, so bob stays lively)
+                  // Inner: per-frame bob offset — transform mutated directly by RAF
+                  // loop via nodeBobRef. Initial transform is "translate(0 0)"; the
+                  // first frame overrides almost immediately.
                   <g key={n.id}
                     transform={`translate(${p.x} ${p.y})`}
                     style={{transition:'transform 0.85s cubic-bezier(0.22,1,0.36,1)'}}>
-                    <g transform={`translate(${o.dx} ${o.dy})`}
+                    <g ref={el=>{if(el)nodeBobRef.current.set(n.id,el);else nodeBobRef.current.delete(n.id);}}
+                      transform="translate(0 0)"
                       onPointerDown={e=>onNodePointerDown(e,n.id)}
                       onPointerMove={onNodePointerMove}
                       onPointerUp={e=>onNodePointerUp(e,n.id)}

@@ -26,6 +26,7 @@ import { useVault } from './features/vault/useVault.js';
 import { CommandPalette } from './features/commandPalette/CommandPalette.jsx';
 import { createCommandRegistry } from './lib/command/commandRegistry.js';
 import { registerBuiltinCommands } from './features/commandPalette/builtinCommands.js';
+import { parseSearchQuery, matchesQuery } from './lib/search/searchVault.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -334,16 +335,17 @@ export default function App(){
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
 
+  const parsedQuery=useMemo(()=>parseSearchQuery(deferredQuery),[deferredQuery]);
   const filtered=useMemo(()=>{
     let r=visibleEntries;
     if(section==='starred')r=r.filter(e=>e.starred);else if(section!=='all')r=r.filter(e=>e.type===section);
-    if(deferredQuery){const lq=deferredQuery.toLowerCase();r=r.filter(e=>(e.title||'').toLowerCase().includes(lq)||(e.notes||'').toLowerCase().includes(lq)||(e.tags||[]).some(t=>t.toLowerCase().includes(lq)));}
+    if(deferredQuery)r=r.filter(e=>matchesQuery(e,parsedQuery));
     if(filterStatus)r=r.filter(e=>e.status===filterStatus);
     if(filterTag)r=r.filter(e=>(e.tags||[]).includes(filterTag));
     const dec=r.map(e=>({e,ts:Date.parse(e.date)||0}));
     dec.sort((a,b)=>sort==='title'?(a.e.title||'').localeCompare(b.e.title||''):sort==='starred'?(b.e.starred?1:0)-(a.e.starred?1:0):b.ts-a.ts);
     return dec.map(x=>x.e);
-  },[visibleEntries,section,deferredQuery,filterStatus,filterTag,sort]);
+  },[visibleEntries,section,deferredQuery,parsedQuery,filterStatus,filterTag,sort]);
 
   const allTags=useMemo(()=>[...new Set(visibleEntries.flatMap(e=>e.tags||[]))]  ,[visibleEntries]);
   const tagCounts=useMemo(()=>{const m={};visibleEntries.forEach(e=>(e.tags||[]).forEach(t=>{m[t]=(m[t]||0)+1}));return m},[visibleEntries]);

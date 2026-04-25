@@ -510,19 +510,10 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             {focalNode&&<button onClick={()=>onOpen(focalNode.id)} style={{padding:'2px 8px',fontSize:11,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>Open</button>}
           </div>
         )}
-        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
-          <input value={titleQuery} onChange={e=>setTitleQuery(e.target.value)}
-            placeholder="Search titles…" aria-label="Search node titles"
-            style={{padding:'4px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',width:140}}/>
-          <Select ariaLabel="Filter by tag" value={tagFilter} onChange={v=>setTagFilter(v)}
-            options={[{value:'',label:'All tags'},...allTags.map(t=>({value:t,label:`#${t}`}))]}/>
-          <button onClick={()=>setShowUnresolved(s=>!s)}
-            title={showUnresolved?'Hide unresolved [[wikilink]] targets':'Show unresolved [[wikilink]] targets'}
-            style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:showUnresolved?'var(--ac)':'transparent',color:showUnresolved?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-            {showUnresolved?'? Unresolved: on':'? Unresolved: off'}
-          </button>
-          <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace'}}>{displayedZoom}%</span>
-          <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden'}}>
+        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',justifyContent:'flex-end',rowGap:6,minWidth:0}}>
+          {/* Layout buttons render first so they stay pinned to the right
+              and never clip; other controls below shrink/wrap as needed. */}
+          <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden',flexShrink:0,order:0}}>
             {[['messy','◉ Messy','C'],['clusters','✦ Clusters','C'],['affinity','⚛ Affinity','A']].map(([k,label,hint])=>{
               const isActive=layoutMode===k;
               const fellBack=k==='clusters'&&isActive&&effectiveLayoutMode!=='clusters';
@@ -535,8 +526,21 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
               );
             })}
           </div>
-          <button onClick={resetAll} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Reset</button>
-          <div style={{width:140}}>
+          <button onClick={()=>setShowUnresolved(s=>!s)}
+            title={showUnresolved?'Hide unresolved [[wikilink]] targets':'Show unresolved [[wikilink]] targets'}
+            style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:showUnresolved?'var(--ac)':'transparent',color:showUnresolved?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>
+            {showUnresolved?'? Unresolved: on':'? Unresolved: off'}
+          </button>
+          <button onClick={resetAll} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Reset</button>
+          <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace',flexShrink:0}}>{displayedZoom}%</span>
+          <input value={titleQuery} onChange={e=>setTitleQuery(e.target.value)}
+            placeholder="Search titles…" aria-label="Search node titles"
+            style={{padding:'4px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',width:120,minWidth:80}}/>
+          <div style={{width:140,flexShrink:0}}>
+            <Select ariaLabel="Filter by tag" value={tagFilter} onChange={v=>setTagFilter(v)}
+              options={[{value:'',label:'All tags'},...allTags.map(t=>({value:t,label:`#${t}`}))]}/>
+          </div>
+          <div style={{width:140,flexShrink:0}}>
             <Select ariaLabel="Filter graph by type" value={filter} onChange={setFilter}
               options={[{value:'all',label:'All types'},...TYPES.map(t=>({value:t,label:LABEL[t]}))]}/>
           </div>

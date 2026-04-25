@@ -266,11 +266,12 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     e.stopPropagation();
     const ctm=svgRef.current.getScreenCTM();if(!ctm)return;
     const alt=e.altKey;
+    const shift=e.shiftKey;
     const ci=nodeToComp[nodeId];
     const origComp=componentOffsets[ci]||{dx:0,dy:0};
     const origNode=nodeOffsets[nodeId]||{dx:0,dy:0};
     compDragRef.current={
-      nodeId,compIdx:ci,alt,
+      nodeId,compIdx:ci,alt,shift,
       startClientX:e.clientX,startClientY:e.clientY,
       origCompDx:origComp.dx,origCompDy:origComp.dy,
       origNodeDx:origNode.dx,origNodeDy:origNode.dy,
@@ -295,7 +296,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   const onNodePointerUp=(e,nodeId)=>{
     const d=compDragRef.current;if(!d||d.nodeId!==nodeId)return;
     e.currentTarget.releasePointerCapture?.(d.pointerId);
-    const wasDrag=d.moved,wasAlt=d.alt;
+    const wasDrag=d.moved,wasAlt=d.alt,wasShift=d.shift;
     compDragRef.current=null;
     if(wasDrag)return;
     if(wasAlt){
@@ -303,11 +304,20 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
       setNodeOffsets(prev=>{if(!(nodeId in prev))return prev;const n={...prev};delete n[nodeId];return n});
       return;
     }
-    onNodeClick(nodeId);
+    // Obsidian-parity: plain click opens the note. Shift+click drills
+    // into the local-graph focal stack (former default; preserved as
+    // a power-user modifier so users who want the spatial drill-down
+    // still have it).
+    if(wasShift){
+      onFocalDrill(nodeId);
+      return;
+    }
+    onOpen(nodeId);
   };
 
-  // Clicking a node (no drag) digs deeper. Click same = back.
-  const onNodeClick=(id)=>{
+  // Drill into a node's local graph (Shift+click). Click the same focal
+  // node again pops one layer.
+  const onFocalDrill=(id)=>{
     if(focal===id){setFocalStack(st=>st.slice(0,-1));return}
     setFocalStack(st=>[...st,id]);
   };

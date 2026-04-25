@@ -8,7 +8,7 @@ import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
 import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
 import { MANUAL_LINKS_FIELD } from './lib/frontmatter.js';
-import { exportEntriesJSON, exportEntriesMD, importEntriesJSON } from './lib/exports.js';
+import { exportVaultBundle, exportEntriesMD, importVaultBundle } from './lib/exports.js';
 import { getConstellationDemoEntries } from './lib/demoEntries.js';
 import { useSystemDark } from './lib/hooks.js';
 import { useOpenRouterCallback, useAppShortcuts } from './lib/appHooks.js';
@@ -96,11 +96,10 @@ export default function App(){
   const currentBase=useMemo(()=>bases.find(b=>b.id===currentBaseId)||null,[bases,currentBaseId]);
 
   // Canvases — same TDZ-prevention pattern as bases. Declared above the
-  // big effects + before useActivation reads. The `currentCanvasId` is
-  // derived from the section convention `canvas:<id>`.
+  // big effects + before useActivation reads. The `currentCanvasId`
+  // derivation is inline so we don't introduce a memo dependency cycle.
   const[canvases,setCanvases]=useState([]);
   const currentCanvasId=section.startsWith('canvas:')?section.slice(7):null;
-  const currentCanvas=useMemo(()=>canvases.find(c=>c.id===currentCanvasId)||null,[canvases,currentCanvasId]);
 
   // Command palette: registry instance lives once per App mount; the
   // open flag drives the modal. Builtin commands are registered after
@@ -486,7 +485,12 @@ export default function App(){
 
 
 
-  const exportJSON=()=>{exportEntriesJSON(entries);toast('Exported JSON')};
+  const exportJSON=()=>{
+    // Phase 10 vault bundle: bundles entries + bases + canvases in one file.
+    // entries from useVault, bases + canvases from App state declared above.
+    exportVaultBundle({entries,bases:bases||[],canvases:canvases||[]});
+    toast('Exported vault bundle');
+  };
   const exportMD=()=>{exportEntriesMD(entries);toast('Exported Markdown')};
   const loadConstellationDemo=useCallback(async()=>{
     const existingDemo=new Set(
@@ -511,9 +515,31 @@ export default function App(){
   const importJSON=async(file)=>{
     try{
       const existingIds=new Set(entries.map(x=>x.id));
-      const{fresh,duplicates}=await importEntriesJSON(file,existingIds);
+      const{entries:entryResult,bases:importedBases,canvases:importedCanvases}=
+        await importVaultBundle(file,existingIds);
+      const{fresh,duplicates}=entryResult;
+      // Entries → existing per-entry save path.
       await Promise.all(fresh.map(e=>saveEntry(e)));
-      toast(`Imported ${fresh.length} entries${duplicates?` (${duplicates} duplicates skipped)`:''}`);
+      // Bases → write each as <vault>/bases/<id>.base.json via the vault adapter.
+      for(const b of importedBases){
+        try{await vaultAdapter.write(basePath(b.id),serializeBase(b))}
+        catch(err){reportError(err,'Base import failed: '+b.id)}
+      }
+      // Canvases → write each as <vault>/canvases/<id>.canvas.json. Canvas
+      // module isn't imported here yet (parallel branch), so use the locked
+      // path constants directly.
+      for(const c of importedCanvases){
+        try{await vaultAdapter.write('canvases/'+c.id+'.canvas.json',JSON.stringify(c,null,2))}
+        catch(err){reportError(err,'Canvas import failed: '+c.id)}
+      }
+      // Refresh vault — the bases-loader useEffect re-runs on entries.length
+      // change, picking up any newly-imported .base.json files automatically.
+      await refreshVault();
+      const parts=[`${fresh.length} entries`];
+      if(importedBases.length)parts.push(`${importedBases.length} bases`);
+      if(importedCanvases.length)parts.push(`${importedCanvases.length} canvases`);
+      const dupeNote=duplicates?` (${duplicates} duplicates skipped)`:'';
+      toast(`Imported ${parts.join(', ')}${dupeNote}`);
     }catch(err){toast('Import failed: '+(err.message||'invalid file'),'error')}
   };
 
@@ -540,7 +566,7 @@ export default function App(){
             canvasId={currentCanvasId}
             entries={visibleEntries}
             onSelect={id=>setSection(`canvas:${id}`)}
-            onCreate={handleNewCanvas}
+            onCreate={persistCanvas}
             onCanvasChange={persistCanvas}
             onOpenEntry={id=>setDetailId(id)}
             onClose={()=>setSection('all')}/>

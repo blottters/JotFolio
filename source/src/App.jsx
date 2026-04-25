@@ -46,7 +46,7 @@ export default function App(){
   const isBrowserVault=typeof window!=='undefined'&&!window.electron?.vault;
   const[darkMode,setDarkMode]=useState('system');
   const[customColors,setCustomColors]=useState({});
-  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,featureFlags:DEFAULT_FEATURE_FLAGS};
+  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,defaultLayoutMode:'messy',featureFlags:DEFAULT_FEATURE_FLAGS};
   const[prefs,setPrefs]=useState(DEFAULT_PREFS);
   const[toasts,setToasts]=useState([]);
   const toast=useCallback((msg,type='success')=>{
@@ -302,7 +302,9 @@ export default function App(){
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {section==='graph'?(
-          <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}/>
+          <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}
+            layoutMode={prefs.defaultLayoutMode||'messy'}
+            onLayoutModeChange={mode=>setPrefs(p=>({...p,defaultLayoutMode:mode}))}/>
         ):(<>
           <Toolbar query={query} setQuery={setQuery} section={section}
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { TYPES, LABEL } from '../../lib/types.js';
 import { GraphLockOverlay } from '../../onboarding/nudges.jsx';
 import { Select } from '../dropdowns/Select.jsx';
@@ -9,7 +9,7 @@ import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from 
 // jitter). Node size encodes link-count. Node color encodes type. Starred
 // entries get a halo. Click node = open detail.
 export const TYPE_HUE={video:'#ef4444',podcast:'#a855f7',article:'#3b82f6',journal:'#10b981',link:'#f59e0b',note:'#14b8a6'};
-export function ConstellationView({entries,onOpen,onBack,onAdd}){
+export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange}){
   const[filter,setFilter]=useState('all');
   const[hover,setHover]=useState(null);
   // Stack of focal ids. Top = current view. Empty = full web.
@@ -24,7 +24,14 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
   const bobRef=useRef({}); // {[id]: {dx, dy}} — read-shared between RAF + drag math
   const[componentOffsets,setComponentOffsets]=useState({}); // per-cluster drag offset
   const[nodeOffsets,setNodeOffsets]=useState({}); // per-node detached offset (Alt+drag)
-  const[layoutMode,setLayoutMode]=useState('messy'); // 'messy' | 'clusters' | 'affinity'
+  // Layout mode is controlled by App via prefs.defaultLayoutMode so the
+  // user's choice persists across sessions. Local fallback to 'messy' if
+  // the parent forgets to wire the prop.
+  const layoutMode=layoutModeProp||'messy';
+  const setLayoutMode=useCallback(updater=>{
+    if(!onLayoutModeChange)return;
+    onLayoutModeChange(typeof updater==='function'?updater(layoutMode):updater);
+  },[layoutMode,onLayoutModeChange]);
   const[legendOpen,setLegendOpen]=useState(true);
   const svgRef=useRef(null);
   const phasesRef=useRef({});
@@ -69,19 +76,35 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
   // pool changes and caches the result.
   const affinityLayout=useMemo(()=>computeAffinityLayout(pool),[pool]);
 
+  // Sparse-link vaults break the Clusters layout: when most components are
+  // singletons, computeClusterLayout drops every node at its cell center
+  // and the result is a graph-paper grid. Auto-fall-back to messy
+  // positioning when ≥80% of components are size 1, so the toggle still
+  // says "Clusters" but the user sees an organic spread until they have
+  // enough links for cluster shapes to actually emerge.
+  const singletonRatio=useMemo(()=>{
+    if(!components.length)return 0;
+    const singletons=components.filter(g=>g.length===1).length;
+    return singletons/components.length;
+  },[components]);
+  const effectiveLayoutMode=useMemo(()=>{
+    if(layoutMode==='clusters'&&singletonRatio>=0.8)return 'messy';
+    return layoutMode;
+  },[layoutMode,singletonRatio]);
+
   // Three layouts: 'messy' | 'clusters' | 'affinity'. CSS transition on each
   // node's outer <g> smoothly animates position changes when mode toggles.
   const nodes=useMemo(()=>{
-    if(layoutMode==='affinity'){
+    if(effectiveLayoutMode==='affinity'){
       const compOf={};components.forEach((g,ci)=>g.forEach(n=>{compOf[n.id]=ci}));
       return pool.map(e=>{
         const p=affinityLayout[e.id]||{x:400,y:300};
         return{...e,x:p.x,y:p.y,comp:compOf[e.id]??0,depth:0};
       });
     }
-    if(layoutMode==='messy')return computeMessyLayout(pool,components);
+    if(effectiveLayoutMode==='messy')return computeMessyLayout(pool,components);
     return computeClusterLayout(components);
-  },[components,pool,layoutMode,affinityLayout]);
+  },[components,pool,effectiveLayoutMode,affinityLayout]);
   const nodeById=useMemo(()=>{const m={};nodes.forEach(n=>m[n.id]=n);return m},[nodes]);
   const nodeToComp=useMemo(()=>{const m={};nodes.forEach(n=>{m[n.id]=n.comp});return m},[nodes]);
   const edges=useMemo(()=>{
@@ -398,12 +421,17 @@ export function ConstellationView({entries,onOpen,onBack,onAdd}){
         <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:10}}>
           <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace'}}>{displayedZoom}%</span>
           <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden'}}>
-            {[['messy','◉ Messy','C'],['clusters','✦ Clusters','C'],['affinity','⚛ Affinity','A']].map(([k,label,hint])=>(
-              <button key={k} onClick={()=>setLayoutMode(k)} title={`Layout: ${label} (${hint})`}
-                style={{padding:'4px 10px',fontSize:11,background:layoutMode===k?'var(--ac)':'transparent',color:layoutMode===k?'var(--act)':'var(--t2)',border:'none',borderRight:'1px solid var(--br)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-                {label}
-              </button>
-            ))}
+            {[['messy','◉ Messy','C'],['clusters','✦ Clusters','C'],['affinity','⚛ Affinity','A']].map(([k,label,hint])=>{
+              const isActive=layoutMode===k;
+              const fellBack=k==='clusters'&&isActive&&effectiveLayoutMode!=='clusters';
+              return(
+                <button key={k} onClick={()=>setLayoutMode(k)}
+                  title={fellBack?`Layout: ${label} (${hint}) — vault has too few links for cluster shapes; showing messy positions until you link more entries.`:`Layout: ${label} (${hint})`}
+                  style={{padding:'4px 10px',fontSize:11,background:isActive?'var(--ac)':'transparent',color:isActive?'var(--act)':'var(--t2)',border:'none',borderRight:'1px solid var(--br)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,opacity:fellBack?0.7:1}}>
+                  {label}{fellBack?'*':''}
+                </button>
+              );
+            })}
           </div>
           <button onClick={resetAll} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Reset</button>
           <div style={{width:140}}>

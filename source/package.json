@@ -54,7 +54,7 @@
       "src-electron/**/*"
     ],
     "publish": [
-      { "provider": "github", "owner": "blottters", "repo": "jotfolio" }
+      { "provider": "github", "owner": "blottters", "repo": "JotFolio" }
     ],
     "mac": {
       "category": "public.app-category.productivity",

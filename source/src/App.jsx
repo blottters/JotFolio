@@ -181,6 +181,11 @@ export default function App(){
 
   // Celebration state for 3-entry activation
   const [celebrating,setCelebrating]=useState(false);
+  // visibleEntries is the feature-flag-filtered slice that drives all
+  // UI surfaces (library, counts, tags, Constellation, onboarding). Must
+  // be declared before useActivation reads it — earlier placement triggered
+  // a TDZ ReferenceError that crashed App on mount.
+  const visibleEntries=useMemo(()=>filterEntriesForUI(entries,prefs.featureFlags),[entries,prefs.featureFlags]);
   const activation=useActivation(visibleEntries.length);
 
   const addEntry=useCallback(async(entry)=>{
@@ -236,7 +241,6 @@ export default function App(){
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
-  const visibleEntries=useMemo(()=>filterEntriesForUI(entries,prefs.featureFlags),[entries,prefs.featureFlags]);
 
   const filtered=useMemo(()=>{
     let r=visibleEntries;

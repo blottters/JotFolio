@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useDeferredValue, useCallback } from "react";
+import { useState, useEffect, useMemo, useDeferredValue, useCallback, useRef } from "react";
 import { updateLastSeen, logEvent, isOnboarded, useActivation, recordEntryAdded } from './onboarding/activation.js';
 import { WelcomePanel } from './onboarding/WelcomePanel.jsx';
 import { ProgressPill, FirstSaveBanner, Day2ReturnCard, ActivationToast } from './onboarding/nudges.jsx';
@@ -23,6 +23,9 @@ import { DetailPanel } from './features/detail/DetailPanel.jsx';
 import { ConstellationView } from './features/constellation/ConstellationView.jsx';
 import { SettingsPanel } from './features/settings/SettingsPanel.jsx';
 import { useVault } from './features/vault/useVault.js';
+import { CommandPalette } from './features/commandPalette/CommandPalette.jsx';
+import { createCommandRegistry } from './lib/command/commandRegistry.js';
+import { registerBuiltinCommands } from './features/commandPalette/builtinCommands.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -78,6 +81,14 @@ export default function App(){
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
   const[settingsOpen,setSettingsOpen]=useState(false);
 
+  // Command palette: registry instance lives once per App mount; the
+  // open flag drives the modal. Builtin commands are registered after
+  // the appCtx callbacks below are constructed (see effect further down).
+  const[paletteOpen,setPaletteOpen]=useState(false);
+  const commandRegistryRef=useRef(null);
+  if(commandRegistryRef.current===null){commandRegistryRef.current=createCommandRegistry();}
+  const commandRegistry=commandRegistryRef.current;
+
   // Onboarding: log app.open + stamp lastSeen once per mount
   useEffect(()=>{
     updateLastSeen();
@@ -109,6 +120,23 @@ export default function App(){
 
   useOpenRouterCallback(toast);
   useAppShortcuts({blocked:showAddModal||!!detailId,openAdd});
+
+  // Cmd/Ctrl+P toggles the command palette globally — the only kbd
+  // handler the palette itself doesn't own (Esc + arrows are handled
+  // inside the modal). Suppressed while typing in inputs unless the
+  // palette is already open (so users can re-press to close).
+  useEffect(()=>{
+    const onKey=e=>{
+      const isP=e.key==='p'||e.key==='P';
+      if(!isP||!(e.metaKey||e.ctrlKey))return;
+      const inField=e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.isContentEditable;
+      if(inField&&!paletteOpen)return;
+      e.preventDefault();
+      setPaletteOpen(o=>!o);
+    };
+    document.addEventListener('keydown',onKey);
+    return()=>document.removeEventListener('keydown',onKey);
+  },[paletteOpen]);
 
   // CSS vars
   useEffect(()=>{
@@ -199,6 +227,52 @@ export default function App(){
       toast(`${ICON[entry.type]} Entry saved`);
     }catch(err){reportError(err,'Entry save failed')}
   },[entries.length,saveEntry,toast,reportError]);
+
+  // Phase 7 helpers: callbacks the command palette + plugins consume
+  // through appCtx. Defined here so they close over the freshest state.
+  const toggleTheme=useCallback(()=>{
+    setDarkMode(m=>m==='dark'?'light':m==='light'?'system':'dark');
+    toast(`Theme: ${darkMode==='dark'?'light':darkMode==='light'?'system':'dark'}`,'info');
+  },[darkMode,toast]);
+
+  const createDailyNote=useCallback(async()=>{
+    const todayIso=new Date().toISOString().slice(0,10);
+    const existing=entries.find(e=>e.type==='journal'&&(e.entry_date===todayIso||e.title===todayIso));
+    if(existing){setSection('all');setDetailId(existing.id);toast('Opened today’s journal','info');return existing.id}
+    const date=new Date().toISOString();
+    const next={id:uid(),type:'journal',title:todayIso,notes:`# ${todayIso}\n\n`,tags:['daily'],status:'draft',entry_date:todayIso,date,starred:false,links:[]};
+    try{
+      await saveEntry(next);
+      await refreshVault();
+      setSection('all');
+      setDetailId(next.id);
+      toast('Daily note created');
+      return next.id;
+    }catch(err){reportError(err,'Daily note failed');return null}
+  },[entries,saveEntry,refreshVault,toast,reportError]);
+
+  const focusSearch=useCallback(()=>{
+    setTimeout(()=>document.querySelector('input[placeholder^="Search"]')?.focus(),0);
+  },[]);
+
+  // Register builtin commands once the dependent callbacks are stable.
+  // The disposer cleans up if the App ever unmounts (test environments).
+  useEffect(()=>{
+    const dispose=registerBuiltinCommands(commandRegistry,{
+      openAdd,
+      setSection,
+      refreshVault,
+      toggleTheme,
+      createDailyNote,
+      focusSearch,
+    });
+    return dispose;
+  },[commandRegistry,openAdd,refreshVault,toggleTheme,createDailyNote,focusSearch]);
+
+  const executeCommand=useCallback(async(id)=>{
+    try{await commandRegistry.execute(id);setPaletteOpen(false)}
+    catch(err){reportError(err,'Command failed')}
+  },[commandRegistry,reportError]);
 
   // Phase 3: create a real note from an unresolved [[wikilink]] target.
   // Title-matched so the existing wikilink resolver picks it up on the
@@ -381,6 +455,12 @@ export default function App(){
         onLoadConstellationDemo={loadConstellationDemo}
         prefs={prefs} setPrefs={setPrefs}
         onClose={()=>setSettingsOpen(false)}/>}
+      <CommandPalette
+        open={paletteOpen}
+        registry={commandRegistry}
+        onExecute={executeCommand}
+        onClose={()=>setPaletteOpen(false)}
+        onError={(err,cmd)=>reportError(err,`Command "${cmd?.name||'?'}" failed`)}/>
       <Toasts toasts={toasts}/>
       <ActivationToast visible={celebrating} onDone={()=>{setCelebrating(false);setSection('graph')}}/>
     </div>

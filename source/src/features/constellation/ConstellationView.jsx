@@ -299,24 +299,23 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     const wasDrag=d.moved,wasAlt=d.alt,wasShift=d.shift;
     compDragRef.current=null;
     if(wasDrag)return;
+    // Swapped bindings (per user pref):
+    //   Alt+click   → open note in DetailPanel
+    //   Plain click → focal-drill into the local graph
+    //   Shift+click → focal-drill (kept for muscle memory)
     if(wasAlt){
-      // Alt+click with no movement: snap this node back to its layout spot
-      setNodeOffsets(prev=>{if(!(nodeId in prev))return prev;const n={...prev};delete n[nodeId];return n});
+      onOpen(nodeId);
       return;
     }
-    // Obsidian-parity: plain click opens the note. Shift+click drills
-    // into the local-graph focal stack (former default; preserved as
-    // a power-user modifier so users who want the spatial drill-down
-    // still have it).
     if(wasShift){
       onFocalDrill(nodeId);
       return;
     }
-    onOpen(nodeId);
+    onFocalDrill(nodeId);
   };
 
-  // Drill into a node's local graph (Shift+click). Click the same focal
-  // node again pops one layer.
+  // Drill into a node's local graph. Click the same focal node again
+  // pops one layer.
   const onFocalDrill=(id)=>{
     if(focal===id){setFocalStack(st=>st.slice(0,-1));return}
     setFocalStack(st=>[...st,id]);

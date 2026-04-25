@@ -32,6 +32,9 @@ import { normalizeBase, serializeBase, basePath, BASE_FILE_EXT, BASE_DIR } from 
 import { CanvasExplorer } from './features/canvas/CanvasExplorer.jsx';
 import { normalizeCanvas, serializeCanvas, canvasPath, CANVAS_DIR, CANVAS_FILE_EXT } from './lib/canvas/canvasTypes.js';
 import { vault as vaultAdapter } from './adapters/index.js';
+import { createPluginHost } from './lib/plugin/pluginHost.js';
+import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
+import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -108,6 +111,15 @@ export default function App(){
   const commandRegistryRef=useRef(null);
   if(commandRegistryRef.current===null){commandRegistryRef.current=createCommandRegistry();}
   const commandRegistry=commandRegistryRef.current;
+
+  // Plugin host + panel store. Same per-App-mount instance pattern as
+  // the command registry. The host gets an appContext built from
+  // capability-style methods so plugins can extend the UI without
+  // reaching into App's mutable state.
+  const panelStoreRef=useRef(null);
+  if(panelStoreRef.current===null){panelStoreRef.current=createPanelStore();}
+  const panelStore=panelStoreRef.current;
+  const pluginHostRef=useRef(null);
 
   // Onboarding: log app.open + stamp lastSeen once per mount
   useEffect(()=>{
@@ -407,6 +419,32 @@ export default function App(){
     catch(err){reportError(err,'Command failed')}
   },[commandRegistry,reportError]);
 
+  // Phase 8 plugin host: build a frozen appContext from capability-style
+  // methods and activate the builtin Word Count plugin once at mount.
+  // entriesRef + toastRef avoid stale closures so plugin code always
+  // sees the freshest state without re-creating the host on every
+  // render (which would re-activate the plugin and double-register
+  // commands).
+  const entriesRef=useRef(entries);useEffect(()=>{entriesRef.current=entries},[entries]);
+  const toastRef=useRef(toast);useEffect(()=>{toastRef.current=toast},[toast]);
+  const onOpenEntryRef=useRef(setDetailId);useEffect(()=>{onOpenEntryRef.current=setDetailId},[]);
+  useEffect(()=>{
+    if(pluginHostRef.current)return; // host already wired
+    const appContext={
+      registerCommand:cmd=>commandRegistry.register(cmd),
+      registerPanel:panel=>panelStore.register(panel),
+      toast:(msg,type)=>toastRef.current?.(msg,type),
+      onOpenEntry:id=>onOpenEntryRef.current?.(id),
+      getEntries:()=>entriesRef.current||[],
+    };
+    const host=createPluginHost({appContext});
+    host.load(wordCountPlugin);
+    try{host.activate(wordCountPlugin.id)}
+    catch(err){reportError(err,'Plugin activate failed')}
+    pluginHostRef.current=host;
+    return()=>{host.deactivateAll();pluginHostRef.current=null};
+  },[commandRegistry,panelStore,reportError]);
+
   // Phase 3: create a real note from an unresolved [[wikilink]] target.
   // Title-matched so the existing wikilink resolver picks it up on the
   // next index rebuild, which auto-resolves both the source entry's
@@ -557,7 +595,8 @@ export default function App(){
         onNewBase={handleNewBase}
         canvases={canvases}
         onSelectCanvas={id=>setSection(`canvas:${id}`)}
-        onNewCanvas={handleNewCanvas}/>
+        onNewCanvas={handleNewCanvas}
+        pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {currentCanvasId?(

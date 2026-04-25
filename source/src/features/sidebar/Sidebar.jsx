@@ -2,7 +2,7 @@ import { TYPES, ICON, LABEL } from '../../lib/types.js';
 import { Pressable } from '../primitives/Pressable.jsx';
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,bases=[],onSelectBase,onNewBase,canvases=[],onSelectCanvas,onNewCanvas}){
+export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,bases=[],onSelectBase,onNewBase,canvases=[],onSelectCanvas,onNewCanvas,pluginPanelsSlot}){
   return(
     <aside className="mgn-sb" style={{width,background:'var(--sb)',borderRight:'1px solid var(--br)',display:'flex',flexDirection:'column',flexShrink:0,transition:'width 0.2s',overflow:'hidden',zIndex:10}}>
       <Pressable onPress={onToggle} ariaLabel={open?'Collapse sidebar':'Expand sidebar'}
@@ -77,6 +77,7 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
           )}
         </>}
       </nav>
+      {open&&pluginPanelsSlot}
       <div style={{padding:8,borderTop:'1px solid var(--br)',flexShrink:0}}>
         <button onClick={onOpenSettings} aria-label="Settings" title="Settings"
           style={{width:'100%',padding:open?'8px 12px':'8px',background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,color:'var(--t2)',display:'flex',alignItems:'center',justifyContent:open?'flex-start':'center',gap:8}}>

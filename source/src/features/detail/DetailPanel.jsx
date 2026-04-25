@@ -7,6 +7,25 @@ import { SrOnly } from '../primitives/SrOnly.jsx';
 import { TagSuggestions } from '../primitives/TagSuggestions.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 import { NoteBody } from '../editor/NoteBody.jsx';
+import { PropertiesPanel } from '../properties/PropertiesPanel.jsx';
+import { getPropertyKeys } from '../../lib/base/queryBase.js';
+
+// PropertiesSection — small wrapper that derives the visible-key count
+// for the <details> summary and forwards everything to PropertiesPanel.
+// Pulled out as a named component so we don't need an IIFE in the JSX
+// (per project style: no IIFEs in component bodies).
+function PropertiesSection({entry,entries,onUpdate}){
+  const propKeys=Object.keys(entry||{}).filter(k=>!['_path','id','date','title','notes','unresolvedTargets'].includes(k)&&!k.startsWith('_'));
+  const allFmKeys=getPropertyKeys(entries);
+  return(
+    <details style={{marginBottom:16,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)',padding:'6px 10px'}}>
+      <summary style={{cursor:'pointer',fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,userSelect:'none'}}>Properties ({propKeys.length})</summary>
+      <div style={{paddingTop:8}}>
+        <PropertiesPanel entry={entry} onUpdate={onUpdate} allKeys={allFmKeys}/>
+      </div>
+    </details>
+  );
+}
 
 function formFromEntry(entry){
   return {...entry,tags:(entry.tags||[]).join(', ')};
@@ -253,6 +272,7 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
                 </div>
               </div>
             )}
+            <PropertiesSection entry={entry} entries={entries} onUpdate={onUpdate}/>
             {related.length>0&&(
               <div>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Related by tags</div>

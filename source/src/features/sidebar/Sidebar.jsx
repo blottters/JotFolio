@@ -2,7 +2,7 @@ import { TYPES, ICON, LABEL } from '../../lib/types.js';
 import { Pressable } from '../primitives/Pressable.jsx';
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings}){
+export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,bases=[],onSelectBase,onNewBase}){
   return(
     <aside className="mgn-sb" style={{width,background:'var(--sb)',borderRight:'1px solid var(--br)',display:'flex',flexDirection:'column',flexShrink:0,transition:'width 0.2s',overflow:'hidden',zIndex:10}}>
       <Pressable onPress={onToggle} ariaLabel={open?'Collapse sidebar':'Expand sidebar'}
@@ -33,6 +33,28 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
               <span style={{fontSize:10,opacity:.45,flexShrink:0,marginLeft:4}}>{tagCounts[t]||0}</span>
             </Pressable>
           ))}
+        </>}
+        {open&&<>
+          <NavHeader>Bases</NavHeader>
+          {bases.length===0&&(
+            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',fontStyle:'italic'}}>No bases yet</div>
+          )}
+          {bases.map(b=>{
+            const active=section===`base:${b.id}`;
+            return(
+              <Pressable key={b.id} onPress={()=>onSelectBase&&onSelectBase(b.id)} ariaLabel={`Open base ${b.name}`} ariaPressed={active}
+                style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
+                <span style={{flexShrink:0,opacity:.6}}>▦</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.name}</span>
+              </Pressable>
+            );
+          })}
+          {onNewBase&&(
+            <Pressable onPress={onNewBase} ariaLabel="Create new base"
+              style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:11,color:'var(--t3)',display:'flex',alignItems:'center',gap:6,marginTop:2}}>
+              <span style={{flexShrink:0}}>+</span><span>New base</span>
+            </Pressable>
+          )}
         </>}
       </nav>
       <div style={{padding:8,borderTop:'1px solid var(--br)',flexShrink:0}}>

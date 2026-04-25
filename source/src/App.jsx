@@ -27,6 +27,9 @@ import { CommandPalette } from './features/commandPalette/CommandPalette.jsx';
 import { createCommandRegistry } from './lib/command/commandRegistry.js';
 import { registerBuiltinCommands } from './features/commandPalette/builtinCommands.js';
 import { parseSearchQuery, matchesQuery } from './lib/search/searchVault.js';
+import { BaseExplorer } from './features/bases/BaseExplorer.jsx';
+import { normalizeBase, serializeBase, basePath, BASE_FILE_EXT, BASE_DIR } from './lib/base/baseTypes.js';
+import { vault as vaultAdapter } from './adapters/index.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -81,6 +84,14 @@ export default function App(){
   const[detailId,setDetailId]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
   const[settingsOpen,setSettingsOpen]=useState(false);
+
+  // Bases — declared up here (above useActivation + the big effects below)
+  // because the load effect runs once vault is ready, and the sidebar reads
+  // `bases` directly during render. Placement matters: the prior TDZ regression
+  // in commit e479292 was caused by a memo declared below its consumer.
+  const[bases,setBases]=useState([]);
+  const currentBaseId=section.startsWith('base:')?section.slice(5):null;
+  const currentBase=useMemo(()=>bases.find(b=>b.id===currentBaseId)||null,[bases,currentBaseId]);
 
   // Command palette: registry instance lives once per App mount; the
   // open flag drives the modal. Builtin commands are registered after
@@ -202,6 +213,67 @@ export default function App(){
     if(!prefsLoaded)return;
     storage.set('mgn-p',{theme,darkMode,sidebarOpen,customColors,prefs}).catch(err=>reportError(err,'Settings save failed'));
   },[prefsLoaded,theme,darkMode,sidebarOpen,customColors,prefs,reportError]);
+
+  // Load all .base.json files from the vault. Runs once the vault is open
+  // and again after refreshVault() (e.g. after a save). Files that fail to
+  // parse are skipped silently — bases are user-editable JSON and a hand-
+  // edit typo shouldn't block the rest from loading.
+  useEffect(()=>{
+    if(!vaultInfo||vaultLoading)return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const files=await vaultAdapter.list();
+        const baseFiles=files.filter(f=>f.path&&f.path.startsWith(`${BASE_DIR}/`)&&f.name.endsWith(BASE_FILE_EXT));
+        const loaded=[];
+        for(const bf of baseFiles){
+          try{
+            const content=await vaultAdapter.read(bf.path);
+            const parsed=JSON.parse(content);
+            loaded.push(normalizeBase(parsed));
+          }catch{ /* skip malformed base */ }
+        }
+        if(!cancelled)setBases(loaded);
+      }catch{ /* vault list failure already surfaced via useVault */ }
+    })();
+    return()=>{cancelled=true};
+  },[vaultInfo,vaultLoading,entries.length]);
+
+  // Persist a single base (insert-or-update) to the vault. Called from the
+  // sidebar "+ New base" CTA and from BaseView's onBaseChange. We keep the
+  // in-memory list authoritative so the UI updates instantly; the disk
+  // write is fire-and-forget but errors surface via toast.
+  const persistBase=useCallback(async(nextBase)=>{
+    const normalized=normalizeBase(nextBase);
+    setBases(list=>{
+      const idx=list.findIndex(b=>b.id===normalized.id);
+      if(idx===-1)return[...list,normalized];
+      const next=list.slice();
+      next[idx]=normalized;
+      return next;
+    });
+    try{
+      await vaultAdapter.write(basePath(normalized.id),serializeBase(normalized));
+    }catch(err){reportError(err,'Base save failed')}
+  },[reportError]);
+  const handleNewBase=useCallback(async()=>{
+    const created={
+      id:`base-${Date.now().toString(36)}`,
+      name:'New Base',
+      version:1,
+      filters:[],
+      sorts:[],
+      columns:['title','type','status','tags'],
+      activeViewId:'table',
+      views:[
+        {id:'table',type:'table',name:'Table'},
+        {id:'cards',type:'cards',name:'Cards'},
+        {id:'list',type:'list',name:'List'},
+      ],
+    };
+    await persistBase(created);
+    setSection(`base:${created.id}`);
+  },[persistBase]);
 
   // Apply font size preference to document root
   // UI scale: `zoom` on body scales the whole app (fonts, spacing, icons).
@@ -392,10 +464,20 @@ export default function App(){
         theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
         onAdd={openAdd} onExportJSON={exportJSON} onExportMD={exportMD}
         victoryColors={customColors} setVictoryColors={setCustomColors}
-        onOpenSettings={()=>setSettingsOpen(s=>!s)}/>
+        onOpenSettings={()=>setSettingsOpen(s=>!s)}
+        bases={bases}
+        onSelectBase={id=>setSection(`base:${id}`)}
+        onNewBase={handleNewBase}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
-        {section==='graph'?(
+        {currentBaseId?(
+          <BaseExplorer
+            entries={visibleEntries}
+            base={currentBase}
+            onBaseChange={persistBase}
+            onCreateBase={persistBase}
+            onOpenEntry={id=>setDetailId(id)}/>
+        ):section==='graph'?(
           <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}
             layoutMode={prefs.defaultLayoutMode||'messy'}
             onLayoutModeChange={mode=>setPrefs(p=>({...p,defaultLayoutMode:mode}))}

@@ -34,6 +34,7 @@ import { normalizeCanvas, serializeCanvas, canvasPath, CANVAS_DIR, CANVAS_FILE_E
 import { vault as vaultAdapter } from './adapters/index.js';
 import { createPluginHost } from './lib/plugin/pluginHost.js';
 import { Ribbon } from './features/ribbon/Ribbon.jsx';
+import { UpdateBanner } from './features/updater/UpdateBanner.jsx';
 import { TemplatesPanel } from './features/templates/TemplatesPanel.jsx';
 import { InsertTemplateModal } from './features/templates/InsertTemplateModal.jsx';
 import { QuickSwitcher } from './features/quickSwitcher/QuickSwitcher.jsx';
@@ -801,6 +802,7 @@ export default function App(){
         onInsert={handleInsertTemplate}
         onClose={()=>setInsertTemplateOpen(false)}/>
       <Toasts toasts={toasts}/>
+      <UpdateBanner/>
       <ActivationToast visible={celebrating} onDone={()=>{setCelebrating(false);setSection('graph')}}/>
     </div>
   );

@@ -51,9 +51,14 @@ function setup(mainWindow) {
     sendStatus({ state: 'ready', version: info.version });
   });
 
-  // Check shortly after launch, then every 6 hours
-  const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-  setTimeout(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 30_000);
+  // Check almost immediately on launch (3s — gives the renderer enough
+  // time to mount its update-status listener), then every 15 minutes
+  // while the app is open. Aggressive polling matches the user's
+  // expectation that "push to GitHub = installed app sees it soon."
+  // electron-updater itself rate-limits the underlying GitHub API calls
+  // so we don't have to worry about hitting limits on this interval.
+  const CHECK_INTERVAL_MS = 15 * 60 * 1000;
+  setTimeout(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 3_000);
   setInterval(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), CHECK_INTERVAL_MS);
 
   // IPC: renderer can ask for an on-demand check + trigger install

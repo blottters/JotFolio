@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>JotFolio — Front Page Mockup (final ribbon)</title>
+<style>
+  :root {
+    --bg: #0e1116;
+    --surface: #161a22;
+    --surface-2: #1c2230;
+    --border: #2a3142;
+    --tx: #e6e9ef;
+    --tx-2: #aab1c1;
+    --tx-3: #6c7388;
+    --ac: #5b8def;
+    --ac-soft: rgba(91, 141, 239, 0.15);
+    --ghost: #6c7388;
+    --rd: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--tx);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+  /* RIBBON */
+  .ribbon { width: 48px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 8px 0; gap: 4px; flex-shrink: 0; }
+  .ribbon-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: var(--tx-2); border-radius: var(--rd); cursor: pointer; transition: background 0.12s, color 0.12s; position: relative; border: none; background: transparent; }
+  .ribbon-btn:hover { background: var(--surface-2); color: var(--tx); }
+  .ribbon-btn.active { color: var(--ac); background: var(--surface-2); }
+  .ribbon-btn svg { width: 18px; height: 18px; }
+  .ribbon-btn[data-tip]:hover::after { content: attr(data-tip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); padding: 4px 8px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; white-space: nowrap; color: var(--tx); font-size: 11px; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+  .ribbon-divider { width: 24px; height: 1px; background: var(--border); margin: 6px 0; }
+  .ribbon-bottom { margin-top: auto; }
+
+  /* EXPLORER */
+  .explorer { width: 240px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .explorer-header { padding: 12px 14px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--tx-3); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .explorer-search { margin: 8px 12px; padding: 6px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--rd); color: var(--tx); font-size: 12px; }
+  .explorer-tree { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .tree-row { display: flex; align-items: center; gap: 6px; padding: 4px 14px; color: var(--tx-2); cursor: pointer; font-size: 13px; user-select: none; }
+  .tree-row:hover { background: var(--surface-2); }
+  .tree-row.active { background: var(--surface-2); color: var(--ac); }
+  .tree-row.folder { font-weight: 600; }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+  .panel.active { display: flex; }
+  .panel-header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; background: var(--surface); flex-shrink: 0; }
+  .panel-title { font-size: 16px; font-weight: 700; color: var(--tx); }
+  .panel-sub { font-size: 12px; color: var(--tx-3); margin-left: auto; }
+  .panel-body { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* RIGHT PANEL */
+  .right { width: 280px; background: var(--surface); border-left: 1px solid var(--border); flex-shrink: 0; overflow-y: auto; }
+  .right-section { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .right-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--tx-3); margin-bottom: 8px; }
+  .right-link { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; color: var(--tx-2); cursor: pointer; font-size: 12px; border-bottom: 1px dashed var(--border); }
+  .right-link:last-child { border-bottom: none; }
+  .right-link .src { color: var(--ac); font-weight: 600; flex-shrink: 0; }
+  .right-link .ctx { color: var(--tx-3); font-size: 11px; line-height: 1.5; }
+
+  /* SHARED */
+  .tag-chip { background: var(--surface-2); color: var(--tx-2); padding: 2px 8px; border-radius: 99px; font-size: 11px; }
+  .ghost-pill { display: inline-block; background: transparent; color: var(--ghost); border: 1px dashed var(--ghost); padding: 1px 8px; border-radius: 99px; font-size: 11px; cursor: pointer; }
+
+  /* NOTE PANEL */
+  .properties { margin-bottom: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); }
+  .properties-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; padding: 4px 0; font-size: 12px; }
+  .prop-key { color: var(--tx-3); }
+  .prop-val.tag-list { display: flex; gap: 4px; flex-wrap: wrap; }
+  .add-property { color: var(--tx-3); font-size: 11px; padding: 4px 0 0; cursor: pointer; }
+  .add-property:hover { color: var(--ac); }
+  .note-title { font-size: 28px; font-weight: 700; margin-bottom: 18px; border: none; background: transparent; color: var(--tx); width: 100%; outline: none; font-family: inherit; }
+  .note-body { font-size: 15px; line-height: 1.7; color: var(--tx); max-width: 800px; }
+  .note-body h2 { font-size: 20px; font-weight: 700; margin: 22px 0 8px; }
+  .note-body p { margin-bottom: 12px; }
+  .wikilink { color: var(--ac); text-decoration: none; border-bottom: 1px solid transparent; cursor: pointer; }
+  .wikilink:hover { border-bottom-color: var(--ac); }
+  .wikilink.broken { color: var(--ghost); border-bottom: 1px dashed var(--ghost); }
+  .note-body code { background: var(--surface); padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 13px; }
+  .note-body blockquote { border-left: 3px solid var(--ac); padding: 4px 14px; color: var(--tx-2); margin: 12px 0; font-style: italic; }
+  .note-body ul { margin: 0 0 12px 24px; }
+  .caret { display: inline-block; width: 1px; height: 1.2em; background: var(--tx); vertical-align: text-bottom; margin: 0 1px; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* TEMPLATES PANEL (#1 and #4) */
+  .templates-grid { display: grid; grid-template-columns: 240px 1fr; gap: 14px; height: 100%; }
+  .templates-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); overflow-y: auto; padding: 6px 0; }
+  .templates-list-item { padding: 8px 14px; cursor: pointer; font-size: 13px; color: var(--tx-2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .templates-list-item:hover { background: var(--surface-2); color: var(--tx); }
+  .templates-list-item.active { background: var(--surface-2); color: var(--ac); border-left: 3px solid var(--ac); padding-left: 11px; }
+  .templates-preview { background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); padding: 16px 20px; overflow-y: auto; font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.7; color: var(--tx-2); white-space: pre-wrap; }
+  .templates-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+  .btn-primary { padding: 6px 14px; background: var(--ac); color: white; border: none; border-radius: var(--rd); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .btn-secondary { padding: 6px 14px; background: transparent; color: var(--tx-2); border: 1px solid var(--border); border-radius: var(--rd); font-size: 12px; cursor: pointer; }
+
+  /* CANVAS PANEL */
+  .canvas-area { position: relative; width: 100%; height: 100%; background: radial-gradient(circle, var(--surface-2) 1px, transparent 1px); background-size: 24px 24px; overflow: hidden; }
+  .canvas-card { position: absolute; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); width: 200px; cursor: move; }
+  .canvas-card.note { border-left: 3px solid var(--ac); }
+  .canvas-card-title { font-size: 12px; font-weight: 700; color: var(--tx); margin-bottom: 6px; }
+  .canvas-card-body { font-size: 11px; color: var(--tx-2); line-height: 1.5; }
+  .canvas-svg { position: absolute; inset: 0; pointer-events: none; }
+
+  /* RANDOM NOTE PANEL */
+  .random-wrap { max-width: 720px; }
+  .random-hero { padding: 30px 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); text-align: center; margin-bottom: 18px; }
+  .random-hero h2 { font-size: 20px; margin-bottom: 8px; color: var(--tx); }
+  .random-hero p { font-size: 13px; color: var(--tx-2); margin-bottom: 18px; }
+  .random-btn { padding: 10px 24px; background: var(--ac); color: white; border: none; border-radius: var(--rd); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .random-btn:hover { opacity: 0.9; }
+  .random-history { padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); }
+  .random-history-row { padding: 8px 0; border-bottom: 1px dashed var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+  .random-history-row:last-child { border-bottom: none; }
+  .random-history-row .when { color: var(--tx-3); font-size: 11px; font-family: ui-monospace, monospace; }
+
+  /* DAILY NOTE PANEL — uses note-body styles */
+  .daily-template { color: var(--tx-3); font-style: italic; }
+
+  /* GRAPH PANEL */
+  .graph-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); }
+  .graph-btn { padding: 4px 10px; font-size: 11px; background: transparent; color: var(--tx-2); border: 1px solid var(--border); border-radius: var(--rd); cursor: pointer; }
+  .graph-btn.active { background: var(--ac); color: white; border-color: var(--ac); }
+  .graph-canvas { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); overflow: hidden; }
+
+  /* QUICK SWITCHER + COMMAND PALETTE MODALS */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-start; justify-content: center; padding-top: 110px; }
+  .modal-overlay.active { display: flex; }
+  .modal-card { width: min(560px, 92vw); max-height: 60vh; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 24px 64px rgba(0,0,0,0.42); overflow: hidden; display: flex; flex-direction: column; }
+  .modal-input { padding: 14px 16px; border: none; border-bottom: 1px solid var(--border); background: transparent; color: var(--tx); font-size: 15px; outline: none; }
+  .modal-list { overflow-y: auto; padding: 6px 0; }
+  .modal-section { padding: 6px 16px 4px; font-size: 10px; color: var(--tx-3); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+  .modal-row { display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer; }
+  .modal-row.active { background: var(--ac); color: white; }
+  .modal-row:hover { background: var(--surface-2); }
+  .modal-row.active:hover { background: var(--ac); }
+  .modal-name { flex: 1; font-size: 13px; font-weight: 600; }
+  .modal-hint { font-size: 11px; color: var(--tx-3); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal-row.active .modal-hint { color: rgba(255,255,255,0.85); }
+  .modal-shortcut { font-size: 10px; font-family: ui-monospace, monospace; color: var(--tx-3); padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; }
+  .modal-row.active .modal-shortcut { color: white; border-color: white; }
+  .modal-foot { padding: 6px 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--tx-3); display: flex; gap: 12px; }
+  .qs-create-row { color: var(--tx-3); font-style: italic; }
+  .qs-create-row .modal-name { font-style: normal; color: var(--ac); }
+
+  /* TEMPLATE INSERT INDICATOR */
+  .insert-hint { background: var(--ac-soft); border: 1px solid var(--ac); border-radius: var(--rd); padding: 10px 14px; margin-bottom: 14px; font-size: 12px; color: var(--ac); display: flex; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+
+<!-- RIBBON: 8 functions matching real Obsidian + 1 settings. Numbered comments in source. -->
+<div class="ribbon">
+  <!-- 1. Templates (Templater equivalent) -->
+  <button class="ribbon-btn" data-tip="Templates" data-panel="templates">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+  </button>
+  <!-- 2. Quick Switcher (Cmd/Ctrl+O) -->
+  <button class="ribbon-btn" data-tip="Quick Switcher (Ctrl+O)" data-panel="quickswitch">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="11" cy="14" r="2"/><line x1="13.5" y1="16.5" x2="15" y2="18"/></svg>
+  </button>
+  <!-- 3. Create new canvas -->
+  <button class="ribbon-btn" data-tip="New Canvas" data-panel="canvas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+  </button>
+  <!-- 4. Insert template -->
+  <button class="ribbon-btn" data-tip="Insert Template" data-panel="insertTemplate">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="16" y2="13"/><line x1="9" y1="17" x2="16" y2="17"/></svg>
+  </button>
+  <!-- 5. Command Palette (Cmd/Ctrl+P) -->
+  <button class="ribbon-btn" data-tip="Command Palette (Ctrl+P)" data-panel="palette">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+  </button>
+  <!-- 6. Random Note -->
+  <button class="ribbon-btn" data-tip="Random Note" data-panel="random">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/></svg>
+  </button>
+  <div class="ribbon-divider"></div>
+  <!-- 7. Daily Note -->
+  <button class="ribbon-btn" data-tip="Daily Note (Ctrl+Shift+D)" data-panel="daily">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  </button>
+  <!-- 8. Graph View (Constellation) -->
+  <button class="ribbon-btn" data-tip="Graph View (Ctrl+G)" data-panel="graph">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><line x1="7.5" y1="7.5" x2="11" y2="16"/><line x1="16.5" y1="7.5" x2="13" y2="16"/><line x1="8" y1="6" x2="16" y2="6"/></svg>
+  </button>
+  <div class="ribbon-bottom"></div>
+  <!-- Settings (always pinned bottom) -->
+  <button class="ribbon-btn" data-tip="Settings" data-panel="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</div>
+
+<!-- EXPLORER -->
+<div class="explorer">
+  <div class="explorer-header"><span>JOTFOLIO</span><span style="opacity: 0.5;">+</span></div>
+  <input class="explorer-search" placeholder="Search notes…" />
+  <div class="explorer-tree">
+    <div class="tree-row folder">▾ inbox</div>
+    <div class="tree-row" style="padding-left: 28px;">📥 Karpathy talk capture</div>
+    <div class="tree-row" style="padding-left: 28px;">📥 Field notes 2026-04-25</div>
+    <div class="tree-row folder">▾ wiki</div>
+    <div class="tree-row active" style="padding-left: 28px;">🧠 Compiler Notes</div>
+    <div class="tree-row" style="padding-left: 28px;">🧠 Memory architectures</div>
+    <div class="tree-row folder">▾ notes</div>
+    <div class="tree-row" style="padding-left: 28px;">📝 My First Note</div>
+    <div class="tree-row" style="padding-left: 28px;">📝 Quick Note Test</div>
+    <div class="tree-row folder">▾ articles</div>
+    <div class="tree-row" style="padding-left: 28px;">📄 Markdown Test</div>
+    <div class="tree-row folder">▾ templates</div>
+    <div class="tree-row" style="padding-left: 28px;">⊟ daily-note.md</div>
+    <div class="tree-row" style="padding-left: 28px;">⊟ meeting-notes.md</div>
+    <div class="tree-row" style="padding-left: 28px;">⊟ wiki-entry.md</div>
+    <div class="tree-row folder">▸ podcasts</div>
+    <div class="tree-row folder">▸ videos</div>
+    <div class="tree-row folder">▸ journals</div>
+    <div class="tree-row folder">▸ canvases</div>
+    <div class="tree-row folder">▸ bases</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- DEFAULT NOTE -->
+  <div class="panel active" data-panel-id="note">
+    <div class="panel-header">
+      <span class="panel-title">🧠 Compiler Notes</span>
+      <span class="panel-sub">wiki / Compiler Notes.md</span>
+    </div>
+    <div class="panel-body" style="padding: 14px 60px 60px;">
+      <div class="properties">
+        <div class="properties-row"><div class="prop-key">aliases</div><div class="prop-val tag-list"><span class="tag-chip">knowledge compiler</span><span class="tag-chip">memory compiler</span></div></div>
+        <div class="properties-row"><div class="prop-key">status</div><div class="prop-val">reviewed</div></div>
+        <div class="properties-row"><div class="prop-key">valid_from</div><div class="prop-val">2026-04-24</div></div>
+        <div class="properties-row"><div class="prop-key">starred</div><div class="prop-val">✓</div></div>
+        <div class="properties-row"><div class="prop-key">tags</div><div class="prop-val tag-list"><span class="tag-chip">llm-wiki</span><span class="tag-chip">compiler</span><span class="tag-chip">memory</span></div></div>
+        <div class="add-property">+ Add property</div>
+      </div>
+      <div class="note-body">
+        <input class="note-title" value="Compiler Notes" />
+        <h2>Summary</h2>
+        <p>A compiler reads <a class="wikilink">Raw Notes</a> from the inbox and emits durable <a class="wikilink">Wiki Entries</a> that retrieval prefers over raw material. See <a class="wikilink">Karpathy Talk Capture</a> for the source observation.</p>
+        <h2>Mechanism</h2>
+        <p>Each compiled entry tracks <code>provenance</code> (source ids), <code>confidence</code> (heuristic), and <code>supersedes</code> (prior compiled entries this replaces). Ghost notes like <a class="wikilink broken">Stale Knowledge Decay</a> show as dashed circles until you create them.</p>
+        <blockquote>Raw stays the truth. Compiled is derived. Manifest is the only thing that knows the difference.</blockquote>
+        <h2>Open questions<span class="caret"></span></h2>
+        <ul>
+          <li>Does <a class="wikilink">Affinity Layout</a> work better than clusters for retrieval surfaces?</li>
+          <li>Should review entries auto-graduate to wiki when confidence ≥ 0.8?</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. TEMPLATES — manage + apply existing templates -->
+  <div class="panel" data-panel-id="templates">
+    <div class="panel-header">
+      <span class="panel-title">⊟ Templates</span>
+      <span class="panel-sub">templates/ folder · 3 templates</span>
+    </div>
+    <div class="panel-body">
+      <div class="templates-actions">
+        <button class="btn-primary">+ New template</button>
+        <button class="btn-secondary">Apply to active note</button>
+        <button class="btn-secondary">Edit selected</button>
+      </div>
+      <div class="templates-grid">
+        <div class="templates-list">
+          <div class="templates-list-item active">⊟ daily-note.md</div>
+          <div class="templates-list-item">⊟ meeting-notes.md</div>
+          <div class="templates-list-item">⊟ wiki-entry.md</div>
+        </div>
+        <div class="templates-preview">---
+type: journal
+entry_date: {{date}}
+tags: [daily]
+---
+
+# {{date:dddd, MMMM D, YYYY}}
+
+## What happened
+
+## What I'm thinking about
+
+## What's next
+
+- [ ]
+</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. INSERT TEMPLATE — fuzzy picker that inserts at cursor -->
+  <div class="panel" data-panel-id="insertTemplate">
+    <div class="panel-header">
+      <span class="panel-title">⊟+ Insert Template</span>
+      <span class="panel-sub">at cursor in active note</span>
+    </div>
+    <div class="panel-body">
+      <div class="insert-hint">
+        <span>↳</span>
+        <span>Pick a template to insert at the current cursor position in <strong>Compiler Notes</strong>. Variables like <code style="background: var(--bg); padding: 1px 5px; border-radius: 3px;">{{date}}</code> resolve at insert time.</span>
+      </div>
+      <input class="modal-input" placeholder="Search templates…" style="width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); margin-bottom: 8px;" />
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: var(--rd); overflow: hidden;">
+        <div class="modal-row active">
+          <span class="modal-name">⊟ meeting-notes</span>
+          <span class="modal-hint">Sets up date, attendees, agenda, action items</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-name">⊟ daily-note</span>
+          <span class="modal-hint">Daily journal w/ date frontmatter + sections</span>
+        </div>
+        <div class="modal-row">
+          <span class="modal-name">⊟ wiki-entry</span>
+          <span class="modal-hint">Wiki frontmatter (canonical_key, aliases, provenance)</span>
+        </div>
+      </div>
+      <div style="margin-top: 14px; font-size: 11px; color: var(--tx-3);">↑↓ navigate · ↵ insert · Esc cancel</div>
+    </div>
+  </div>
+
+  <!-- 3. CANVAS -->
+  <div class="panel" data-panel-id="canvas">
+    <div class="panel-header">
+      <span class="panel-title">▦ Canvas — Compiler Architecture</span>
+      <span class="panel-sub">canvases/compiler-arch.canvas.json · 6 nodes · 5 edges</span>
+    </div>
+    <div class="panel-body" style="padding: 0;">
+      <div class="canvas-area">
+        <svg class="canvas-svg" viewBox="0 0 1200 700">
+          <line x1="160" y1="120" x2="380" y2="200" stroke="var(--tx-3)" stroke-width="1.5" />
+          <line x1="160" y1="280" x2="380" y2="200" stroke="var(--tx-3)" stroke-width="1.5" />
+          <line x1="380" y1="280" x2="600" y2="200" stroke="var(--tx-3)" stroke-width="1.5" />
+          <line x1="600" y1="280" x2="820" y2="200" stroke="var(--ac)" stroke-width="2" stroke-dasharray="4 4"/>
+          <line x1="820" y1="280" x2="1020" y2="200" stroke="var(--tx-3)" stroke-width="1.5" />
+        </svg>
+        <div class="canvas-card note" style="left: 60px; top: 60px;"><div class="canvas-card-title">📥 Karpathy talk capture</div><div class="canvas-card-body">Raw transcript w/ timestamps. Source for compiler design.</div></div>
+        <div class="canvas-card note" style="left: 60px; top: 220px;"><div class="canvas-card-title">📥 Field notes 2026-04-25</div><div class="canvas-card-body">Daily journal with compiler review session.</div></div>
+        <div class="canvas-card" style="left: 280px; top: 140px; background: var(--surface-2);"><div class="canvas-card-title" style="color: var(--ac);">[ Compiler ]</div><div class="canvas-card-body">deterministic-stub<br>confidence ≥ 0.7 → wiki<br>else → review</div></div>
+        <div class="canvas-card note" style="left: 500px; top: 140px;"><div class="canvas-card-title">🧠 Compiler Notes</div><div class="canvas-card-body">Compiled from 2 raw sources. Confidence: high.</div></div>
+        <div class="canvas-card" style="left: 500px; top: 280px; background: var(--surface-2);"><div class="canvas-card-title" style="color: var(--ghost);">supersedes</div><div class="canvas-card-body">prior compiled-id v1</div></div>
+        <div class="canvas-card" style="left: 720px; top: 140px; background: transparent; border: 1px dashed var(--ghost);"><div class="canvas-card-title" style="color: var(--ghost);">Stale Knowledge Decay</div><div class="canvas-card-body" style="color: var(--tx-3);">ghost — click to create</div></div>
+        <div class="canvas-card note" style="left: 920px; top: 140px;"><div class="canvas-card-title">🧠 Memory architectures</div><div class="canvas-card-body">Cross-references compiler's staleness rule.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. RANDOM NOTE -->
+  <div class="panel" data-panel-id="random">
+    <div class="panel-header">
+      <span class="panel-title">⚀ Random Note</span>
+      <span class="panel-sub">surface forgotten material</span>
+    </div>
+    <div class="panel-body">
+      <div class="random-wrap">
+        <div class="random-hero">
+          <h2>Resurface a forgotten note</h2>
+          <p>Picks a note at random from the vault. Use this when you want to reconnect with old material, find linkable context, or just mix things up.</p>
+          <button class="random-btn">⚀ Pick a random note</button>
+          <div style="margin-top: 14px; font-size: 11px; color: var(--tx-3);">Filters: <span class="tag-chip" style="background: var(--surface-2);">notes only</span> <span class="tag-chip" style="background: var(--surface-2);">not opened in 30+ days</span></div>
+        </div>
+        <div class="random-history">
+          <div class="right-header" style="margin-bottom: 10px;">Recent picks</div>
+          <div class="random-history-row"><a class="wikilink">My First Note</a><span class="when">2 min ago</span></div>
+          <div class="random-history-row"><a class="wikilink">Markdown Test</a><span class="when">14 min ago</span></div>
+          <div class="random-history-row"><a class="wikilink">Karpathy talk capture</a><span class="when">1 hr ago</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. DAILY NOTE -->
+  <div class="panel" data-panel-id="daily">
+    <div class="panel-header">
+      <span class="panel-title">📅 Daily Note</span>
+      <span class="panel-sub">journals/2026-04-25.md · today · created from daily-note template</span>
+    </div>
+    <div class="panel-body" style="padding: 14px 60px 60px;">
+      <div class="properties">
+        <div class="properties-row"><div class="prop-key">type</div><div class="prop-val">journal</div></div>
+        <div class="properties-row"><div class="prop-key">entry_date</div><div class="prop-val">2026-04-25</div></div>
+        <div class="properties-row"><div class="prop-key">tags</div><div class="prop-val tag-list"><span class="tag-chip">daily</span></div></div>
+        <div class="add-property">+ Add property</div>
+      </div>
+      <div class="note-body">
+        <input class="note-title" value="Saturday, April 25, 2026" />
+        <h2>What happened</h2>
+        <p class="daily-template">— write today's events here —</p>
+        <h2>What I'm thinking about</h2>
+        <p>Reviewed <a class="wikilink">Compiler Notes</a> after the call. The supersedes chain is finally clean.</p>
+        <p>Need to look at <a class="wikilink broken">Affinity Layout</a> tomorrow — currently a ghost.</p>
+        <h2>What's next</h2>
+        <ul>
+          <li>Wire up the affinity layout heuristic</li>
+          <li>Consolidate <a class="wikilink">Memory architectures</a> w/ <a class="wikilink">Compiler Notes</a><span class="caret"></span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. GRAPH (Constellation) -->
+  <div class="panel" data-panel-id="graph">
+    <div class="panel-header">
+      <span class="panel-title">✦ Constellation</span>
+      <span class="panel-sub">34 entries · 6 links · 1 ghost</span>
+    </div>
+    <div class="panel-body" style="display: flex; flex-direction: column;">
+      <div class="graph-toolbar">
+        <input placeholder="Search titles…" style="padding: 4px 8px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--rd); color: var(--tx); width: 140px;" />
+        <select style="padding: 4px 8px; font-size: 11px; background: var(--bg); color: var(--tx); border: 1px solid var(--border); border-radius: var(--rd);"><option>All tags</option></select>
+        <button class="graph-btn active">◌ Ghost notes: on</button>
+        <button class="graph-btn" style="margin-left: auto;">◉ Messy</button>
+        <button class="graph-btn active">✦ Clusters</button>
+        <button class="graph-btn">⚛ Affinity</button>
+      </div>
+      <div class="graph-canvas">
+        <svg viewBox="0 0 800 500" width="100%" height="100%">
+          <line x1="200" y1="200" x2="380" y2="180" stroke="var(--tx-3)" stroke-width="1" />
+          <line x1="380" y1="180" x2="540" y2="220" stroke="var(--tx-3)" stroke-width="1" />
+          <line x1="380" y1="180" x2="420" y2="320" stroke="var(--tx-3)" stroke-width="1" />
+          <line x1="540" y1="220" x2="640" y2="120" stroke="var(--ac)" stroke-width="1.5" stroke-dasharray="4 4" />
+          <line x1="200" y1="200" x2="160" y2="360" stroke="var(--tx-3)" stroke-width="1" />
+          <circle cx="200" cy="200" r="12" fill="#3b82f6" stroke="var(--bg)" stroke-width="2"/>
+          <text x="200" y="225" text-anchor="middle" fill="var(--tx)" font-size="10">Karpathy</text>
+          <circle cx="380" cy="180" r="14" fill="#14b8a6" stroke="var(--bg)" stroke-width="2"/>
+          <text x="380" y="206" text-anchor="middle" fill="var(--tx)" font-size="10" font-weight="700">Compiler Notes</text>
+          <circle cx="540" cy="220" r="11" fill="#14b8a6" stroke="var(--bg)" stroke-width="2"/>
+          <text x="540" y="244" text-anchor="middle" fill="var(--tx)" font-size="10">Memory arch.</text>
+          <circle cx="420" cy="320" r="9" fill="#10b981" stroke="var(--bg)" stroke-width="2"/>
+          <text x="420" y="344" text-anchor="middle" fill="var(--tx-2)" font-size="10">Field notes</text>
+          <circle cx="160" cy="360" r="10" fill="#a855f7" stroke="var(--bg)" stroke-width="2"/>
+          <text x="160" y="385" text-anchor="middle" fill="var(--tx-2)" font-size="10">Markdown Test</text>
+          <circle cx="640" cy="120" r="10" fill="transparent" stroke="var(--ghost)" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <text x="640" y="145" text-anchor="middle" fill="var(--ghost)" font-size="10" font-style="italic">Stale Decay</text>
+          <circle cx="80" cy="80" r="6" fill="#ef4444" opacity="0.6" />
+          <circle cx="700" cy="380" r="7" fill="#f59e0b" opacity="0.6" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- placeholders for modals -->
+  <div class="panel" data-panel-id="palette"><div class="panel-header"><span class="panel-title">Command Palette</span><span class="panel-sub">opens as overlay</span></div><div class="panel-body"></div></div>
+  <div class="panel" data-panel-id="quickswitch"><div class="panel-header"><span class="panel-title">Quick Switcher</span><span class="panel-sub">opens as overlay</span></div><div class="panel-body"></div></div>
+
+  <div class="panel" data-panel-id="settings">
+    <div class="panel-header"><span class="panel-title">⚙ Settings</span><span class="panel-sub">JotFolio v0.5.0-alpha.6</span></div>
+    <div class="panel-body"><div style="color: var(--tx-3); font-size: 12px;">Settings tabs: Appearance · Theme · Vault · Plugins · Templates · Privacy · About</div></div>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="right">
+  <div class="right-section">
+    <div class="right-header">Backlinks (3)</div>
+    <div class="right-link"><span class="src">Karpathy talk capture</span><div class="ctx">"…the compiler emits compiled [[Compiler Notes]] from the raw transcript."</div></div>
+    <div class="right-link"><span class="src">Memory architectures</span><div class="ctx">"Cross-references the [[Compiler Notes]] for the staleness rule."</div></div>
+    <div class="right-link"><span class="src">Field notes 2026-04-25</span><div class="ctx">"Reviewed [[Compiler Notes]] after the call."</div></div>
+  </div>
+  <div class="right-section">
+    <div class="right-header">Outgoing (4)</div>
+    <div class="right-link"><span class="src">→ Raw Notes</span></div>
+    <div class="right-link"><span class="src">→ Wiki Entries</span></div>
+    <div class="right-link"><span class="src">→ Karpathy Talk Capture</span></div>
+    <div class="right-link"><span class="src">→ Affinity Layout</span></div>
+  </div>
+  <div class="right-section">
+    <div class="right-header">Ghost notes (1)</div>
+    <span class="ghost-pill">+ Stale Knowledge Decay</span>
+  </div>
+  <div class="right-section">
+    <div class="right-header">Tags</div>
+    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+      <span class="tag-chip">#llm-wiki</span>
+      <span class="tag-chip">#compiler</span>
+      <span class="tag-chip">#memory</span>
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE MODAL (Ctrl+P) -->
+<div class="modal-overlay" id="palette-modal">
+  <div class="modal-card">
+    <input class="modal-input" placeholder="Type a command…" />
+    <div class="modal-list">
+      <div class="modal-section">Notes</div>
+      <div class="modal-row active"><span class="modal-name">Create note</span><span class="modal-hint">Open the new-entry modal</span><span class="modal-shortcut">N</span></div>
+      <div class="modal-row"><span class="modal-name">Create daily note</span><span class="modal-hint">Open today's journal</span><span class="modal-shortcut">Ctrl+Shift+D</span></div>
+      <div class="modal-row"><span class="modal-name">Random note</span><span class="modal-hint">Pick a random note from the vault</span></div>
+      <div class="modal-section">View</div>
+      <div class="modal-row"><span class="modal-name">Open graph</span><span class="modal-hint">Switch to the Constellation view</span><span class="modal-shortcut">Ctrl+G</span></div>
+      <div class="modal-row"><span class="modal-name">Toggle theme</span><span class="modal-hint">Cycle light / dark / system</span></div>
+      <div class="modal-section">Templates</div>
+      <div class="modal-row"><span class="modal-name">Insert template at cursor</span><span class="modal-hint">Pick a template, insert in active note</span></div>
+      <div class="modal-row"><span class="modal-name">Manage templates</span><span class="modal-hint">Open the templates folder UI</span></div>
+      <div class="modal-section">Index</div>
+      <div class="modal-row"><span class="modal-name">Rebuild metadata cache</span><span class="modal-hint">Re-read vault files and rebuild the index</span></div>
+    </div>
+    <div class="modal-foot"><span>↑↓ navigate</span><span>↵ run</span><span>Esc close</span><span style="margin-left: auto;">Ctrl+P</span></div>
+  </div>
+</div>
+
+<!-- QUICK SWITCHER MODAL (Ctrl+O) — separate from palette: lists notes by title/alias -->
+<div class="modal-overlay" id="quickswitch-modal">
+  <div class="modal-card">
+    <input class="modal-input" placeholder="Jump to note by title or alias…" value="comp" />
+    <div class="modal-list">
+      <div class="modal-section">Matches</div>
+      <div class="modal-row active">
+        <span class="modal-name">🧠 Compiler Notes</span>
+        <span class="modal-hint">wiki · alias: knowledge compiler</span>
+        <span class="modal-shortcut">↵</span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-name">🧪 Compiler Merge Review</span>
+        <span class="modal-hint">review · pending</span>
+      </div>
+      <div class="modal-section">Recent</div>
+      <div class="modal-row">
+        <span class="modal-name">📅 Saturday, April 25, 2026</span>
+        <span class="modal-hint">journal · today</span>
+      </div>
+      <div class="modal-row">
+        <span class="modal-name">📥 Field notes 2026-04-25</span>
+        <span class="modal-hint">inbox · raw</span>
+      </div>
+      <div class="modal-section">Create</div>
+      <div class="modal-row qs-create-row">
+        <span class="modal-name">+ Create "comp"</span>
+        <span class="modal-hint">No exact match — Enter to create a new note with this title</span>
+        <span class="modal-shortcut">Shift+↵</span>
+      </div>
+    </div>
+    <div class="modal-foot"><span>↑↓ navigate</span><span>↵ open</span><span>Shift+↵ create</span><span>Esc close</span><span style="margin-left: auto;">Ctrl+O</span></div>
+  </div>
+</div>
+
+<script>
+  function showPanel(id) {
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.dataset.panelId === id));
+    document.querySelectorAll('.ribbon-btn').forEach(b => b.classList.toggle('active', b.dataset.panel === id));
+    if (id === 'palette') document.getElementById('palette-modal').classList.add('active');
+    if (id === 'quickswitch') document.getElementById('quickswitch-modal').classList.add('active');
+  }
+  document.querySelectorAll('.ribbon-btn').forEach(btn => {
+    btn.addEventListener('click', () => showPanel(btn.dataset.panel || 'note'));
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      e.preventDefault();
+      showPanel('palette');
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+      e.preventDefault();
+      showPanel('quickswitch');
+    }
+  });
+  document.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.addEventListener('mousedown', e => {
+      if (e.target === modal) modal.classList.remove('active');
+    });
+  });
+</script>
+
+</body>
+</html>

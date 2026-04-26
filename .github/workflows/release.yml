@@ -1,0 +1,68 @@
+# Release workflow — triggers on `v*` git tag push and builds + publishes
+# the Electron installer to GitHub Releases.
+#
+# Usage from any machine:
+#   git tag v0.5.0-alpha.8
+#   git push --tags
+#
+# That tag push triggers this workflow. Watch progress at:
+#   https://github.com/blottters/JotFolio/actions
+#
+# When green, the new release shows up at:
+#   https://github.com/blottters/JotFolio/releases
+#
+# Required repo secret: GH_TOKEN
+#   Settings → Secrets and variables → Actions → New repository secret
+#   Name: GH_TOKEN
+#   Value: a fine-grained PAT with Contents: read+write on this repo
+#
+# Future: add `macos-latest` and `ubuntu-latest` to the matrix to ship
+# Mac dmg + Linux AppImage in the same release. Each runner builds for
+# its native OS only — electron-builder doesn't cross-build cleanly.
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:        # also allow manual trigger from the Actions tab
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]   # add macos-latest, ubuntu-latest when ready
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+
+      - name: Install
+        working-directory: source
+        run: npm ci
+
+      - name: Lint sanity
+        working-directory: source
+        run: npm test
+        env:
+          CI: true
+
+      - name: Build + Publish
+        working-directory: source
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          npm run build
+          npx electron-builder --publish always

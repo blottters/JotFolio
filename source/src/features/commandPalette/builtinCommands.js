@@ -37,6 +37,34 @@ export function registerBuiltinCommands(registry, appCtx) {
   }));
 
   disposers.push(registry.register({
+    id: 'core:random-note',
+    name: 'Random note',
+    hint: 'Open a random entry from the vault',
+    section: 'Notes',
+    keywords: ['random', 'shuffle', 'discover'],
+    run: () => appCtx.openRandomNote?.(),
+  }));
+
+  disposers.push(registry.register({
+    id: 'core:quick-switcher',
+    name: 'Quick Switcher',
+    hint: 'Fuzzy-jump to a note by title or alias',
+    section: 'Notes',
+    keywords: ['switcher', 'jump', 'open', 'find'],
+    shortcut: 'Ctrl+O',
+    run: () => appCtx.openQuickSwitcher?.(),
+  }));
+
+  disposers.push(registry.register({
+    id: 'core:insert-template',
+    name: 'Insert template at cursor',
+    hint: 'Pick a template and insert into the active note',
+    section: 'Templates',
+    keywords: ['template', 'insert', 'scaffold'],
+    run: () => appCtx.openInsertTemplate?.(),
+  }));
+
+  disposers.push(registry.register({
     id: 'core:open-graph',
     name: 'Open graph',
     hint: 'Switch to the Constellation view',

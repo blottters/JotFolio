@@ -33,6 +33,12 @@ import { CanvasExplorer } from './features/canvas/CanvasExplorer.jsx';
 import { normalizeCanvas, serializeCanvas, canvasPath, CANVAS_DIR, CANVAS_FILE_EXT } from './lib/canvas/canvasTypes.js';
 import { vault as vaultAdapter } from './adapters/index.js';
 import { createPluginHost } from './lib/plugin/pluginHost.js';
+import { Ribbon } from './features/ribbon/Ribbon.jsx';
+import { TemplatesPanel } from './features/templates/TemplatesPanel.jsx';
+import { InsertTemplateModal } from './features/templates/InsertTemplateModal.jsx';
+import { QuickSwitcher } from './features/quickSwitcher/QuickSwitcher.jsx';
+import { loadTemplates, applyTemplateToNote, TEMPLATE_DIR, TEMPLATE_EXT } from './lib/templates/templateStore.js';
+import { pickRandomEntry } from './lib/random/randomNote.js';
 import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
 import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
 
@@ -108,6 +114,9 @@ export default function App(){
   // open flag drives the modal. Builtin commands are registered after
   // the appCtx callbacks below are constructed (see effect further down).
   const[paletteOpen,setPaletteOpen]=useState(false);
+  const[quickSwitcherOpen,setQuickSwitcherOpen]=useState(false);
+  const[insertTemplateOpen,setInsertTemplateOpen]=useState(false);
+  const[templates,setTemplates]=useState([]);
   const commandRegistryRef=useRef(null);
   if(commandRegistryRef.current===null){commandRegistryRef.current=createCommandRegistry();}
   const commandRegistry=commandRegistryRef.current;
@@ -160,15 +169,28 @@ export default function App(){
   useEffect(()=>{
     const onKey=e=>{
       const isP=e.key==='p'||e.key==='P';
-      if(!isP||!(e.metaKey||e.ctrlKey))return;
+      const isO=e.key==='o'||e.key==='O';
+      const mod=e.metaKey||e.ctrlKey;
+      if(!mod||(!isP&&!isO))return;
       const inField=e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.isContentEditable;
-      if(inField&&!paletteOpen)return;
-      e.preventDefault();
-      setPaletteOpen(o=>!o);
+      // Cmd/Ctrl+P → command palette. Cmd/Ctrl+O → quick switcher.
+      // Suppressed while typing in inputs unless the matching modal is
+      // already open (so users can re-press to close).
+      if(isP){
+        if(inField&&!paletteOpen)return;
+        e.preventDefault();
+        setPaletteOpen(o=>!o);
+        return;
+      }
+      if(isO){
+        if(inField&&!quickSwitcherOpen)return;
+        e.preventDefault();
+        setQuickSwitcherOpen(o=>!o);
+      }
     };
     document.addEventListener('keydown',onKey);
     return()=>document.removeEventListener('keydown',onKey);
-  },[paletteOpen]);
+  },[paletteOpen,quickSwitcherOpen]);
 
   // CSS vars
   useEffect(()=>{
@@ -347,6 +369,20 @@ export default function App(){
     setSection(`canvas:${created.id}`);
   },[persistCanvas]);
 
+  // Load templates from <vault>/templates/ on vault ready. Same
+  // skip-on-malformed convention as bases + canvases.
+  useEffect(()=>{
+    if(!vaultInfo||vaultLoading)return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const list=await loadTemplates(vaultAdapter);
+        if(!cancelled)setTemplates(list);
+      }catch{ /* silent — templates are optional */ }
+    })();
+    return()=>{cancelled=true};
+  },[vaultInfo,vaultLoading,entries.length]);
+
   // Apply font size preference to document root
   // UI scale: `zoom` on body scales the whole app (fonts, spacing, icons).
   // True font-only scaling would require a px→em refactor across ~100 inline styles.
@@ -400,6 +436,51 @@ export default function App(){
     setTimeout(()=>document.querySelector('input[placeholder^="Search"]')?.focus(),0);
   },[]);
 
+  // Phase A — Ribbon action handlers + Cmd+O Quick Switcher + Random Note.
+  // These are invoked from both the Ribbon component and the command palette
+  // builtins so users get keyboard + click parity for every action.
+  const openRandomNote=useCallback(()=>{
+    const picked=pickRandomEntry(visibleEntries);
+    if(!picked){toast('No entries to pick from','info');return}
+    setDetailId(picked.id);
+    toast(`🎲 Opened "${picked.title||'Untitled'}"`,'info');
+  },[visibleEntries,toast]);
+
+  const openQuickSwitcher=useCallback(()=>setQuickSwitcherOpen(true),[]);
+  const openInsertTemplate=useCallback(()=>{
+    if(!templates.length){toast('No templates yet — create one in templates/','info');return}
+    setInsertTemplateOpen(true);
+  },[templates.length,toast]);
+
+  // Insert template body at cursor in the active note's notes textarea.
+  // Resolves variables ({{date}}, {{title}}, etc.) before splicing.
+  const handleInsertTemplate=useCallback(async(template)=>{
+    setInsertTemplateOpen(false);
+    if(!template||!detailId)return;
+    const active=entries.find(e=>e.id===detailId);
+    if(!active)return;
+    const ctx={date:new Date(),title:active.title||''};
+    const resolved=applyTemplateToNote(template,ctx);
+    try{
+      await saveEntry({...active,notes:(active.notes||'')+'\n\n'+resolved.body});
+      toast(`Inserted template "${template.name}"`);
+    }catch(err){reportError(err,'Template insert failed')}
+  },[detailId,entries,saveEntry,toast,reportError]);
+
+  // Templates manage actions (panel-level): create blank template + open
+  // an existing template's path in detail editor.
+  const handleCreateTemplate=useCallback(async({name})=>{
+    const slug=String(name||'').trim().toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'')||`template-${Date.now().toString(36)}`;
+    const path=`${TEMPLATE_DIR}/${slug}${TEMPLATE_EXT}`;
+    const body=`---\ntype: note\n---\n\n# ${name||slug}\n\n`;
+    try{
+      await vaultAdapter.write(path,body);
+      const list=await loadTemplates(vaultAdapter);
+      setTemplates(list);
+      toast(`Template created: ${slug}`);
+    }catch(err){reportError(err,'Template create failed')}
+  },[toast,reportError]);
+
   // Register builtin commands once the dependent callbacks are stable.
   // The disposer cleans up if the App ever unmounts (test environments).
   useEffect(()=>{
@@ -410,9 +491,12 @@ export default function App(){
       toggleTheme,
       createDailyNote,
       focusSearch,
+      openRandomNote,
+      openQuickSwitcher,
+      openInsertTemplate,
     });
     return dispose;
-  },[commandRegistry,openAdd,refreshVault,toggleTheme,createDailyNote,focusSearch]);
+  },[commandRegistry,openAdd,refreshVault,toggleTheme,createDailyNote,focusSearch,openRandomNote,openQuickSwitcher,openInsertTemplate]);
 
   const executeCommand=useCallback(async(id)=>{
     try{await commandRegistry.execute(id);setPaletteOpen(false)}
@@ -583,6 +667,17 @@ export default function App(){
 
   return(
     <div className="mgn-app" style={{display:'flex',height:'100vh',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',overflow:'hidden',position:'relative'}}>
+      <Ribbon
+        activeRoute={section==='graph'?'graph':section==='templates'?'templates':paletteOpen?'palette':quickSwitcherOpen?'quickswitch':insertTemplateOpen?'insertTemplate':null}
+        onTemplates={()=>setSection('templates')}
+        onQuickSwitcher={openQuickSwitcher}
+        onNewCanvas={handleNewCanvas}
+        onInsertTemplate={openInsertTemplate}
+        onPalette={()=>setPaletteOpen(o=>!o)}
+        onRandomNote={openRandomNote}
+        onDailyNote={createDailyNote}
+        onGraphView={()=>setSection('graph')}
+        onSettings={()=>setSettingsOpen(s=>!s)}/>
       <Sidebar open={sidebarOpen} width={sidebarOpen?prefs.sidebarWidth:58} onToggle={()=>setSidebarOpen(o=>!o)}
         section={section} setSection={handleSection} counts={counts}
         allTags={allTags} tagCounts={tagCounts} filterTag={filterTag} setFilterTag={setFilterTag}
@@ -599,7 +694,16 @@ export default function App(){
         pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
-        {currentCanvasId?(
+        {section==='templates'?(
+          <div style={{flex:1,overflowY:'auto',padding:24}}>
+            <TemplatesPanel
+              templates={templates}
+              onCreate={handleCreateTemplate}
+              onApplyToActive={handleInsertTemplate}
+              onEdit={t=>{setSection('all');toast(`Open ${t.path} in editor (path open n/a yet)`,'info')}}
+              activeEntryId={detailId}/>
+          </div>
+        ):currentCanvasId?(
           <CanvasExplorer
             canvases={canvases}
             canvasId={currentCanvasId}
@@ -684,6 +788,18 @@ export default function App(){
         onExecute={executeCommand}
         onClose={()=>setPaletteOpen(false)}
         onError={(err,cmd)=>reportError(err,`Command "${cmd?.name||'?'}" failed`)}/>
+      <QuickSwitcher
+        open={quickSwitcherOpen}
+        entries={visibleEntries}
+        onOpenEntry={id=>{setQuickSwitcherOpen(false);setDetailId(id);}}
+        onCreateNote={async title=>{setQuickSwitcherOpen(false);await createFromMissing(title);}}
+        onClose={()=>setQuickSwitcherOpen(false)}/>
+      <InsertTemplateModal
+        open={insertTemplateOpen}
+        templates={templates}
+        activeNoteTitle={detail?.title||''}
+        onInsert={handleInsertTemplate}
+        onClose={()=>setInsertTemplateOpen(false)}/>
       <Toasts toasts={toasts}/>
       <ActivationToast visible={celebrating} onDone={()=>{setCelebrating(false);setSection('graph')}}/>
     </div>

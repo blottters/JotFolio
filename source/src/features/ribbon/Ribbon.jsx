@@ -67,9 +67,9 @@ export function Ribbon({
       <RibbonButton icon={ICONS.insertTpl}   tip="Insert Template"             onClick={onInsertTemplate}   active={activeRoute === 'insertTemplate'} />
       <RibbonButton icon={ICONS.palette}     tip="Command Palette (Ctrl+P)"    onClick={onPalette}          active={activeRoute === 'palette'} />
       <RibbonButton icon={ICONS.random}      tip="Random Note"                 onClick={onRandomNote} />
-      <div style={{ width: 24, height: 1, background: 'var(--br)', margin: '6px 0' }} />
       <RibbonButton icon={ICONS.daily}       tip="Daily Note (Ctrl+Shift+D)"   onClick={onDailyNote} />
       <RibbonButton icon={ICONS.graph}       tip="Graph View (Ctrl+G)"         onClick={onGraphView}        active={activeRoute === 'graph'} />
+      <div style={{ width: 24, height: 1, background: 'var(--br)', margin: '6px 0' }} />
       <div style={{ marginTop: 'auto' }} />
       <RibbonButton icon={ICONS.settings}    tip="Settings"                    onClick={onSettings} />
     </aside>

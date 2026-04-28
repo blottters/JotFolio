@@ -21,8 +21,8 @@ export function EmptyState({section,onAdd,hasFilters,onClear,query}){
   }
   return(
     <div style={{textAlign:'center',padding:'70px 20px',color:'var(--t3)'}}>
-      <div style={{fontSize:44,marginBottom:12}} aria-hidden="true">{isType?ICON[section]:'📭'}</div>
-      <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{isType?`No ${LABEL[section].toLowerCase()} yet`:'Nothing here yet'}</div>
+      {isType&&<div style={{fontSize:44,marginBottom:12}} aria-hidden="true">{ICON[section]}</div>}
+      <div style={{fontSize:15,fontWeight:700,marginBottom:4}}>{isType?`No ${LABEL[section].toLowerCase()} yet`:'Your vault is empty'}</div>
       <div style={{fontSize:13,marginBottom:16}}>
         Press <kbd style={{padding:'2px 6px',border:'1px solid var(--br)',borderRadius:'var(--rd)',fontSize:11,fontFamily:'monospace',background:'var(--b2)'}}>N</kbd> or click + to add an entry.
       </div>

@@ -19,7 +19,7 @@ export const wordCountPlugin = {
       keywords: ['count', 'words', 'stats'],
       run: () => {
         const summary = wordCountSummary(ctx.getEntries());
-        ctx.toast(`Vault: ${summary.totalWords.toLocaleString()} words across ${summary.entryCount} entries`, 'info');
+        ctx.toast(`Vault: ${summary.totalWords.toLocaleString('en-US')} words across ${summary.entryCount} entries`, 'info');
       },
     });
     ctx.registerPanel({

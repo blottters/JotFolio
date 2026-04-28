@@ -79,7 +79,7 @@ function AIPanel(){
         options={Object.entries(AI_PROVIDERS).map(([k,p])=>({value:k,label:p.label}))}/>
       {cfg.provider==='custom'&&<>
         <label htmlFor={ids.customUrl} style={sH}>Custom endpoint URL</label>
-        <input id={ids.customUrl} type="text" value={cfg.customUrl||''} onChange={e=>update({customUrl:e.target.value})} placeholder="https://api.example.com/v1/chat/completions" style={inputS} spellCheck={false}/>
+        <input id={ids.customUrl} type="text" value={cfg.customUrl||''} onChange={e=>update({customUrl:e.target.value})} placeholder="https://openrouter.ai/api/v1/chat/completions" style={inputS} spellCheck={false}/>
       </>}
       <span style={sH}>Model</span>
       {models.length>0?(

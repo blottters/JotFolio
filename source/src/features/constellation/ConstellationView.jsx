@@ -552,7 +552,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
           <svg ref={svgRef} viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet"
             style={{width:'100%',height:'100%',display:'block',cursor:isDragging?'grabbing':'grab',userSelect:'none',touchAction:'none'}}
             onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-            <g transform={transform} style={{transition:isDragging||panRef.current||compDragRef.current?'none':'transform 0.5s cubic-bezier(0.4,0,0.2,1)'}}>
+            <g transform={transform} style={{transition:isDragging||panRef.current||compDragRef.current?'none':'transform 0.5s var(--jf-ease-in-out)'}}>
               {edges.map(({a,b,unresolved},i)=>{
                 // Initial endpoints = base positions only; the RAF loop adds
                 // bob deltas via setAttribute on each frame. Reading offsets
@@ -570,7 +570,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                     strokeWidth={bothHover||bothFocal?1.6:0.8}
                     strokeDasharray={unresolved?'4 4':undefined}
                     opacity={unresolved?0.45:edgeOpacity(a,b)}
-                    style={{transition:focal?'x1 0.55s cubic-bezier(0.4,0,0.2,1), y1 0.55s cubic-bezier(0.4,0,0.2,1), x2 0.55s cubic-bezier(0.4,0,0.2,1), y2 0.55s cubic-bezier(0.4,0,0.2,1)':'none'}}/>
+                    style={{transition:focal?'x1 0.55s var(--jf-ease-in-out), y1 0.55s var(--jf-ease-in-out), x2 0.55s var(--jf-ease-in-out), y2 0.55s var(--jf-ease-in-out)':'none'}}/>
                 );
               })}
               {renderNodes.map(n=>{

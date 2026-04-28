@@ -1,4 +1,4 @@
-# JotFolio — v0.4.1
+# JotFolio — v0.5.0-alpha.7
 
 Personal knowledge management system. React 19 + Vite 7 renderer, Electron desktop shell, plugin runtime, vault on disk as `.md` files with YAML frontmatter.
 
@@ -100,11 +100,24 @@ Nothing in `JotFolio Archive/` is canonical. Reference only.
 
 ## Current state
 
-- Version: **0.4.1** (see `docs/CHANGELOG.md` + `docs/PATCH_NOTES.md`)
+- Version: **0.5.0-alpha.7** (see `docs/CHANGELOG.md` + `docs/PATCH_NOTES.md`)
 - Tests: 84/84 passing
 - Build: clean, 431 KB (gzip 130 KB)
 - Bench: first baseline committed, all targets met
 - Electron: scaffolded, never run by user — first run pending
+
+## Telemetry
+
+JotFolio supports **opt-in** crash telemetry via Sentry. It is **off by default**. When you enable it in Settings → Privacy:
+
+- Only crash signal is sent: exception name, sanitized stack frame, app version, platform
+- **No** note content, vault paths, file titles, frontmatter, IP, cookies, or request headers
+- Source paths in stack traces are sanitized to repo-relative
+- Without a configured DSN env var, the telemetry module makes zero network calls (it's lazy-loaded so opted-out users don't even ship the SDK in their bundle)
+
+To disable after enabling: Settings → Privacy → Crash reports → Off. Or unset `SENTRY_DSN` in the build environment to compile telemetry out entirely.
+
+This is the single SlateVault-charter exception to "no external content shipping" — see `slatevault_vibe_prompt.md` memory § Telemetry exception for the conditions.
 
 ## What's next
 

@@ -12,19 +12,30 @@
       default-src 'self';
       script-src 'self' 'unsafe-eval';
       worker-src 'self' blob:;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      font-src 'self' data: https://fonts.gstatic.com;
+      style-src 'self' 'unsafe-inline';
+      font-src 'self' data:;
       img-src 'self' data: blob:;
-      connect-src *;
+      connect-src 'self' https://openrouter.ai https://api.anthropic.com https://api.openai.com http://localhost:11434 http://127.0.0.1:11434 https://*.ingest.sentry.io;
       frame-src 'none';
       object-src 'none';
       base-uri 'none';
       form-action 'none';
     " />
     <title>JotFolio</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Geist:wght@400;700&family=Geist+Mono:wght@400&family=Manrope:wght@400;700&family=Space+Grotesk:wght@400;700&family=Bricolage+Grotesque:wght@400;700&family=Lora:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Crimson+Pro:wght@400;700&family=EB+Garamond:wght@400;700&family=Fraunces:wght@400;700&family=IBM+Plex+Serif:wght@400;700&family=Bodoni+Moda:wght@400;700&family=JetBrains+Mono:wght@400&family=Fira+Code:wght@400&family=IBM+Plex+Mono:wght@400&family=Space+Mono:wght@400;700&family=Caveat:wght@400;700&family=Kalam:wght@400;700&display=swap" />
+    <meta name="description" content="Plain files, your folders, no servers." />
+    <meta name="theme-color" content="#151415" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="JotFolio" />
+    <meta property="og:description" content="Plain files, your folders, no servers." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://github.com/blottters/JotFolio" />
+
+    <!-- TODO: ship real favicon + app icon assets (BRAND.18 / A.06).
+         Placeholder favicon would itself be a slop tell — skip until real mark exists. -->
+    <!-- <link rel="icon" href="/favicon.ico" sizes="any" /> -->
+    <!-- <link rel="icon" type="image/png" href="/icon.png" /> -->
+    <!-- <link rel="apple-touch-icon" href="/apple-touch-icon.png" /> -->
     <style>
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html,body,#root{height:100%;overflow:hidden}

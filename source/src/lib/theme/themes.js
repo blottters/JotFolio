@@ -27,29 +27,17 @@ export const THEMES = {
   signal:{name:'📡 Signal',light:{'--bg':'#fafdf2','--b2':'#f0f5dc','--sb':'#e4ecc8','--cd':'#fdfee8','--ac':'#166534','--act':'#fafdf2','--tx':'#0a1a0a','--t2':'#1a3a1a','--t3':'#6a7a6a','--br':'#b8d0a0','--rd':'2px','--fn':'"Space Mono","Courier New",monospace'},dark:{'--bg':'#000000','--b2':'#080c06','--sb':'#000000','--cd':'#040804','--ac':'#39ff14','--act':'#000000','--tx':'#d0d0d0','--t2':'#8a8a8a','--t3':'#5a5a5a','--br':'#1f2a1f'}},
 };
 
+// Self-hosted fonts only (charter: local-first). Installed via @fontsource(-variable)
+// packages and bundled by Vite. Themes that referenced fonts not in this list
+// fall through their stack to Georgia / system / monospace gracefully.
 export const FONTS = [
-  {label:'Inter',stack:'"Inter","system-ui",sans-serif'},
   {label:'System UI',stack:'system-ui,-apple-system,"Segoe UI",sans-serif'},
-  {label:'Geist',stack:'"Geist","Inter",sans-serif'},
-  {label:'Manrope',stack:'"Manrope","Inter",sans-serif'},
-  {label:'Space Grotesk',stack:'"Space Grotesk","Inter",sans-serif'},
-  {label:'Bricolage Grotesque',stack:'"Bricolage Grotesque","Inter",sans-serif'},
+  {label:'Inter',stack:'"Inter Variable","Inter","system-ui",sans-serif'},
   {label:'Georgia',stack:'"Georgia","Times New Roman",serif'},
-  {label:'Lora',stack:'"Lora","Georgia",serif'},
-  {label:'Playfair Display',stack:'"Playfair Display","Georgia",serif'},
-  {label:'Merriweather',stack:'"Merriweather","Georgia",serif'},
-  {label:'Crimson Pro',stack:'"Crimson Pro","Georgia",serif'},
-  {label:'EB Garamond',stack:'"EB Garamond","Georgia",serif'},
-  {label:'Fraunces',stack:'"Fraunces","Georgia",serif'},
-  {label:'IBM Plex Serif',stack:'"IBM Plex Serif","Georgia",serif'},
-  {label:'Bodoni Moda',stack:'"Bodoni Moda","Georgia",serif'},
-  {label:'JetBrains Mono',stack:'"JetBrains Mono","Courier New",monospace'},
-  {label:'Fira Code',stack:'"Fira Code","Courier New",monospace'},
-  {label:'IBM Plex Mono',stack:'"IBM Plex Mono","Courier New",monospace'},
-  {label:'Geist Mono',stack:'"Geist Mono","JetBrains Mono",monospace'},
-  {label:'Space Mono',stack:'"Space Mono","Courier New",monospace'},
+  {label:'Lora',stack:'"Lora Variable","Lora","Georgia",serif'},
+  {label:'Fraunces',stack:'"Fraunces Variable","Fraunces","Georgia",serif'},
+  {label:'JetBrains Mono',stack:'"JetBrains Mono Variable","JetBrains Mono","Courier New",monospace'},
   {label:'Caveat',stack:'"Caveat","Comic Sans MS",cursive'},
-  {label:'Kalam',stack:'"Kalam","Comic Sans MS",cursive'},
 ];
 
 export const DEFAULT_VICTORY_COLORS={bg:'#F3EFEA',fg:'#151415',ac:'#151415'};

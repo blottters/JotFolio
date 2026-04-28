@@ -18,6 +18,11 @@
     "a11y": "playwright test bench/a11y/"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/lora": "^5.2.8",
+    "@fontsource/caveat": "^5.2.8",
     "chokidar": "^4.0.3",
     "electron-updater": "^6.3.9",
     "marked": "^18.0.2",
@@ -25,20 +30,20 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "@sentry/browser": "^8.47.0",
+    "@sentry/cli": "^2.39.1",
+    "@sentry/electron": "^5.6.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.5.2",
     "concurrently": "^9.1.2",
     "electron": "^32.2.7",
     "electron-builder": "^25.1.8",
-    "@sentry/browser": "^8.47.0",
-    "@sentry/electron": "^5.6.0",
-    "@sentry/cli": "^2.39.1",
-    "@axe-core/playwright": "^4.10.1",
-    "playwright": "^1.49.1",
-    "tinybench": "^3.0.6",
-    "seedrandom": "^3.0.5",
     "jsdom": "^24.1.3",
+    "playwright": "^1.49.1",
+    "seedrandom": "^3.0.5",
+    "tinybench": "^3.0.6",
     "vite": "^7.0.0",
     "vitest": "^1.6.1",
     "wait-on": "^8.0.1"
@@ -54,11 +59,18 @@
       "src-electron/**/*"
     ],
     "publish": [
-      { "provider": "github", "owner": "blottters", "repo": "JotFolio" }
+      {
+        "provider": "github",
+        "owner": "blottters",
+        "repo": "JotFolio"
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -68,11 +80,18 @@
       }
     },
     "win": {
-      "target": ["nsis"],
-      "signingHashAlgorithms": ["sha256"]
+      "target": [
+        "nsis"
+      ],
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Office"
     }
   }

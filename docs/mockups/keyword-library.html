@@ -4,9 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>JotFolio — Keyword Library + MiniLM</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600&display=swap" />
+<!--
+  Charter-aligned: this mockup ships zero external font/script/style requests.
+  Demonstrates the same "no external content shipping" rule it advocates.
+  Sans fallback chain ends in system-ui; serif chain ends in Georgia.
+-->
 <style>
   :root {
     --bg: #151415;
@@ -29,8 +31,8 @@
     --warn-fg: #f5c86e;
     --ml-bg: rgba(255, 140, 200, 0.18);
     --ml-fg: #ff9bcd;
-    --fn: "Inter", system-ui, sans-serif;
-    --fn-serif: "Lora", Georgia, serif;
+    --fn: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --fn-serif: Georgia, "Times New Roman", serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {

@@ -14,6 +14,7 @@ import { VaultPicker } from '../vault/VaultPicker.jsx';
 import { useVault } from '../vault/useVault.js';
 import { PluginsPanel } from './PluginsPanel.jsx';
 import { PrivacyPanel } from './PrivacyPanel.jsx';
+import { KeywordRulesPanel } from './KeywordRulesPanel.jsx';
 import { version as APP_VERSION } from '../../../package.json';
 
 // ── Settings Panel ────────────────────────────────────────────────────────
@@ -120,7 +121,7 @@ function AIPanel(){
   );
 }
 
-export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,prefs,setPrefs,onClose}){
+export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,entryCount,prefs,setPrefs,keywordRules,onKeywordRulesChange,onRescanVault,onClose}){
   const[tab,setTab]=useState('appearance');
   const[advanced,setAdvanced]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('mgn-settings-advanced'))===true}catch{return false}
@@ -141,7 +142,7 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
   const segBtn=(active)=>({flex:1,padding:'8px 4px',fontSize:11,border:`2px solid ${active?'var(--ac)':'var(--br)'}`,borderRadius:'var(--rd)',background:active?'var(--ac)':'transparent',color:active?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'});
   const togBtn=(on)=>({width:40,height:22,borderRadius:11,border:'none',cursor:'pointer',background:on?'var(--ac)':'var(--br)',position:'relative',transition:'background 0.2s'});
   const togDot=(on)=>({position:'absolute',top:2,left:on?20:2,width:18,height:18,borderRadius:9,background:on?'var(--act)':'var(--t3)',transition:'left 0.2s'});
-  const tabs=[['appearance','Appearance'],['library','Library'],['vault','Vault'],['plugins','Plugins'],['ai','AI'],['privacy','Privacy'],['data','Data'],['shortcuts','Shortcuts']];
+  const tabs=[['appearance','Appearance'],['library','Library'],['keyword-rules','Keyword Rules'],['vault','Vault'],['plugins','Plugins'],['ai','AI'],['privacy','Privacy'],['data','Data'],['shortcuts','Shortcuts']];
   // customColors is victoryColors prop (renamed at call site)
   const cc=victoryColors[theme]||null;
   const defaults=getThemeDefaults(theme,isDark);
@@ -286,6 +287,9 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
             </div>
           ))}
         </>}
+        {tab==='keyword-rules'&&(
+          <KeywordRulesPanel rules={keywordRules} onRulesChange={onKeywordRulesChange} onRescanVault={onRescanVault} entryCount={entryCount ?? entries?.length ?? 0}/>
+        )}
         {tab==='ai'&&(aiEnabled?<AIPanel/>:(
           <div style={{padding:'32px 8px',textAlign:'center'}}>
             <div style={{fontSize:28}} aria-hidden="true">✦</div>

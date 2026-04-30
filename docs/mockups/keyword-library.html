@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JotFolio — Keyword Library + MiniLM</title>
+<!--
+  Charter-aligned: this mockup ships zero external font/script/style requests.
+  Demonstrates the same "no external content shipping" rule it advocates.
+  Sans fallback chain ends in system-ui; serif chain ends in Georgia.
+-->
+<style>
+  :root {
+    --bg: #151415;
+    --b2: #211f1e;
+    --sb: #0e0d0d;
+    --cd: #1c1b1a;
+    --ac: #F1EADE;
+    --tx: #F1EADE;
+    --t2: #c8bfb0;
+    --t3: rgba(241, 234, 222, 0.55);
+    --br: rgba(241, 234, 222, 0.12);
+    --rd: 8px;
+    --rule-bg: rgba(120, 200, 240, 0.18);
+    --rule-fg: #93cff5;
+    --link-bg: rgba(200, 160, 240, 0.18);
+    --link-fg: #c89ff0;
+    --good-bg: rgba(120, 230, 160, 0.18);
+    --good-fg: #93e6a8;
+    --warn-bg: rgba(245, 200, 110, 0.18);
+    --warn-fg: #f5c86e;
+    --ml-bg: rgba(255, 140, 200, 0.18);
+    --ml-fg: #ff9bcd;
+    --fn: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --fn-serif: Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--tx);
+    font-family: var(--fn);
+    font-size: 15px;
+    line-height: 1.55;
+    padding: 40px 24px 100px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px dashed var(--br);
+  }
+  .hero h1 {
+    font-family: var(--fn-serif);
+    font-weight: 600;
+    font-size: 38px;
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+  .hero h1 em.rule { font-style: italic; color: var(--rule-fg); }
+  .hero h1 em.ml { font-style: italic; color: var(--ml-fg); }
+  .hero p.lede {
+    color: var(--t2);
+    font-size: 17px;
+    max-width: 680px;
+    margin: 0 auto 18px;
+  }
+  .layer-pills {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .layer-pill {
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .layer-pill.rule { background: var(--rule-bg); color: var(--rule-fg); border-color: var(--rule-fg); }
+  .layer-pill.ml { background: var(--ml-bg); color: var(--ml-fg); border-color: var(--ml-fg); }
+
+  /* Two-layer explanation block */
+  .two-layer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 32px 0 56px;
+  }
+  @media (max-width: 760px) { .two-layer { grid-template-columns: 1fr; } }
+  .layer-card {
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 22px 24px;
+  }
+  .layer-card.rule { border-color: var(--rule-fg); background: rgba(120, 200, 240, 0.05); }
+  .layer-card.ml { border-color: var(--ml-fg); background: rgba(255, 140, 200, 0.05); }
+  .layer-card h3 {
+    font-family: var(--fn-serif);
+    font-weight: 600;
+    font-size: 19px;
+    margin-bottom: 8px;
+  }
+  .layer-card.rule h3 { color: var(--rule-fg); }
+  .layer-card.ml h3 { color: var(--ml-fg); }
+  .layer-card .what { color: var(--t2); font-size: 13px; margin-bottom: 10px; }
+  .layer-card .does {
+    list-style: none;
+    font-size: 13px;
+    color: var(--tx);
+  }
+  .layer-card .does li {
+    padding: 4px 0;
+    padding-left: 18px;
+    position: relative;
+  }
+  .layer-card .does li::before {
+    content: "•";
+    position: absolute;
+    left: 4px;
+    top: 4px;
+  }
+  .layer-card.rule .does li::before { color: var(--rule-fg); }
+  .layer-card.ml .does li::before { color: var(--ml-fg); }
+
+  /* Step container */
+  .step { margin-bottom: 56px; }
+  .step-header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .step-num {
+    background: var(--ac);
+    color: var(--bg);
+    font-family: var(--fn-serif);
+    font-weight: 600;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .step-num.ml { background: var(--ml-fg); }
+  .step-title {
+    font-family: var(--fn-serif);
+    font-weight: 600;
+    font-size: 24px;
+  }
+  .step-tag {
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .step-tag.rule { background: var(--rule-bg); color: var(--rule-fg); }
+  .step-tag.ml { background: var(--ml-bg); color: var(--ml-fg); }
+  .step-tag.both {
+    background: linear-gradient(90deg, var(--rule-bg), var(--ml-bg));
+    color: var(--tx);
+  }
+  .step-explain {
+    color: var(--t2);
+    font-size: 15px;
+    margin-bottom: 22px;
+    margin-left: 52px;
+    line-height: 1.6;
+  }
+  .step-explain strong { color: var(--tx); font-weight: 600; }
+  .step-explain em.rule { color: var(--rule-fg); font-style: normal; font-weight: 600; }
+  .step-explain em.ml { color: var(--ml-fg); font-style: normal; font-weight: 600; }
+
+  .card {
+    background: var(--b2);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 22px 24px;
+    margin-left: 52px;
+  }
+  .card-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--t3);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* Search demo */
+  .search-input-mock {
+    background: var(--cd);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 12px 14px;
+    font-family: var(--fn-serif);
+    font-size: 16px;
+    color: var(--tx);
+    margin-bottom: 14px;
+  }
+  .search-input-mock .you-typed { color: var(--t3); margin-right: 8px; font-size: 13px; font-family: var(--fn); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .result-row {
+    background: var(--cd);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .result-row .title {
+    font-family: var(--fn-serif);
+    font-size: 15px;
+    color: var(--tx);
+  }
+  .result-row .reason {
+    color: var(--t3);
+    font-size: 11px;
+    font-style: italic;
+  }
+  .score {
+    background: var(--ml-bg);
+    color: var(--ml-fg);
+    border: 1px solid var(--ml-fg);
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-family: var(--fn);
+    font-weight: 600;
+    font-size: 11px;
+  }
+
+  /* Similar notes panel */
+  .panel-mock {
+    background: var(--cd);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .panel-mock .panel-row {
+    background: var(--b2);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* Smart tag suggestion */
+  .tag-suggest {
+    background: var(--cd);
+    border: 1px dashed var(--ml-fg);
+    border-radius: var(--rd);
+    padding: 14px 18px;
+    margin-top: 12px;
+  }
+  .tag-suggest .ts-title {
+    color: var(--ml-fg);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .ts-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ts-tag {
+    background: var(--ml-bg);
+    color: var(--ml-fg);
+    border: 1px solid var(--ml-fg);
+    padding: 4px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ts-because {
+    color: var(--t3);
+    font-size: 11px;
+    font-style: italic;
+    margin-top: 6px;
+  }
+
+  /* Cluster mock */
+  .cluster-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 760px) { .cluster-grid { grid-template-columns: 1fr; } }
+  .cluster {
+    background: var(--cd);
+    border: 1px solid var(--ml-fg);
+    border-left-width: 4px;
+    border-radius: var(--rd);
+    padding: 14px 16px;
+  }
+  .cluster-title {
+    color: var(--ml-fg);
+    font-family: var(--fn-serif);
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .cluster-list {
+    list-style: none;
+    color: var(--t2);
+    font-size: 13px;
+  }
+  .cluster-list li {
+    padding: 3px 0;
+    padding-left: 14px;
+    position: relative;
+  }
+  .cluster-list li::before { content: "•"; position: absolute; left: 0; color: var(--ml-fg); }
+  .cluster-cta {
+    margin-top: 10px;
+    color: var(--tx);
+    font-size: 12px;
+  }
+  .cluster-cta button {
+    background: var(--ml-fg);
+    color: var(--bg);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-family: var(--fn);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+
+  /* Duplicate detection */
+  .dup-card {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-fg);
+    border-radius: var(--rd);
+    padding: 16px 20px;
+  }
+  .dup-title {
+    color: var(--warn-fg);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .dup-pair {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .dup-note {
+    background: var(--bg);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 10px 12px;
+  }
+  .dup-note .title {
+    font-family: var(--fn-serif);
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .dup-note .snippet { font-size: 12px; color: var(--t3); }
+  .dup-versus {
+    color: var(--warn-fg);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .dup-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .btn {
+    padding: 6px 14px;
+    border-radius: var(--rd);
+    border: 1px solid var(--br);
+    background: transparent;
+    color: var(--t2);
+    font-family: var(--fn);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-yes {
+    background: var(--warn-fg);
+    color: var(--bg);
+    border-color: var(--warn-fg);
+  }
+
+  /* Pipeline diagram */
+  .pipeline {
+    background: var(--b2);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 24px;
+    margin-left: 52px;
+    margin-bottom: 22px;
+  }
+  .pipeline-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .pipe-step {
+    flex: 1;
+    min-width: 130px;
+    background: var(--cd);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 12px;
+    text-align: center;
+  }
+  .pipe-step .pipe-icon {
+    font-size: 22px;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .pipe-step .pipe-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tx);
+    margin-bottom: 4px;
+  }
+  .pipe-step .pipe-desc {
+    font-size: 10px;
+    color: var(--t3);
+    line-height: 1.4;
+  }
+  .pipe-arrow {
+    align-self: center;
+    color: var(--t3);
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .closer {
+    background: var(--b2);
+    border: 1px solid var(--br);
+    border-radius: var(--rd);
+    padding: 28px 32px;
+    margin-top: 64px;
+  }
+  .closer h2 {
+    font-family: var(--fn-serif);
+    font-weight: 600;
+    font-size: 22px;
+    margin-bottom: 14px;
+  }
+  .closer p { color: var(--t2); font-size: 15px; line-height: 1.7; margin-bottom: 8px; }
+  .closer p strong { color: var(--tx); }
+  .closer .charter {
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: var(--good-bg);
+    border: 1px solid var(--good-fg);
+    border-radius: var(--rd);
+    color: var(--good-fg);
+    font-size: 13px;
+  }
+
+  .annot {
+    color: var(--t3);
+    font-size: 12px;
+    font-style: italic;
+    margin-top: 10px;
+    margin-left: 52px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>The <em class="rule">Rules</em> you write + the <em class="ml">Patterns</em> JotFolio finds</h1>
+  <p class="lede">Two layers working together. You set the rules. A small on-device model reads what you write to spot patterns the rules can't reach. No internet. No AI chat. No subscriptions.</p>
+  <div class="layer-pills">
+    <span class="layer-pill rule">Layer 1 — Your rules</span>
+    <span class="layer-pill ml">Layer 2 — On-device pattern model</span>
+  </div>
+</div>
+
+<!-- Two-layer explanation -->
+<div class="two-layer">
+  <div class="layer-card rule">
+    <h3>Layer 1 — Your keyword rules</h3>
+    <p class="what">You write the rules. JotFolio matches words you said to watch for.</p>
+    <ul class="does">
+      <li>If you write "lasagna" → label it #recipes</li>
+      <li>If you write "grandma" → suggest linking to [[Grandma's recipes]]</li>
+      <li>Plain word matching, exact, predictable</li>
+      <li>Edit rules anytime in plain text</li>
+    </ul>
+  </div>
+  <div class="layer-card ml">
+    <h3>Layer 2 — Pattern model (MiniLM)</h3>
+    <p class="what">A small file that reads notes and learns what they're about, without you defining anything.</p>
+    <ul class="does">
+      <li>Search by meaning, not just words</li>
+      <li>Find similar notes you didn't link</li>
+      <li>Suggest tags for new notes</li>
+      <li>Group notes into themes automatically</li>
+      <li>Catch when you've written the same thing twice</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- STEP 1 - Semantic Search -->
+<!-- ============================================ -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num ml">1</div>
+    <div class="step-title">Search by meaning, not just words</div>
+    <span class="step-tag ml">MiniLM</span>
+  </div>
+  <p class="step-explain">
+    Type what you're looking for in plain English. JotFolio finds notes that <strong>mean the same thing</strong>, even if they don't use the exact words.
+    The pattern model converts every note into a fingerprint and compares fingerprints — that's how "cooking" finds your pasta notes.
+  </p>
+
+  <div class="card">
+    <div class="card-label">Search bar</div>
+    <div class="search-input-mock">
+      <span class="you-typed">You typed:</span>
+      cooking
+    </div>
+    <div class="card-label">Results (none of these contain the word "cooking")</div>
+    <div class="results-list">
+      <div class="result-row">
+        <div>
+          <div class="title">Sunday dinner plan</div>
+          <div class="reason">about lasagna, sauce, pasta</div>
+        </div>
+        <span class="score">94% match</span>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="title">Grandma's pierogi recipe</div>
+          <div class="reason">about dough, filling, boiling</div>
+        </div>
+        <span class="score">89% match</span>
+      </div>
+      <div class="result-row">
+        <div>
+          <div class="title">Chef knife sharpening notes</div>
+          <div class="reason">about cutlery, prep, kitchen</div>
+        </div>
+        <span class="score">71% match</span>
+      </div>
+    </div>
+  </div>
+  <p class="annot">↑ Plain-text search would only return notes literally containing "cooking." The pattern model looks at meaning.</p>
+</div>
+
+<!-- ============================================ -->
+<!-- STEP 2 - Similar Notes -->
+<!-- ============================================ -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num ml">2</div>
+    <div class="step-title">"Similar to this one" suggestions</div>
+    <span class="step-tag ml">MiniLM</span>
+  </div>
+  <p class="step-explain">
+    Open any note → JotFolio shows a sidebar with <strong>your most similar notes</strong>.
+    No setup, no rules, no manual linking required. Builds connections you forgot you had.
+  </p>
+
+  <div class="card">
+    <div class="card-label">Right-side panel — while reading "Sunday dinner plan"</div>
+    <div class="panel-mock">
+      <div class="panel-row">
+        <div>
+          <div class="title" style="font-family:var(--fn-serif); font-size:14px;">Grandma's pierogi recipe</div>
+          <div style="font-size:11px; color:var(--t3); margin-top:2px;">written 8 months ago · #recipes #family</div>
+        </div>
+        <span class="score">91%</span>
+      </div>
+      <div class="panel-row">
+        <div>
+          <div class="title" style="font-family:var(--fn-serif); font-size:14px;">Italian dinner party menu</div>
+          <div style="font-size:11px; color:var(--t3); margin-top:2px;">written 2 weeks ago · #recipes</div>
+        </div>
+        <span class="score">86%</span>
+      </div>
+      <div class="panel-row">
+        <div>
+          <div class="title" style="font-family:var(--fn-serif); font-size:14px;">Cookware wishlist</div>
+          <div style="font-size:11px; color:var(--t3); margin-top:2px;">written 3 months ago · #shopping</div>
+        </div>
+        <span class="score">68%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- STEP 3 - Smart Tag Suggestions -->
+<!-- ============================================ -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num ml">3</div>
+    <div class="step-title">Smart tag suggestions for new notes</div>
+    <span class="step-tag both">Rules + MiniLM</span>
+  </div>
+  <p class="step-explain">
+    You finish writing a note. <em class="rule">Layer 1</em> looks at the words and applies any rules that match.
+    <em class="ml">Layer 2</em> compares the new note's pattern to your existing tagged notes and suggests tags from the most similar ones — even if no rule matched.
+    Click to add. JotFolio learns your taxonomy from how you actually tag.
+  </p>
+
+  <div class="card">
+    <div class="card-label">A new note you just finished</div>
+    <div class="search-input-mock" style="font-family:var(--fn-serif); font-size:14px;">
+      Made the sourdough starter today. Fed it 50/50 flour and water, gonna check it in 12 hours. The Tartine book recipe says...
+    </div>
+
+    <div class="card-label" style="margin-top:10px;">Layer 1 — your rules</div>
+    <div class="ts-row">
+      <span class="ts-tag" style="background:var(--rule-bg); color:var(--rule-fg); border-color:var(--rule-fg);">+ #recipes <span style="font-weight:400; font-size:11px; color:var(--t3); margin-left:4px;">(matched: recipe)</span></span>
+    </div>
+
+    <div class="tag-suggest">
+      <div class="ts-title">Layer 2 — pattern model says</div>
+      <div class="ts-row">
+        <span class="ts-tag">+ #baking</span>
+        <span class="ts-tag">+ #fermentation</span>
+        <span class="ts-tag">+ #weekend-projects</span>
+      </div>
+      <div class="ts-because">
+        Why: this note's pattern is 84% similar to <strong>"Pizza dough notes"</strong> (#baking, #fermentation)
+        and 79% similar to <strong>"Garage shelving build"</strong> (#weekend-projects).
+        Both already have those tags. Click to apply.
+      </div>
+    </div>
+  </div>
+  <p class="annot">↑ Two layers cooperate: words you defined (Layer 1) plus patterns the model recognized from your past tagging (Layer 2).</p>
+</div>
+
+<!-- ============================================ -->
+<!-- STEP 4 - Auto-Clustering -->
+<!-- ============================================ -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num ml">4</div>
+    <div class="step-title">Auto-clustering — themes you didn't see</div>
+    <span class="step-tag ml">MiniLM</span>
+  </div>
+  <p class="step-explain">
+    JotFolio groups your notes into <strong>themes it discovered on its own</strong>.
+    Open the Clusters view → it shows piles of related notes JotFolio gathered.
+    You scan the pile, decide what to call it, and JotFolio offers to make a rule from those notes' shared words.
+    The library grows out of your actual writing.
+  </p>
+
+  <div class="card">
+    <div class="card-label">Clusters JotFolio found in your vault</div>
+    <div class="cluster-grid">
+
+      <div class="cluster">
+        <div class="cluster-title">Cluster A · 8 notes</div>
+        <ul class="cluster-list">
+          <li>Sunday dinner plan</li>
+          <li>Grandma's pierogi recipe</li>
+          <li>Italian dinner party menu</li>
+          <li>Sourdough starter day 1</li>
+          <li>+ 4 more</li>
+        </ul>
+        <div class="cluster-cta">
+          Common words: <em>recipe, dough, sauce, family</em>
+          <button>Make rule from this</button>
+        </div>
+      </div>
+
+      <div class="cluster">
+        <div class="cluster-title">Cluster B · 6 notes</div>
+        <ul class="cluster-list">
+          <li>Garage shelving build</li>
+          <li>Workshop layout sketch</li>
+          <li>Saturday tool inventory</li>
+          <li>+ 3 more</li>
+        </ul>
+        <div class="cluster-cta">
+          Common words: <em>tool, shelf, build, weekend</em>
+          <button>Make rule from this</button>
+        </div>
+      </div>
+
+      <div class="cluster">
+        <div class="cluster-title">Cluster C · 12 notes</div>
+        <ul class="cluster-list">
+          <li>Phone call w/ Tom about retirement</li>
+          <li>Estate planning thoughts</li>
+          <li>Will draft notes</li>
+          <li>+ 9 more</li>
+        </ul>
+        <div class="cluster-cta">
+          Common words: <em>retirement, savings, family, plan</em>
+          <button>Make rule from this</button>
+        </div>
+      </div>
+
+      <div class="cluster">
+        <div class="cluster-title">Cluster D · 5 notes</div>
+        <ul class="cluster-list">
+          <li>Roses care log</li>
+          <li>Fall planting plan</li>
+          <li>Compost bin notes</li>
+          <li>+ 2 more</li>
+        </ul>
+        <div class="cluster-cta">
+          Common words: <em>soil, plant, water, season</em>
+          <button>Make rule from this</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <p class="annot">↑ You didn't tag any of these. JotFolio noticed they belong together. One click turns each pile into a rule.</p>
+</div>
+
+<!-- ============================================ -->
+<!-- STEP 5 - Near-Duplicate Detection -->
+<!-- ============================================ -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num ml">5</div>
+    <div class="step-title">Near-duplicate detection</div>
+    <span class="step-tag ml">MiniLM</span>
+  </div>
+  <p class="step-explain">
+    Catches when you've written <strong>basically the same thing twice</strong> — different words, same idea.
+    Helpful when notes pile up across years and you forget you already covered something.
+    JotFolio flags it gently, never deletes anything.
+  </p>
+
+  <div class="card">
+    <div class="card-label">Heads up — 2 notes look like the same idea</div>
+    <div class="dup-card">
+      <div class="dup-title">94% similar — possibly duplicate</div>
+      <div class="dup-pair">
+        <div class="dup-note">
+          <div class="title">Why I switched off cable</div>
+          <div class="snippet">Stopped paying for cable 2 years ago. Streaming is enough. Saving $1,400/year. Don't miss it.</div>
+        </div>
+        <div class="dup-versus">≈</div>
+        <div class="dup-note">
+          <div class="title">Cable cancel reasoning</div>
+          <div class="snippet">Cut cable 24 months back. Streaming has it all. Roughly $120/mo back in pocket. No regrets.</div>
+        </div>
+      </div>
+      <div class="dup-actions">
+        <button class="btn btn-yes">Merge them</button>
+        <button class="btn">Link them as related</button>
+        <button class="btn">Ignore — they're different</button>
+      </div>
+    </div>
+  </div>
+  <p class="annot">↑ Different words. Same idea. JotFolio noticed. Your call what to do.</p>
+</div>
+
+<!-- ============================================ -->
+<!-- HOW IT WORKS UNDER THE HOOD -->
+<!-- ============================================ -->
+<div class="step">
+  <div class="step-header">
+    <div class="step-num">⚙</div>
+    <div class="step-title">How it works (in plain English)</div>
+  </div>
+  <p class="step-explain">
+    Curious what's actually happening? Here's the pipeline. Nothing leaves your computer at any step.
+  </p>
+
+  <div class="pipeline">
+    <div class="pipeline-row">
+      <div class="pipe-step">
+        <span class="pipe-icon">📝</span>
+        <div class="pipe-name">You save a note</div>
+        <div class="pipe-desc">Plain text on your disk, exactly as you wrote it</div>
+      </div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-step">
+        <span class="pipe-icon">🔢</span>
+        <div class="pipe-name">MiniLM reads it</div>
+        <div class="pipe-desc">Turns the words into a list of 384 numbers ("fingerprint")</div>
+      </div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-step">
+        <span class="pipe-icon">💾</span>
+        <div class="pipe-name">Saved next to the note</div>
+        <div class="pipe-desc">Numbers stored locally — never sent anywhere</div>
+      </div>
+      <span class="pipe-arrow">→</span>
+      <div class="pipe-step">
+        <span class="pipe-icon">🔍</span>
+        <div class="pipe-name">Used for search + suggestions</div>
+        <div class="pipe-desc">Compare fingerprints to find similar notes</div>
+      </div>
+    </div>
+  </div>
+  <p class="annot">↑ MiniLM ships inside JotFolio (~50MB file, one-time). Like a calculator that came with the app. Never phones home.</p>
+</div>
+
+<!-- ============================================ -->
+<!-- CLOSER -->
+<!-- ============================================ -->
+<div class="closer">
+  <h2>Why both layers, instead of just one?</h2>
+  <p>
+    <strong>Rules alone</strong> are predictable but rigid. They only fire on words you defined.
+    A new note about a new topic gets nothing.
+  </p>
+  <p>
+    <strong>The pattern model alone</strong> is flexible but opaque. You can't tell why it suggested a tag,
+    and there's no way to say "no, this word always means X."
+  </p>
+  <p>
+    <strong>Together:</strong> you keep control via rules. The model fills in the gaps the rules don't reach.
+    When the model suggests something, the rule editor offers to turn it into a permanent rule — so the model's pattern recognition becomes your explicit, editable taxonomy over time.
+  </p>
+  <div class="charter">
+    Charter check: ✓ Local-first (model runs on your machine).
+    ✓ Plain-text durability (rules + notes stay readable in any text editor).
+    ✓ No external content shipping (note contents never leave the app).
+    ✓ Pure-function indexes (fingerprints rebuild from files).
+  </div>
+</div>
+
+</body>
+</html>

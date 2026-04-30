@@ -1,4 +1,4 @@
-# JotFolio — v0.5.0-alpha.7
+# JotFolio — v0.5.0-alpha.8
 
 Personal knowledge management system. React 19 + Vite 7 renderer, Electron desktop shell, plugin runtime, vault on disk as `.md` files with YAML frontmatter.
 
@@ -100,7 +100,7 @@ Nothing in `JotFolio Archive/` is canonical. Reference only.
 
 ## Current state
 
-- Version: **0.5.0-alpha.7** (see `docs/CHANGELOG.md` + `docs/PATCH_NOTES.md`)
+- Version: **0.5.0-alpha.8** (see `docs/CHANGELOG.md` + `docs/PATCH_NOTES.md`)
 - Tests: 84/84 passing
 - Build: clean, 431 KB (gzip 130 KB)
 - Bench: first baseline committed, all targets met

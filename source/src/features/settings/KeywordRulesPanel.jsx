@@ -1,5 +1,8 @@
-import { useState, useId } from "react";
+import { useState, useId, useEffect, useRef } from "react";
 import { IconButton } from '../primitives/IconButton.jsx';
+
+// How long the "click again to confirm" state persists before auto-disarming.
+const RESCAN_CONFIRM_TIMEOUT_MS = 10000;
 
 // ── Keyword Rules Panel ───────────────────────────────────────────────────
 // Settings tab UI for the user-curated keyword library. Renders the rule list,
@@ -238,10 +241,55 @@ function EmptyState({ onAdd }) {
 }
 
 // ── main panel ────────────────────────────────────────────────────────────
-export function KeywordRulesPanel({ rules, onRulesChange, onRescanVault }) {
+export function KeywordRulesPanel({ rules, onRulesChange, onRescanVault, entryCount = 0 }) {
   const ruleList = Array.isArray(rules?.rules) ? rules.rules : [];
   const [editingTag, setEditingTag] = useState(null); // tag being edited, or '__new__' for add form
+  const [rescanArmed, setRescanArmed] = useState(false);
+  const rescanTimerRef = useRef(null);
   const existingTags = ruleList.map(r => r.tag);
+
+  // Clear any pending auto-disarm timer. Used on confirm, cancel, and unmount.
+  const clearRescanTimer = () => {
+    if (rescanTimerRef.current) {
+      clearTimeout(rescanTimerRef.current);
+      rescanTimerRef.current = null;
+    }
+  };
+
+  // Always clear the timer when the panel unmounts so it never fires into a stale closure.
+  useEffect(() => clearRescanTimer, []);
+
+  const armRescan = () => {
+    clearRescanTimer();
+    setRescanArmed(true);
+    rescanTimerRef.current = setTimeout(() => {
+      setRescanArmed(false);
+      rescanTimerRef.current = null;
+    }, RESCAN_CONFIRM_TIMEOUT_MS);
+  };
+
+  const cancelRescan = () => {
+    clearRescanTimer();
+    setRescanArmed(false);
+  };
+
+  const confirmRescan = () => {
+    clearRescanTimer();
+    setRescanArmed(false);
+    if (onRescanVault) onRescanVault();
+  };
+
+  const hasCount = entryCount > 0;
+  const idleLabel = hasCount
+    ? `Apply rules to existing entries (${entryCount} total)`
+    : 'Apply rules to existing entries';
+  const armedLabel = `Click again to confirm — scans ${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`;
+  // Warning-tinted variant for the armed state — same shape as buttonPrimary, distinct color.
+  const buttonArmed = {
+    ...buttonPrimary,
+    background: '#f59e0b',
+    color: '#1f1300',
+  };
 
   const closeForm = () => setEditingTag(null);
 
@@ -320,13 +368,28 @@ export function KeywordRulesPanel({ rules, onRulesChange, onRescanVault }) {
         <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.5, marginBottom: 10 }}>
           Re-scan all entries against the current rules. Adds new auto-tags; respects existing opt-outs.
         </div>
-        <button type="button"
-          onClick={() => onRescanVault && onRescanVault()}
-          disabled={!onRescanVault}
-          title={onRescanVault ? undefined : 'Re-scan handler not wired'}
-          style={{ ...buttonPrimary, width: '100%', opacity: onRescanVault ? 1 : 0.5, cursor: onRescanVault ? 'pointer' : 'default' }}>
-          Re-scan vault
-        </button>
+        {rescanArmed ? (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button type="button"
+              onClick={confirmRescan}
+              disabled={!onRescanVault}
+              title={onRescanVault ? undefined : 'Re-scan handler not wired'}
+              style={{ ...buttonArmed, flex: 1, opacity: onRescanVault ? 1 : 0.5, cursor: onRescanVault ? 'pointer' : 'default' }}>
+              {armedLabel}
+            </button>
+            <button type="button" onClick={cancelRescan} style={buttonGhost}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button type="button"
+            onClick={armRescan}
+            disabled={!onRescanVault}
+            title={onRescanVault ? undefined : 'Re-scan handler not wired'}
+            style={{ ...buttonPrimary, width: '100%', opacity: onRescanVault ? 1 : 0.5, cursor: onRescanVault ? 'pointer' : 'default' }}>
+            {idleLabel}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -121,7 +121,7 @@ function AIPanel(){
   );
 }
 
-export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,prefs,setPrefs,keywordRules,onKeywordRulesChange,onRescanVault,onClose}){
+export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,entryCount,prefs,setPrefs,keywordRules,onKeywordRulesChange,onRescanVault,onClose}){
   const[tab,setTab]=useState('appearance');
   const[advanced,setAdvanced]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('mgn-settings-advanced'))===true}catch{return false}
@@ -288,7 +288,7 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
           ))}
         </>}
         {tab==='keyword-rules'&&(
-          <KeywordRulesPanel rules={keywordRules} onRulesChange={onKeywordRulesChange} onRescanVault={onRescanVault}/>
+          <KeywordRulesPanel rules={keywordRules} onRulesChange={onKeywordRulesChange} onRescanVault={onRescanVault} entryCount={entryCount ?? entries?.length ?? 0}/>
         )}
         {tab==='ai'&&(aiEnabled?<AIPanel/>:(
           <div style={{padding:'32px 8px',textAlign:'center'}}>

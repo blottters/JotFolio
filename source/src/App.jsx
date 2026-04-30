@@ -791,6 +791,7 @@ export default function App(){
         theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
         victoryColors={customColors} setVictoryColors={setCustomColors}
         onExportJSON={exportJSON} onExportMD={exportMD} onImportJSON={importJSON} entries={visibleEntries}
+        entryCount={entries.length}
         onLoadConstellationDemo={loadConstellationDemo}
         prefs={prefs} setPrefs={setPrefs}
         keywordRules={keywordRules}

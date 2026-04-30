@@ -42,6 +42,24 @@ describe('optOutTracker', () => {
       expect(result).toEqual({});
     });
 
+    it('propagates non-not-found errors instead of swallowing as missing-file', async () => {
+      const failingVault = {
+        read: async () => { throw Object.assign(new Error('permission denied'), { code: 'access-denied' }); },
+      };
+      const result = await loadOptOuts(failingVault);
+      expect(result).toHaveProperty('error');
+      expect(result.error).toContain('permission denied');
+    });
+
+    it('still returns {} for genuine not-found errors', async () => {
+      const missingVault = {
+        read: async () => { throw Object.assign(new Error('no file'), { code: 'not-found' }); },
+      };
+      const result = await loadOptOuts(missingVault);
+      expect(result).toEqual({});
+      expect(result).not.toHaveProperty('error');
+    });
+
     it('returns parsed map when the file exists', async () => {
       const yaml = [
         'entry-id-12345:',

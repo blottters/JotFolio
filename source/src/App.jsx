@@ -477,6 +477,14 @@ export default function App(){
       return await saveEntry(entry);
     }
 
+    // raw-inbox entries are gated by feature flag wiki_mode (per plan §1C Wire Wally
+    // slop-trap). Even when shown, they're not subject to rule auto-tagging — the user
+    // hasn't curated raw imports yet. Skip rules but still persist the underlying save.
+    // Type literal verified against lib/types.js KNOWLEDGE_TYPES + lib/featureFlags.js.
+    if(entry?.type==='raw'){
+      return await saveEntry(entry);
+    }
+
     const ruleList=Array.isArray(keywordRulesRef.current?.rules)?keywordRulesRef.current.rules:[];
 
     // Step 1 — opt-out detection. Compare what the previous applyRules pass

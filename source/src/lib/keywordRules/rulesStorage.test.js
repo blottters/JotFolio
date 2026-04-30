@@ -125,5 +125,28 @@ describe('rulesStorage', () => {
       const reloaded = await loadRules(adapter);
       expect(reloaded.rules[0].triggers).toEqual(['zebra', 'apple', 'mango', 'banana']);
     });
+
+    it('surfaces non-benign mkdir errors as { error }', async () => {
+      const failingVault = {
+        read: async () => { throw Object.assign(new Error('not found'), { code: 'not-found' }); },
+        mkdir: async () => { throw Object.assign(new Error('permission denied'), { code: 'access-denied' }); },
+        write: async () => ({}),
+      };
+      const result = await saveRules(failingVault, { rules: [] });
+      expect(result).toHaveProperty('error');
+      expect(result.error).toContain('permission denied');
+    });
+
+    it('swallows benign mkdir errors and proceeds to write', async () => {
+      let wrote = false;
+      const benignVault = {
+        read: async () => { throw Object.assign(new Error('not found'), { code: 'not-found' }); },
+        mkdir: async () => { throw Object.assign(new Error('already exists'), { code: 'already-exists' }); },
+        write: async () => { wrote = true; return {}; },
+      };
+      const result = await saveRules(benignVault, { rules: [] });
+      expect(wrote).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
   });
 });

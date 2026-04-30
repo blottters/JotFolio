@@ -126,10 +126,6 @@ function RuleForm({ initial, existingTags, onSave, onCancel }) {
       setError('Tag is required');
       return;
     }
-    if (/\s/.test(cleanTag)) {
-      setError('Tag must be a single word (no spaces)');
-      return;
-    }
     const triggers = splitCsv(triggersText);
     if (triggers.length === 0) {
       setError('Add at least one trigger word');
@@ -159,8 +155,11 @@ function RuleForm({ initial, existingTags, onSave, onCancel }) {
       <div>
         <label htmlFor={ids.tag} style={{ ...sectionHeader, marginTop: 0 }}>Tag</label>
         <input id={ids.tag} type="text" value={tag} onChange={e => setTag(e.target.value)}
-          placeholder="frontend" spellCheck={false} autoComplete="off"
+          placeholder="deep work" spellCheck={false} autoComplete="off"
           style={inputStyle} />
+        <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 4, lineHeight: 1.4 }}>
+          Tag name. Spaces allowed. The leading # is added automatically when displayed.
+        </div>
       </div>
       <div>
         <label htmlFor={ids.triggers} style={{ ...sectionHeader, marginTop: 0 }}>Triggers</label>

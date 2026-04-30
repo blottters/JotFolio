@@ -80,12 +80,15 @@ export async function saveRules(vaultAdapter, rulesObject) {
   try {
     await vaultAdapter.mkdir(RULES_DIR);
   } catch (err) {
-    // mkdir on an existing dir shouldn't fail the save. Real adapters
-    // are expected to be idempotent here, but if one isn't we still
-    // attempt the write below.
-    if (!(err && err.code === 'not-found')) {
-      // anything else worth surfacing → fall through; write will fail
-      // with a clearer error if the dir really is unwritable.
+    // 'already-exists' / 'not-found' are benign here — mkdir is idempotent
+    // for our use case and the subsequent write() will create the file.
+    // Real errors (permission, disk-full) need to surface so the user knows
+    // why save failed BEFORE we attempt the write that would fail with a
+    // less-specific error.
+    const code = err && err.code;
+    if (code && code !== 'not-found' && code !== 'already-exists') {
+      const message = err && err.message ? err.message : String(err);
+      return { error: message };
     }
   }
 

@@ -40,9 +40,12 @@ export async function loadOptOuts(vaultAdapter) {
   let raw;
   try {
     raw = await vaultAdapter.read(OPT_OUTS_PATH);
-  } catch {
-    // Missing file (or any read failure) → empty map. Charter says graceful.
-    return {};
+  } catch (err) {
+    // Missing file is fine — first run has no opt-outs yet.
+    if (err && err.code === 'not-found') return {};
+    // Real I/O error (permission, disk, parse). Propagate so the caller
+    // doesn't silently overwrite real data on next save.
+    return { error: err && err.message ? err.message : String(err) };
   }
   if (typeof raw !== 'string' || raw.trim() === '') {
     return {};

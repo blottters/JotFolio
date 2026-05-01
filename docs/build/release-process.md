@@ -12,11 +12,11 @@ Tagged release → GitHub Actions builds all 3 platforms in parallel → signed 
 
 ## Cutting a release
 
-1. Ensure `main` is green: `npm test` + `npm run build`.
-2. Bump version in `package.json` following SemVer (`CHANGELOG.md` has bump rules).
+1. Ensure `master` is green: `npm test`, `npm run build`, and `npm run a11y`.
+2. Bump version in `source/package.json` and `source/package-lock.json` following SemVer (`CHANGELOG.md` has bump rules).
 3. Update `CHANGELOG.md` — new `[x.y.z] — YYYY-MM-DD` section with `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security` subsections as applicable.
-4. Commit: `git commit -am "release: 0.4.0"`.
-5. Tag: `git tag v0.4.0`.
+4. Commit: `git commit -am "release: 0.5.0-alpha.9"`.
+5. Tag: `git tag v0.5.0-alpha.9`.
 6. Push: `git push && git push --tags`.
 7. GitHub Actions picks up the tag, runs `.github/workflows/release.yml`, builds signed installers for macOS + Windows + Linux.
 8. When done, a draft GitHub Release exists with all assets attached. Edit release notes (pull from CHANGELOG), then publish.
@@ -60,7 +60,7 @@ Paste in the GitHub Release body:
 
 ## Full changelog
 
-https://github.com/blottters/jotfolio/blob/v0.4.0/CHANGELOG.md#040---YYYY-MM-DD
+https://github.com/blottters/jotfolio/blob/v0.5.0-alpha.9/CHANGELOG.md#050-alpha9---2026-05-01
 
 ## Checksums
 

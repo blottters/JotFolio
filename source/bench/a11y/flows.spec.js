@@ -17,17 +17,38 @@ import AxeBuilder from '@axe-core/playwright';
 
 const BASE_URL = process.env.A11Y_BASE_URL || 'http://localhost:5174';
 
+const sampleEntries = [
+  {
+    id: 'a11y-1',
+    type: 'note',
+    title: 'Accessibility Test Note',
+    tags: ['test'],
+    status: 'active',
+    starred: false,
+    date: new Date().toISOString(),
+    notes: 'Body',
+    links: [],
+  },
+];
+
+async function bootApp(page, entries = []) {
+  await page.goto(BASE_URL);
+  await page.evaluate(seed => {
+    localStorage.setItem('mgn-onboarded', 'true');
+    localStorage.setItem('mgn-e', JSON.stringify(seed.entries));
+    localStorage.setItem('mgn-activation', JSON.stringify({
+      firstSaveAt: seed.entries[0]?.date || null,
+      thirdSaveAt: seed.entries[2]?.date || null,
+      lastSeenAt: new Date().toISOString(),
+      bannersDismissed: [],
+    }));
+  }, { entries });
+  await page.reload();
+}
+
 test.describe('JotFolio WCAG AA flows', () => {
   test('main grid (all entries)', async ({ page }) => {
-    await page.goto(BASE_URL);
-    // Seed a few entries so the grid has something to render
-    await page.evaluate(() => {
-      const entries = [
-        { id: 'a11y-1', type: 'note', title: 'Accessibility Test Note', tags: ['test'], status: 'active', starred: false, date: new Date().toISOString(), notes: 'Body', links: [] },
-      ];
-      localStorage.setItem('mgn-e', JSON.stringify(entries));
-    });
-    await page.reload();
+    await bootApp(page, sampleEntries);
     await page.waitForSelector('article', { timeout: 3000 });
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -36,9 +57,8 @@ test.describe('JotFolio WCAG AA flows', () => {
   });
 
   test('detail panel (open an entry)', async ({ page }) => {
-    await page.goto(BASE_URL);
-    await page.waitForSelector('article button');
-    await page.click('article button');
+    await bootApp(page, sampleEntries);
+    await page.getByRole('button', { name: 'Open Accessibility Test Note' }).click();
     await page.waitForSelector('[role="dialog"]');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -47,8 +67,8 @@ test.describe('JotFolio WCAG AA flows', () => {
   });
 
   test('settings modal', async ({ page }) => {
-    await page.goto(BASE_URL);
-    await page.click('button:has-text("Settings")');
+    await bootApp(page);
+    await page.getByRole('button', { name: 'Settings' }).click();
     await page.waitForSelector('text=Appearance');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -57,8 +77,8 @@ test.describe('JotFolio WCAG AA flows', () => {
   });
 
   test('add entry modal', async ({ page }) => {
-    await page.goto(BASE_URL);
-    await page.keyboard.press('n');
+    await bootApp(page);
+    await page.getByRole('button', { name: 'New entry (N)' }).click();
     await page.waitForSelector('h3:has-text("New Entry")');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -67,8 +87,11 @@ test.describe('JotFolio WCAG AA flows', () => {
   });
 
   test('quick-capture modal', async ({ page }) => {
-    await page.goto(BASE_URL);
-    await page.keyboard.press('Shift+N');
+    await bootApp(page);
+    await page.getByRole('heading', { name: 'All Entries' }).click();
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('N');
+    await page.keyboard.up('Shift');
     await page.waitForSelector('h3:has-text("Quick Note")');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])

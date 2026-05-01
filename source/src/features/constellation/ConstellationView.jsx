@@ -453,6 +453,40 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
 
   const focalNode=focal?nodeById[focal]:null;
 
+  const describeGraphNode=useCallback((n)=>{
+    const degree=(n.links||[]).length;
+    if(n._unresolved)return `Ghost note ${n.title}, referenced by ${(n._sourceIds||[]).length} note${(n._sourceIds||[]).length===1?'':'s'}`;
+    return `${n.title||'Untitled'}, ${LABEL[n.type]||n.type}, ${degree} link${degree===1?'':'s'}`;
+  },[]);
+
+  const activateGraphNode=useCallback((n)=>{
+    if(n._unresolved){
+      if(onCreateFromMissing)onCreateFromMissing(n.title);
+      return;
+    }
+    onFocalDrill(n.id);
+  },[onCreateFromMissing,onFocalDrill]);
+
+  const openGraphNode=useCallback((n)=>{
+    if(n._unresolved){
+      if(onCreateFromMissing)onCreateFromMissing(n.title);
+      return;
+    }
+    onOpen(n.id);
+  },[onCreateFromMissing,onOpen]);
+
+  const onGraphNodeKeyDown=useCallback((e,n)=>{
+    if(e.key==='Enter'||e.key===' '){
+      e.preventDefault();
+      activateGraphNode(n);
+      return;
+    }
+    if(e.key==='o'||e.key==='O'){
+      e.preventDefault();
+      openGraphNode(n);
+    }
+  },[activateGraphNode,openGraphNode]);
+
   // Lock graph until 3 entries — all hooks above run so Rules-of-Hooks holds
   if(entries.length<3){
     return(
@@ -541,6 +575,33 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
           </div>
         </div>
       </div>
+      {renderNodes.length>0&&(
+        <details style={{borderBottom:'1px solid var(--br)',background:'var(--b2)',padding:'6px 20px'}}>
+          <summary style={{cursor:'pointer',fontSize:12,fontWeight:700,color:'var(--t2)'}}>
+            Accessible graph list ({renderNodes.length} nodes, {edges.length} links)
+          </summary>
+          <ol aria-label="Constellation graph nodes" style={{margin:'8px 0 0',paddingLeft:20,display:'grid',gap:6,maxHeight:180,overflowY:'auto'}}>
+            {renderNodes.map(n=>(
+              <li key={n.id} style={{fontSize:12,color:'var(--t2)'}}>
+                <span>{describeGraphNode(n)}</span>
+                {focalSet?.has(n.id)&&<span style={{marginLeft:6,color:'var(--ac)',fontWeight:700}}>in focus</span>}
+                <span style={{display:'inline-flex',gap:4,marginLeft:8,flexWrap:'wrap'}}>
+                  <button type="button" onClick={()=>activateGraphNode(n)}
+                    style={{padding:'3px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
+                    {n._unresolved?'Create':'Focus'}
+                  </button>
+                  {!n._unresolved&&(
+                    <button type="button" onClick={()=>openGraphNode(n)}
+                      style={{padding:'3px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
+                      Open
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       <div style={{flex:1,position:'relative',overflow:'hidden'}}>
         {nodes.length===0?(
           <div style={{textAlign:'center',padding:'120px 20px',color:'var(--t3)'}}>
@@ -600,7 +661,11 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                       onPointerMove={n._unresolved?undefined:onNodePointerMove}
                       onPointerUp={e=>{if(n._unresolved){handleUnresolvedClick();return}onNodePointerUp(e,n.id)}}
                       onPointerCancel={e=>{compDragRef.current=null}}
+                      onKeyDown={e=>onGraphNodeKeyDown(e,n)}
                       onMouseEnter={()=>setHover(n.id)} onMouseLeave={()=>setHover(null)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${describeGraphNode(n)}. Press Enter to ${n._unresolved?'create this ghost note':'focus this node'}. Press O to open.`}
                       style={{cursor:n._unresolved?'pointer':(compDragRef.current?.nodeId===n.id?'grabbing':'pointer'),touchAction:'none'}} opacity={n._unresolved?0.7:op}>
                       {n.starred&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#e0a600" strokeWidth={1.4} opacity={0.6}/>}
                       <circle cx={0} cy={0} r={r} fill={fill}

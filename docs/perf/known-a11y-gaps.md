@@ -4,25 +4,23 @@ Documented WCAG AA violations deferred to later phases. Any violation NOT listed
 
 ## Status
 
-Playwright + `@axe-core/playwright` a11y suite at `bench/a11y/flows.spec.js` is stubbed for Phase 7. A full pass requires `npm install` + `npx playwright install` (browser binaries), both out of the default CI runner setup. Target: first real a11y run in v0.5.0 CI.
+Playwright + `@axe-core/playwright` a11y suite at `bench/a11y/flows.spec.js` now runs against built app states in CI. It covers main grid, detail panel, settings modal, add-entry modal, and quick-capture modal.
 
-Until that run, we document foreseeable gaps based on code review. When Playwright runs, this doc will be overwritten with actual findings.
+This file tracks gaps that still require manual assistive-technology verification or broader theme coverage beyond the automated flow suite.
 
 ## Foreseen gaps
 
 ### 1. Constellation view (canvas + SVG hybrid)
 
 - **Pages affected:** `/` with Constellation view active
-- **Likely violations:** no accessible alternative for graph positions, nodes only clickable via mouse, no keyboard traversal of the graph
-- **Target fix:** v0.5.0 — add arrow-key node navigation + screen-reader text equivalent listing "N notes connected to this note: [list]"
-- **Workaround:** sidebar list + detail panel serve same browsing path for keyboard + AT users
+- **Status:** improved in v0.5.0-alpha.9 with focusable graph nodes plus an accessible graph list for keyboard and screen-reader users.
+- **Remaining verification:** manual screen-reader pass on NVDA/Narrator, high contrast, and 200%/400% zoom.
 
 ### 2. Inline text contrast on 26 theme variants
 
 - **Pages affected:** all
-- **Likely violations:** several themes (e.g. `sakura`, `y2k`, `glass`) may miss WCAG AA 4.5:1 on body text or 3:1 on UI icons
-- **Target fix:** v0.5.0 — computed-contrast audit across all 26 themes, auto-adjust `--t3` / `--br` tokens when below threshold
-- **Workaround:** `minimal`, `paper`, `obsidian`, `ink` themes all pass AA on manual inspection; list as "accessible themes" in Settings
+- **Status:** Minimal light automated-flow contrast fixed in v0.5.0-alpha.9.
+- **Remaining verification:** computed contrast audit across all 26 themes and dark-mode variants.
 
 ### 3. Focus-visible outline on dropdowns
 

@@ -10,6 +10,26 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.9] — 2026-05-01
+
+### Added
+- GitHub security posture plan implementation: CI, CodeQL, Dependabot, and release-permission hardening.
+- Canvas and Constellation accessible alternatives for keyboard and screen-reader users.
+
+### Changed
+- Minimal light theme muted text now meets WCAG AA contrast on white and pale-gray surfaces.
+- A11y Playwright flows now seed deterministic app state and run against real UI states.
+- Release process now treats `master` as the canonical release branch.
+
+### Fixed
+- Add-entry helper labels no longer rely on opacity that drops contrast below WCAG AA.
+- Destructive delete actions use a darker red that passes contrast on light surfaces.
+- Quick-capture a11y flow no longer accidentally scans the ribbon Templates route.
+
+### Security
+- Release workflow is prepared to use the built-in GitHub token with explicit contents write permission instead of a repository PAT.
+- Security scanning workflows/configuration added for CodeQL and Dependabot.
+
 ## [0.5.0-alpha.2] — 2026-04-24
 
 Remediation sweep of Codex's stress-test findings. 14 of 15 closed. Only #5 (RAF setOffsets re-render pressure) deferred — scoped as a performance refactor rather than a bug fix.

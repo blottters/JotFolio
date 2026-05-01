@@ -111,14 +111,14 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
           {type==='podcast'&&<><div><label htmlFor={ids.guest} style={ls}>Guest / Host</label><input id={ids.guest} style={is} value={form.guest} onChange={update('guest')} placeholder="Guest or host"/></div><div><label htmlFor={ids.episode} style={ls}>Episode #</label><input id={ids.episode} style={is} value={form.episode} onChange={update('episode')} placeholder="e.g. Ep. 42"/></div><div><label htmlFor={ids.highlight} style={ls}>Key Highlight</label><textarea id={ids.highlight} style={{...is,height:60,resize:'vertical'}} value={form.highlight} onChange={update('highlight')} placeholder="A moment worth remembering…"/></div></>}
           <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status} onChange={v=>update('status')({target:{value:v}})} options={STATUSES[type].map(s=>({value:s,label:s}))}/></div>
           <div>
-            <label htmlFor={ids.tags} style={ls}>Tags <span style={{fontWeight:400,opacity:.6}}>(comma-separated)</span></label>
+            <label htmlFor={ids.tags} style={ls}>Tags <span style={{fontWeight:400}}>(comma-separated)</span></label>
             <input id={ids.tags} style={is} value={form.tags} onChange={update('tags')} placeholder="ai, research, dev…"/>
             <TagSuggestions value={form.tags} onChange={v=>{setForm(p=>({...p,tags:v}));setDirty(true)}} allTags={allTags}/>
           </div>
           <div><label htmlFor={ids.notes} style={ls}>Notes</label><textarea id={ids.notes} style={{...is,height:90,resize:'vertical'}} value={form.notes} onChange={update('notes')} placeholder="Thoughts, summary, highlights…"/></div>
           {type!=='journal'&&(
             <div>
-              <label htmlFor={ids.consumedDate} style={{...ls,fontWeight:400}}>Date consumed <span style={{opacity:.6}}>(optional)</span></label>
+              <label htmlFor={ids.consumedDate} style={{...ls,fontWeight:400}}>Date consumed <span>(optional)</span></label>
               <input id={ids.consumedDate} type="date" style={is} value={form.entry_date} max={today()} onChange={update('entry_date')}/>
             </div>
           )}

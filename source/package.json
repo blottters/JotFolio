@@ -63,7 +63,8 @@
       {
         "provider": "github",
         "owner": "blottters",
-        "repo": "JotFolio"
+        "repo": "JotFolio",
+        "releaseType": "release"
       }
     ],
     "mac": {

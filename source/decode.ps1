@@ -1,19 +1,44 @@
-# decode.ps1 - Decodes base64 App.jsx chunks
-$chunksDir = "C:\Dev\jotfolio\src"
-$b64File = "$chunksDir\app_b64.txt"
-$outFile = "$chunksDir\App.jsx"
+# decode.ps1 - Decodes base64 App.jsx chunks.
+[CmdletBinding()]
+param(
+  [string]$ChunksDir,
+  [string]$OutputFile,
+  [switch]$Cleanup
+)
 
-# Combine all chunk files
-$chunks = Get-ChildItem "$chunksDir\chunk_*" | Sort-Object Name
-$combined = ($chunks | ForEach-Object { Get-Content $_.FullName -Raw }) -join ""
-Set-Content -Path $b64File -Value $combined -NoNewline
+$ErrorActionPreference = "Stop"
 
-# Decode
-$bytes = [Convert]::FromBase64String($combined)
-[IO.File]::WriteAllBytes($outFile, $bytes)
+if (-not $ChunksDir) {
+  $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+  $ChunksDir = Join-Path $scriptRoot "src"
+}
 
-# Cleanup
-Remove-Item "$chunksDir\chunk_*" -Force
-Remove-Item $b64File -Force
+$resolvedChunksDir = (Resolve-Path -LiteralPath $ChunksDir).Path
+if (-not $OutputFile) {
+  $OutputFile = Join-Path $resolvedChunksDir "App.jsx"
+}
 
-Write-Host "Wrote App.jsx ($($bytes.Length) bytes)"
+$chunks = Get-ChildItem -LiteralPath $resolvedChunksDir -Filter "chunk_*" -File | Sort-Object Name
+if (-not $chunks) {
+  throw "No chunk_* files found in '$resolvedChunksDir'. Pass -ChunksDir if the chunks are somewhere else."
+}
+
+$combined = ($chunks | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join ""
+$combined = ($combined -replace "\s", "")
+if (-not $combined) {
+  throw "Chunk files were found, but their combined base64 content is empty."
+}
+
+try {
+  $bytes = [Convert]::FromBase64String($combined)
+} catch {
+  throw "Combined chunk content is not valid base64. Original error: $($_.Exception.Message)"
+}
+
+[IO.File]::WriteAllBytes($OutputFile, $bytes)
+
+if ($Cleanup) {
+  $chunks | Remove-Item -Force
+}
+
+Write-Host "Wrote $OutputFile ($($bytes.Length) bytes)"

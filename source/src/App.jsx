@@ -693,7 +693,7 @@ export default function App(){
       clearProvenance(id);
       toast('Entry moved to trash','info');
     }catch(err){reportError(err,'Entry delete failed')}
-  },[entries,detailId,saveEntryWithRules,deleteVaultEntry,toast,reportError]);
+  },[entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,toast,reportError]);
 
   const confirmDeleteEntry=useCallback((id)=>{
     const target=entries.find(e=>e.id===id);
@@ -716,9 +716,19 @@ export default function App(){
     if(ids.length===0)return;
     const ok=window.confirm(`Move ${ids.length} selected entr${ids.length===1?'y':'ies'} to JotFolio Trash?`);
     if(!ok)return;
-    for(const id of ids)await deleteEntry(id);
-    clearSelection();
-  },[selectedIds,entries,deleteEntry,clearSelection]);
+    const idSet=new Set(ids);
+    const affected=entries.filter(e=>!idSet.has(e.id)&&e.links?.some(linkId=>idSet.has(linkId)));
+    try{
+      await Promise.all(affected.map(e=>saveEntryWithRules({...e,links:e.links.filter(linkId=>!idSet.has(linkId)),[MANUAL_LINKS_FIELD]:true})));
+      for(const id of ids){
+        await deleteVaultEntry(id);
+        clearProvenance(id);
+      }
+      if(detailId&&idSet.has(detailId))setDetailId(null);
+      clearSelection();
+      toast(`${ids.length} entr${ids.length===1?'y':'ies'} moved to trash`,'info');
+    }catch(err){reportError(err,'Bulk delete failed')}
+  },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError]);
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);

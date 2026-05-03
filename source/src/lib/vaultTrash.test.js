@@ -27,12 +27,29 @@ describe('vault trash helpers', () => {
   it('restores a trashed file to its original path', async () => {
     const adapter = {
       mkdir: vi.fn(async () => {}),
+      read: vi.fn(async () => {
+        const err = new Error('not found');
+        err.code = 'not-found';
+        throw err;
+      }),
       move: vi.fn(async () => {}),
     };
     const trashPath = '.jotfolio/trash/2026-05-03T00-00-00-000Z-n1/notes/Old.md';
     expect(originalPathFromTrashPath(trashPath)).toBe('notes/Old.md');
     await expect(restoreFromTrash(adapter, trashPath)).resolves.toBe('notes/Old.md');
+    expect(adapter.read).toHaveBeenCalledWith('notes/Old.md');
     expect(adapter.mkdir).toHaveBeenCalledWith('notes');
     expect(adapter.move).toHaveBeenCalledWith(trashPath, 'notes/Old.md');
+  });
+
+  it('refuses to restore over an existing destination file', async () => {
+    const adapter = {
+      mkdir: vi.fn(async () => {}),
+      read: vi.fn(async () => '# newer note'),
+      move: vi.fn(async () => {}),
+    };
+    const trashPath = '.jotfolio/trash/2026-05-03T00-00-00-000Z-n1/notes/Old.md';
+    await expect(restoreFromTrash(adapter, trashPath)).rejects.toThrow('destination exists: notes/Old.md');
+    expect(adapter.move).not.toHaveBeenCalled();
   });
 });

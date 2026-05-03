@@ -38,7 +38,14 @@ export async function moveToTrash(vaultAdapter, path, options) {
 
 export async function restoreFromTrash(vaultAdapter, trashPath) {
   if (!vaultAdapter || typeof vaultAdapter.move !== 'function') throw new Error('Vault move is not available');
+  if (typeof vaultAdapter.read !== 'function') throw new Error('Vault read is required for safe trash restore');
   const target = originalPathFromTrashPath(trashPath);
+  try {
+    await vaultAdapter.read(target);
+    throw new Error(`Cannot restore trash because destination exists: ${target}`);
+  } catch (err) {
+    if (err?.code !== 'not-found') throw err;
+  }
   const folder = target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : '';
   if (folder && typeof vaultAdapter.mkdir === 'function') await vaultAdapter.mkdir(folder);
   await vaultAdapter.move(normalizeRelPath(trashPath), target);

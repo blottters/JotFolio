@@ -19,10 +19,23 @@ What the JotFolio renderer can do via `window.electron.*`. Anything not on this 
 window.electron = {
   vault: { /* see ipc-audit.md */ },
   app:   { /* see ipc-audit.md */ },
+  snapshots: {
+    list(relPath): Promise<Array<SnapshotRecord>>
+    restore(relPath, date): Promise<void>
+  },
+  updater: {
+    check(): Promise<{ ok: boolean, info?: unknown, error?: string }>
+    installNow(): Promise<void>
+    onStatus(cb): () => void
+  },
+  telemetry: {
+    getOptIn(): Promise<{ enabled: boolean, decided: boolean }>
+    setOptIn(enabled): Promise<{ ok: boolean, enabled?: boolean, error?: string }>
+  },
   plugin: {
-    list(): Promise<Array<never>>    // stub in 0.4.x
-    enable(id): Promise<void>        // throws 'not implemented'
-    disable(id): Promise<void>       // throws 'not implemented'
+    list(): Promise<Array<never>>
+    enable(id): Promise<void>
+    disable(id): Promise<void>
   },
   platform: 'darwin' | 'win32' | 'linux',
 };
@@ -76,11 +89,12 @@ Added via `<meta http-equiv="Content-Security-Policy">` in `index.html`:
 
 ```
 default-src 'self';
-script-src 'self';
+script-src 'self' 'unsafe-eval';
+worker-src 'self' blob:;
 style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob:;
 font-src 'self' data:;
-connect-src *;
+img-src 'self' data: blob:;
+connect-src 'self' https://openrouter.ai https://api.anthropic.com https://api.openai.com http://localhost:11434 http://127.0.0.1:11434 https://*.ingest.sentry.io;
 frame-src 'none';
 object-src 'none';
 base-uri 'none';
@@ -94,7 +108,7 @@ form-action 'none';
 - `worker-src 'self' blob:` — the plugin sandbox spawns one Web Worker per enabled plugin, loaded via Blob URL. `blob:` is required for this; `'self'` covers Vite-built workers if any are added later.
 - `style-src 'self' 'unsafe-inline'` — inline styles are used throughout the codebase (26 themes worth). Tokenization to classes is a separate refactor.
 - `img-src 'self' data: blob:` — support pasted image data URIs + blobs (future attachment UI).
-- `connect-src *` — wide open for v0 because plugin HTTP allowlist is per-plugin, not global. Tightens in 0.5.0.
+- `connect-src ...` — restricted to app-owned network paths: AI providers, local Ollama, and Sentry ingest when crash telemetry is configured.
 - `frame-src 'none'` — no iframes allowed.
 - `object-src 'none'` — no `<object>` / `<embed>`.
 - `base-uri 'none'` — prevents `<base>` tag redirection of relative URLs.
@@ -104,7 +118,7 @@ form-action 'none';
 
 1. `'unsafe-inline'` for styles — required by current inline-style patterns across 26 themes. Migration target: CSS custom properties in classes (Phase 7 polish work).
 2. `'unsafe-eval'` for scripts — plugin Worker still evaluates plugin source via `new Function()`. Workers inherit parent CSP so removing `'unsafe-eval'` breaks the loader. Migration target: `importScripts` from a Blob URL (or ESM dynamic import) so the eval is never needed. Not a sandbox-escape risk; the Worker has no `window`/`localStorage`/`fetch` regardless.
-3. `connect-src *` — widened to accommodate plugin allowlists without recompiling CSP per-plugin. Narrowed in 0.5.0.
+3. AI/telemetry origins remain in `connect-src` because those flows are user-configurable or opt-in.
 
 These three are the known CSP gaps; everything else is strict.
 

@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current version: **0.4.1** (2026-04-24)*
+*Current version: **0.5.0-alpha.12** (2026-05-03)*
 
 ---
 
@@ -125,7 +125,7 @@ Established performance baselines and seeded an accessibility harness.
 - Deterministic clustered seed data (Mulberry32 PRNG, 20 clusters, 60/40 in-cluster/random wiki-links)
 - Playwright + `@axe-core/playwright` spec for 5 page/state flows — WCAG 2 AA target
 - Documented a11y gaps with target fix phase (Constellation keyboard nav, theme contrast audit, focus-visible, toast live-region)
-- Separate `bench.yml` CI workflow — PR trigger, push-to-main trigger, nightly at 02:00 UTC
+- Separate `source/.github/workflows/bench.yml` CI workflow — PR trigger, push-to-main trigger, nightly at 02:00 UTC
 - New convention: each phase starts with a specialist-authored plan at `docs/phase-plans/NN-<name>.md` executed inline
 
 ---
@@ -172,6 +172,74 @@ Second batch of fixes from Codex's stress-test handoff. **14 of 15 findings clos
 
 ---
 
+## 0.5.0-alpha.9 — Accessibility + release-hardening sweep (2026-05-01)
+
+Focused remediation release for accessibility, release governance, and documentation truth.
+
+- Canvas and Constellation now ship accessible alternatives for keyboard and screen-reader users.
+- Minimal-light theme muted text contrast now meets WCAG AA on white and pale-gray surfaces.
+- Add-entry helper labels and destructive delete actions were retuned so light-theme contrast stays readable.
+- Playwright a11y flows now seed deterministic app state and run against real built UI states.
+- Release process and CI hardening landed for the current alpha line, including CodeQL / Dependabot configuration and explicit release-workflow permissions.
+- `master` is treated as the intended canonical release branch in the technical release notes, while the docs now avoid claiming older branch/update behavior that no longer matches the code.
+
+---
+
+## 0.5.0-alpha.10 — Trust/readiness stabilization (2026-05-02)
+
+Phase 1 trust work focused on making runtime behavior, settings, and docs agree.
+
+- Added Settings > Updates with installed version, update status, check-now, and restart-now behavior.
+- Updater errors now show in-product instead of only logging through the main process.
+- Windows installer artifact names now match the updater metadata in `latest.yml`.
+- Privacy telemetry now uses the Electron persisted preference when the desktop bridge is available, with browser localStorage kept as the dev fallback.
+- Crash telemetry send paths now re-check the current opt-in value before submitting an event.
+- Settings > Vault now uses the app's root vault state instead of creating a second independent vault hook.
+- Broken-file and storage-corruption messaging now explains what happened and what recovery state the app is protecting.
+- Current-state docs now reflect alpha.10 and avoid claiming stale updater/a11y behavior as current.
+
+---
+
+## 0.5.0-alpha.11 — Product-model clarity sweep (2026-05-02)
+
+Phase 2 work focused on making JotFolio explain itself clearly on first contact.
+
+- Added Settings > System as the central place for version, runtime, data location, vault health, updates, and telemetry status.
+- Reworked onboarding so users see the entry/vault/Constellation/Base/Canvas mental model before import choices.
+- Standardized visible graph language around Constellation.
+- Clarified that the sidebar is primary navigation and the ribbon is quick actions.
+- Clarified Quick Switcher as entry navigation/creation and Command Palette as command execution.
+- Moved AI enable/configuration ownership into Settings > AI instead of Appearance.
+- Made JSON import visible in Settings > Data instead of hiding it behind advanced mode.
+- Reworded Base, Canvas, Constellation, search, empty-state, and keyboard-list copy to reduce jargon and implementation-sounding labels.
+
+---
+
+## 0.5.0-alpha.12 — Core workflow baseline sweep (2026-05-03)
+
+Phase 4/5 work focused on making the app more usable for a real growing vault and sharper about what it is.
+
+- Added folder browsing in the sidebar from actual vault paths.
+- Added create-folder, reveal file, rename file, and move-folder workflows.
+- Added bulk selection for entries with safe move-to-trash behavior.
+- Added Settings > Vault trash review with restore, permanent delete, and empty-trash controls.
+- Added per-entry recovery snapshot review and restore.
+- Dropped files are now copied into `attachments/YYYY-MM-DD/` and linked in notes instead of merely writing the filename.
+- Electron vault listing now includes non-markdown vault files so bases, canvases, templates, plugins, trash, and attachments are visible to renderer features.
+- Bases are framed as Smart Views in the sidebar.
+- Product copy continues to center the local-first mixed-media markdown vault and treats plugins/AI as supporting layers.
+
+Verification:
+- `npm run build` passed locally on 2026-05-03.
+- `npm test` passed locally on 2026-05-03: 433/433 tests.
+- `npm run a11y -- --workers=1` passed locally on 2026-05-03: 5/5 Playwright + axe flows.
+- `npm run electron:build -- --win --publish never` built unsigned local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.12.exe`.
+- Packaged smoke launched `dist-electron/win-unpacked/JotFolio.exe` from `app.asar` and Electron reported `0.5.0-alpha.12`.
+- Packaged screenshots were captured for normal rendering, forced-colors/reduced-motion, 200% zoom, and 400% zoom.
+- NVDA is not installed on this machine; Narrator exists but was not launched automatically because it changes the active desktop session.
+
+---
+
 ## Current cleanup pass (2026-04-24)
 
 - Removed the "Picture This" mockup gallery view — pure visual theatre, no wiring, no longer needed now that the Constellation has matured
@@ -187,8 +255,8 @@ Second batch of fixes from Codex's stress-test handoff. **14 of 15 findings clos
 
 See `docs/plans/jotfolio-electron-pivot.md` for the full backlog. Short version:
 
-- **Security:** sandboxed plugin host (moves plugin code out of the renderer), CSP tighten, symlink realpath check, DOMPurify over marked
-- **UX:** command palette (Cmd/Ctrl+P), quick switcher (Cmd/Ctrl+O), folder tree sidebar, real git sync, "restart to update" banner
-- **A11y:** fix the documented gaps, run Playwright a11y live in CI
+- **Security:** symlink realpath check, snapshot-restore path validation parity, CSP tighten, DOMPurify review over marked output
+- **UX:** folder tree sidebar, real git sync, full file-management flows, richer recovery/error actions
+- **A11y:** finish the documented manual verification work across screen readers, high contrast, and zoom
 - **Platforms:** Edge/Chrome web build, mobile via Capacitor
-- **Ops (user-side):** Sentry account, Apple Developer Program, Windows signing cert, `TEAMID_REPLACE_ME` replaced, first tagged release
+- **Ops (user-side):** Apple Developer notarization data, Windows signing cert, `TEAMID_REPLACE_ME` replaced, bench regressions investigated before the next performance claim

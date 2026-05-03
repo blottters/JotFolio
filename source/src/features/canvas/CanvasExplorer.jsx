@@ -40,7 +40,7 @@ export function CanvasExplorer({
     <div style={{ padding: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, color: 'var(--t2)' }}>
       <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--tx)' }}>Canvases</div>
       <div style={{ fontSize: 13, color: 'var(--t3)', textAlign: 'center', maxWidth: 420 }}>
-        Spatial workspaces — drop text cards, link to your notes, draw connections.
+        Canvases are spatial workspaces for arranging entry cards, text cards, and connections.
         Each canvas is saved as a portable <code>.canvas.json</code> file in your vault.
       </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useId } from 'react';
 
-// InsertTemplateModal — fuzzy-search picker for inserting a template
+// InsertTemplateModal — fuzzy-search picker for inserting a saved template
 // at the cursor in the active note. Mirrors CommandPalette's modal
 // shell exactly (centered overlay, Esc/↑↓/↵ keybindings, click-outside
 // closes, listbox semantics).
@@ -88,7 +88,7 @@ export function InsertTemplateModal({ open, templates, onInsert, onClose, active
             fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--fn)',
             background: 'var(--bg)',
           }}>
-            Insert template at cursor in <span style={{ color: 'var(--tx)', fontWeight: 700 }}>
+            Insert saved template into <span style={{ color: 'var(--tx)', fontWeight: 700 }}>
               {`'${activeNoteTitle}'`}
             </span>
           </div>
@@ -99,8 +99,8 @@ export function InsertTemplateModal({ open, templates, onInsert, onClose, active
           value={query}
           onChange={e => { setQuery(e.target.value); setActiveIdx(0); }}
           onKeyDown={handleKey}
-          placeholder="Type to filter templates…"
-          aria-label="Insert template search"
+          placeholder="Choose a saved template to insert…"
+          aria-label="Saved template search"
           style={{
             padding: '14px 16px', fontSize: 15, fontFamily: 'var(--fn)',
             border: 'none', borderBottom: '1px solid var(--br)',
@@ -113,7 +113,7 @@ export function InsertTemplateModal({ open, templates, onInsert, onClose, active
             <div style={{
               padding: '20px 16px', color: 'var(--t3)', fontSize: 13, textAlign: 'center',
             }}>
-              {list.length === 0 ? 'No templates yet.' : 'No templates match.'}
+              {list.length === 0 ? 'No saved templates yet. Open Template Library to create one.' : 'No templates match.'}
             </div>
           )}
           {filtered.map((tpl, idx) => {

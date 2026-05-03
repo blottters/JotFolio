@@ -1,10 +1,10 @@
 # Plan: JotFolio — Electron Desktop Pivot
 
-_Created 2026-04-23. Last updated 2026-04-24 with execution results. Supersedes `no-i-want-you-cuddly-pearl.md` which covered the earlier Phase 1–4 note-taking features._
+_Created 2026-04-23. Last updated 2026-05-03 to separate historical roadmap material from the current repo state. Supersedes `no-i-want-you-cuddly-pearl.md` which covered the earlier Phase 1–4 note-taking features._
 
 ---
 
-## STATUS — ALL 7 PHASES COMPLETE (v0.4.1 shipped 2026-04-24)
+## STATUS — INITIAL PIVOT COMPLETE; CURRENT REPO HAS MOVED TO v0.5.0-alpha.12
 
 | Phase | Status | Shipped In | Notes |
 |---|---|---|---|
@@ -19,9 +19,11 @@ _Created 2026-04-23. Last updated 2026-04-24 with execution results. Supersedes 
 | 6 — CI/CD + distribution + SRE | ✅ Done | v0.4.0 | GitHub Actions release workflow, electron-updater, Sentry telemetry (opt-in), recovery snapshots (7/4/3 retention), code-signing docs |
 | 7 — Performance + a11y scaffold | ✅ Done | v0.4.1 | 14 benchmarks (all targets met), committed baseline, bench.yml CI, Playwright a11y spec, known gaps documented |
 
-**Final test count:** 84/84 green.
-**Final build size:** 431 KB (gzipped 130 KB).
-**Electron build:** scaffolded; not yet run by user (requires `npm install` on their machine).
+**Historical milestone:** the original 7-phase pivot closed at **v0.4.1** on 2026-04-24.
+**Current local source line:** subsequent work moved the repo to **v0.5.0-alpha.12** (see `docs/CHANGELOG.md`).
+**Current verified tests:** 433/433 green (`npm test` run locally on 2026-05-03).
+**Current verified desktop state:** unsigned local Windows installer built as `JotFolio-Setup-0.5.0-alpha.12.exe`; packaged smoke launched from `app.asar` and reported `0.5.0-alpha.12`. Any already-installed desktop copy remains on its previous installed version until the alpha.12 installer is run or auto-update receives a published alpha.12 release.
+**Current perf truth:** baseline still exists, but the latest local bench run failed regression thresholds on 2026-05-02; do not describe perf as green until those deltas are investigated.
 **Process pattern evolved:** each phase started with specialist-authored plan at `docs/phase-plans/` (or inline for phases before convention was adopted), executed inline by Claude Code. Subagent dispatch for plan authorship worked; dispatch for execution consistently truncated — pattern abandoned mid-session.
 
 ---
@@ -260,33 +262,33 @@ Each phase exit requires, at minimum:
 
 ---
 
-## v0.5.0 Backlog (next cycle, not in this plan)
+## v0.5.0 Backlog (current open work after alpha.12)
 
-All accepted risks + deferrals from phases 0–7 roll forward:
+Historical accepted risks from phases 0–7 are preserved below, but this list has been pruned to the work that is still actually open after the alpha.12 local source line.
 
 ### Security (carried from Phase 5)
-- **Sandboxed plugin host process.** v0 plugins run in renderer JS context (accepted risk per ADR-0003). 0.5.0 moves plugins to a separate BrowserWindow with `sandbox: true`, `contextIsolation: true`, structured-clone postMessage bridge. Plugin API becomes the only reachable surface.
-- **Tighten CSP.** Drop `connect-src *` once plugin domain allowlists can be composed per-plugin. Drop `'unsafe-eval'` once sandbox replaces `new Function()` plugin loader.
 - **Symlink realpath check** in `src-electron/main.js:resolveSafe`. Reject files whose `fs.realpath(abs)` escapes vault root.
+- **Snapshot restore path validation parity.** `snapshot:restore` should enforce the same vault-boundary guarantees as normal vault writes.
+- **Tighten CSP.** Drop `connect-src *` once plugin domain allowlists can be composed per-plugin. Revisit `'unsafe-eval'` usage in the plugin-loading path.
 - **DOMPurify wrap** over `marked.parse` output in NoteBody as belt-and-suspenders.
 
 ### UX (carried from Phase 4b.5)
-- **Command palette** (Cmd/Ctrl+P) per wireframe 07. Lists all registered commands (plugin + core). Fuzzy filter. Recent-commands history.
-- **Quick switcher** (Cmd/Ctrl+O) per wireframe 08. Fuzzy over titles. Create-with-query-as-title fallback.
 - **Folder tree sidebar** per wireframe 03. Expandable, drag-move, rename (F2), create folder.
 - **Real git-sync** in `plugins/git-sync/` — ships `git:*` IPC channel from main process (spawn git subprocess), plugin uses it. Current plugin = stub only.
-- **"Restart to update" banner** in renderer after `update:status` `state: 'ready'` event. Currently updates apply silently on quit.
+- **Full file-management workflows** — move, rename, create folder, reveal in Explorer/Finder, safe delete, and attachment handling in the main UI.
+- **Update preferences** — channel selection and deeper updater controls after the basic alpha.10 Updates surface.
 
 ### Accessibility (carried from Phase 7 `known-a11y-gaps.md`)
-- Constellation keyboard traversal + screen-reader list equivalent
+- Manual verification for Constellation keyboard + screen-reader behavior
 - 26-theme contrast audit (auto-adjust `--t3` / `--br` tokens when <AA)
 - Focus-visible outline on dropdowns
-- Toast `role="status"` / `aria-live="polite"`
-- Real Playwright a11y run in CI (requires `npx playwright install chromium` in workflow)
+- Command palette + quick switcher manual AT verification
+- High contrast, reduced motion, and 200%/400% zoom checks
 
 ### Performance (carried from Phase 7)
-- **Incremental backlink rebuild** if usage reveals full-rescan is painful. Current measurement: 13.7ms @ 5k — full rescan is fine for now. Revisit at 20k+.
-- **Full-text search index** if `search-10k` becomes regular load. Currently 118ms on `.includes()` scan.
+- **Investigate current bench regressions** in `frontmatter-roundtrip`, `search-5k`, `backlink-rebuild-1k`, and vault-scan metrics before claiming performance health.
+- **Incremental backlink rebuild** if usage reveals full-rescan is painful at larger library sizes.
+- **Full-text search index** if the current linear scan no longer meets the product target envelope.
 
 ### Platforms
 - **Web build ship** (Edge/Chrome via `WebFsaAdapter` using File System Access API). Adapter shape already defined, not yet implemented.
@@ -297,8 +299,7 @@ All accepted risks + deferrals from phases 0–7 roll forward:
 - Apple Developer enrollment + cert + notarization setup per `docs/build/code-signing.md`
 - Windows signing cert (start OV, upgrade Azure Trusted Signing)
 - Replace `TEAMID_REPLACE_ME` in `package.json`
-- `npm install` + first `npm run electron:dev` + first `npm run bench`
-- Tag first release: `git tag v0.4.1 && git push --tags`
+- First signed release after the code-signing placeholders are replaced
 
 ### Process
 - Formalize two-tier plan pattern: roadmap (this file) + per-phase plan at `docs/phase-plans/NN-<name>.md`. Phase 7 set the precedent; retrofit earlier phases only if contributors need them.
@@ -319,7 +320,7 @@ All accepted risks + deferrals from phases 0–7 roll forward:
 **Electron shell (5):** `main.js`, `preload.js`, `menus.js`, `updater.js`, `telemetry.js`, `snapshots.js`, `README.md`
 **UI features:** `VaultPicker`, `useVault`, `PluginsPanel`, `PrivacyPanel`, `NoteBody`, wired through `SettingsPanel`
 **Benchmark suite:** `bench/runBench.js` + 6 measure modules + `baseline.json`
-**CI (2):** `.github/workflows/release.yml`, `bench.yml`
+**CI (2):** `source/.github/workflows/release.yml`, `source/.github/workflows/bench.yml`
 **Tests:** 84/84 green across 12 test files
 
 ---

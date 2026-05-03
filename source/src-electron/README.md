@@ -3,7 +3,7 @@
 Electron main-process code. Three files:
 
 - **`main.js`** — creates the `BrowserWindow`, registers all IPC handlers (see ADR-0004), persists settings + last-vault path to `app.getPath('userData')/settings.json`, runs the `chokidar` vault watcher.
-- **`preload.js`** — exposes `window.electron.{ vault, app, plugin, platform }` via `contextBridge`. The renderer never touches `ipcRenderer` directly.
+- **`preload.js`** — exposes `window.electron.{ vault, app, snapshots, updater, telemetry, plugin, platform }` via `contextBridge`. The renderer never touches `ipcRenderer` directly.
 - **`menus.js`** — builds the native application menu per wireframe 12.
 
 ## Processes

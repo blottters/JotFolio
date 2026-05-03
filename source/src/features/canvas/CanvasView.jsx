@@ -263,10 +263,6 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
     setMediaPath('');
   };
 
-  const handleRemoveNode = (id) => {
-    commit(removeNode(localCanvas, id));
-  };
-
   const describeNode = useCallback((node) => {
     if (node.type === 'file') {
       const entry = entryById.get(node.file);
@@ -275,6 +271,16 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
     if (node.type === 'media') return `Media card: ${node.file || 'missing media'}`;
     return `Text card: ${String(node.text || 'empty').slice(0, 80)}`;
   }, [entryById]);
+
+  const handleRemoveNode = useCallback((nodeOrId) => {
+    const node = typeof nodeOrId === 'string'
+      ? localCanvas?.nodes?.find(n => n.id === nodeOrId)
+      : nodeOrId;
+    if (!node) return;
+    const ok = window.confirm(`Remove ${describeNode(node)} from this canvas? This does not delete the entry file from your vault.`);
+    if (!ok) return;
+    commit(removeNode(localCanvas, node.id));
+  }, [commit, describeNode, localCanvas]);
 
   const moveNodeByKeyboard = useCallback((node, dx, dy) => {
     commit(moveNode(localCanvas, node.id, node.x + dx, node.y + dy));
@@ -295,14 +301,14 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      handleRemoveNode(node.id);
+      handleRemoveNode(node);
       return;
     }
     if (e.key === 'ArrowLeft') { e.preventDefault(); moveNodeByKeyboard(node, -step, 0); }
     if (e.key === 'ArrowRight') { e.preventDefault(); moveNodeByKeyboard(node, step, 0); }
     if (e.key === 'ArrowUp') { e.preventDefault(); moveNodeByKeyboard(node, 0, -step); }
     if (e.key === 'ArrowDown') { e.preventDefault(); moveNodeByKeyboard(node, 0, step); }
-  }, [editingNodeId, handleNodeClick, moveNodeByKeyboard]);
+  }, [editingNodeId, handleNodeClick, handleRemoveNode, moveNodeByKeyboard]);
 
   const filteredEntries = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -393,7 +399,7 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
       {(localCanvas?.nodes || []).length > 0 && (
         <details style={{ borderBottom: '1px solid var(--br)', background: 'var(--b2)', padding: '6px 12px' }}>
           <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--t2)' }}>
-            Accessible card list ({localCanvas.nodes.length})
+            Keyboard list for canvas cards ({localCanvas.nodes.length})
           </summary>
           <ol aria-label="Canvas cards" style={{ margin: '8px 0 0', paddingLeft: 20, display: 'grid', gap: 6 }}>
             {localCanvas.nodes.map(node => (
@@ -411,7 +417,7 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
                   <button type="button" onClick={() => moveNodeByKeyboard(node, 10, 0)} style={TOOLBAR_BTN}>Right</button>
                   <button type="button" onClick={() => moveNodeByKeyboard(node, 0, -10)} style={TOOLBAR_BTN}>Up</button>
                   <button type="button" onClick={() => moveNodeByKeyboard(node, 0, 10)} style={TOOLBAR_BTN}>Down</button>
-                  <button type="button" onClick={() => handleRemoveNode(node.id)} style={TOOLBAR_BTN}>Remove</button>
+                  <button type="button" onClick={() => handleRemoveNode(node)} style={TOOLBAR_BTN}>Remove</button>
                 </span>
               </li>
             ))}
@@ -503,7 +509,7 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
               onClick={() => handleNodeClick(node)}
               onDoubleClick={() => { if (node.type === 'text') setEditingNodeId(node.id); }}
               onKeyDown={(e) => handleNodeKeyDown(e, node)}
-              onRemove={() => handleRemoveNode(node.id)}
+              onRemove={() => handleRemoveNode(node)}
               onCommitText={(text) => {
                 commit(updateNode(localCanvas, node.id, { text }));
                 setEditingNodeId(null);
@@ -589,24 +595,6 @@ function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, e
       }}>
         <span>{node.type}</span>
         <div style={{ flex: 1 }} />
-        {hover && !editing && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            aria-label="Remove card"
-            style={{
-              padding: '0 6px',
-              fontSize: 14,
-              lineHeight: 1,
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--t3)',
-              cursor: 'pointer',
-            }}
-          >
-            ×
-          </button>
-        )}
       </div>
       <div style={{ flex: 1, padding: 8, overflow: 'hidden', fontSize: 13, color: 'var(--tx)' }}>
         <NodeBody
@@ -619,6 +607,36 @@ function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, e
           onCancelEdit={onCancelEdit}
         />
       </div>
+      {!editing && (
+        <button
+          type="button"
+          onPointerDown={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onRemove(); }}
+          aria-label="Remove card"
+          title="Remove card"
+          style={{
+            position: 'absolute',
+            right: 6,
+            bottom: 6,
+            width: 20,
+            height: 20,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+            lineHeight: 1,
+            background: 'rgba(15,23,42,0.18)',
+            border: '1px solid transparent',
+            borderRadius: 'var(--rd)',
+            color: 'var(--t3)',
+            cursor: 'pointer',
+            fontFamily: 'var(--fn)',
+          }}
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }

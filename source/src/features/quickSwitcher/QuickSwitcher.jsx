@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { rankNotes, findExactMatch } from '../../lib/quickSwitcher/quickSwitcherSearch.js';
 
-// Quick switcher modal — Obsidian's Cmd/Ctrl+O.
+// Quick switcher modal — Cmd/Ctrl+O opens entries; Cmd/Ctrl+P runs commands.
 //
 // Mirrors CommandPalette.jsx visually and interactionally: same outer
 // modal shell, same foot bar, same sectioning. Differences:
@@ -173,8 +173,8 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
           value={query}
           onChange={e => { setQuery(e.target.value); setActiveIdx(0); }}
           onKeyDown={handleKey}
-          placeholder="Find or create note…"
-          aria-label="Quick switcher search"
+          placeholder="Find or create entry…"
+          aria-label="Quick switcher entry search"
           style={{
             padding: '14px 16px', fontSize: 15, fontFamily: 'var(--fn)',
             border: 'none', borderBottom: '1px solid var(--br)', background: 'transparent',
@@ -188,7 +188,7 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
         >
           {ranked.length === 0 && !showCreateRow && (
             <div style={{ padding: '20px 16px', color: 'var(--t3)', fontSize: 13, textAlign: 'center' }}>
-              {trimmed ? 'No notes match.' : 'No notes yet.'}
+              {trimmed ? 'No entries match.' : 'No entries yet.'}
             </div>
           )}
 
@@ -260,8 +260,9 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
         >
           <span>↑↓ navigate</span>
           <span>↵ open</span>
-          <span>Shift+↵ create</span>
+          <span>Shift+↵ create note entry</span>
           <span>Esc close</span>
+          <span>Ctrl+P runs commands</span>
           <span style={{ marginLeft: 'auto' }}>{rows.length} result{rows.length === 1 ? '' : 's'}</span>
         </div>
       </div>

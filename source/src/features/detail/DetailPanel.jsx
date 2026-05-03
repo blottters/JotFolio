@@ -60,7 +60,7 @@ function RecoverySnapshotsSection({entry,onToast}){
       <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5}}>
         {canUse?'Review older saved copies for this file before restoring.':'Snapshots are available in the packaged desktop app after a real vault file exists.'}
       </div>
-      {error&&<div role="alert" style={{fontSize:11,color:'#ef4444',marginTop:6}}>{error}</div>}
+      {error&&<div role="alert" style={{fontSize:11,color:'#b91c1c',marginTop:6}}>{error}</div>}
       {Array.isArray(items)&&(
         <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:8}}>
           {items.length===0?(
@@ -174,8 +174,8 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
       <div style={{padding:'14px 16px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:8,flexShrink:0,position:'sticky',top:0,background:'var(--bg)',zIndex:1}}>
         {confirmDelete?(
           <>
-            <span style={{flex:1,fontSize:13,color:'#ef4444',fontWeight:700}}>Delete entry?</span>
-            <button onClick={()=>{onDelete();setConfirmDelete(false)}} style={{padding:'4px 10px',fontSize:12,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'#ef4444',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0,fontWeight:700}}>Yes</button>
+            <span style={{flex:1,fontSize:13,color:'#b91c1c',fontWeight:700}}>Delete entry?</span>
+            <button onClick={()=>{onDelete();setConfirmDelete(false)}} style={{padding:'4px 10px',fontSize:12,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'#b91c1c',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0,fontWeight:700}}>Yes</button>
             <button onClick={()=>setConfirmDelete(false)} style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Cancel</button>
           </>
         ):(
@@ -187,7 +187,7 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
             <button onClick={()=>requestDiscard('next')} disabled={!hasNext} aria-label="Next entry"
               style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:hasNext?'var(--t2)':'var(--t3)',cursor:hasNext?'pointer':'not-allowed',opacity:hasNext?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>›</button>
             <button onClick={()=>setConfirmDelete(true)} aria-label="Delete entry"
-              style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'#ef4444',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Delete</button>
+              style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Delete</button>
             <button ref={editButtonRef} onClick={()=>editing?cancelEdit():setEditing(true)} aria-label={editing?'Cancel editing':'Edit entry'} aria-pressed={editing}
               style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>
               {editing?'Cancel':'Edit'}
@@ -212,7 +212,7 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
               <div>
                 <label htmlFor={ids.url} style={ls}>URL</label>
                 <input id={ids.url} style={is} value={form.url||''} onChange={update('url')} aria-invalid={!!urlError} aria-describedby={urlError?`${ids.url}-error`:undefined}/>
-                {urlError&&<div id={`${ids.url}-error`} role="alert" style={{fontSize:11,color:'#ef4444',marginTop:4}}>{urlError}</div>}
+                {urlError&&<div id={`${ids.url}-error`} role="alert" style={{fontSize:11,color:'#b91c1c',marginTop:4}}>{urlError}</div>}
               </div>
             )}
             <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status||''} onChange={v=>update('status')({target:{value:v}})} options={(STATUSES[entry.type]||[]).map(s=>({value:s,label:displayStatus(s)}))}/></div>
@@ -226,19 +226,19 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
               <div style={{display:'flex',alignItems:'center',marginBottom:3}}>
                 <label htmlFor={ids.notes} style={ls}>Notes</label>
                 <button type="button" onClick={handleVoice} aria-label={recording?'Stop voice input':'Start voice input'} aria-pressed={recording}
-                  style={{marginLeft:'auto',padding:'3px 9px',fontSize:11,background:recording?'#ef4444':'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:recording?'#fff':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
+                  style={{marginLeft:'auto',padding:'3px 9px',fontSize:11,background:recording?'#b91c1c':'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:recording?'#fff':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
                   {recording?'🔴 Listening…':'🎤 Voice'}
                 </button>
               </div>
-              {voiceError&&<div role="alert" style={{fontSize:11,color:'#ef4444',marginBottom:4}}>{voiceError}</div>}
+              {voiceError&&<div role="alert" style={{fontSize:11,color:'#b91c1c',marginBottom:4}}>{voiceError}</div>}
               <textarea id={ids.notes} style={{...is,height:160,resize:'vertical'}} value={form.notes||''} onChange={update('notes')}/>
             </div>
             <div style={{display:'flex',gap:8}}>
               <button onClick={save} style={{flex:1,padding:9,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Save</button>
               {confirmingDelete?(
-                <button onClick={onDelete} aria-label="Confirm delete entry" style={{padding:'9px 14px',background:'#ef4444',border:'1px solid #ef4444',borderRadius:'var(--rd)',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Confirm delete</button>
+                <button onClick={onDelete} aria-label="Confirm delete entry" style={{padding:'9px 14px',background:'#b91c1c',border:'1px solid #b91c1c',borderRadius:'var(--rd)',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Confirm delete</button>
               ):(
-                <button onClick={()=>setConfirmingDelete(true)} aria-label="Delete entry" style={{padding:'9px 14px',background:withAlpha('#ef4444',0.07),border:'1px solid #ef4444',borderRadius:'var(--rd)',color:'#ef4444',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13}}>🗑</button>
+                <button onClick={()=>setConfirmingDelete(true)} aria-label="Delete entry" style={{padding:'9px 14px',background:withAlpha('#b91c1c',0.07),border:'1px solid #b91c1c',borderRadius:'var(--rd)',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13}}>🗑</button>
               )}
             </div>
           </div>

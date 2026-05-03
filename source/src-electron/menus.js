@@ -54,7 +54,7 @@ function buildMenu(win) {
         { label: 'Command Palette', accelerator: `${mod}+P`, click: send('menu:command-palette') },
         { label: 'Quick Switcher', accelerator: `${mod}+O`, click: send('menu:quick-switcher') },
         { type: 'separator' },
-        { label: 'Graph View', accelerator: `${mod}+G`, click: send('menu:graph') },
+        { label: 'Constellation', accelerator: `${mod}+G`, click: send('menu:graph') },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },

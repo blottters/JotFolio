@@ -103,7 +103,7 @@
 
 - [ ] **Step 1:** Create `source/src-electron/urlMeta.js` with:
   - `validateUrl(input)` → throws if not http/https or unparseable
-  - `fetchHtml(url)` using `node:https`. Set 10-second timeout. Set User-Agent to something honest (e.g. `JotFolio/0.5.0-alpha.8 (https://github.com/blottters/JotFolio)`). Follow up to 5 redirects.
+  - `fetchHtml(url)` using `node:https`. Set 10-second timeout. Set User-Agent to something honest (e.g. `JotFolio/0.5.0-alpha.11 (https://github.com/blottters/JotFolio)`). Follow up to 5 redirects.
   - `parseHead(html)` — regex-extract `<meta name|property="..." content="...">` pairs into a map. Don't pull a full HTML parser dep.
   - `dispatch(url, html)` — pattern-match URL, route to adapter, return result.
 - [ ] **Step 2:** In `main.js`, register: `ipcMain.handle('url-metadata:fetch', async (_, url) => { try { return await fetchAndParse(url) } catch (e) { return { error: e.message } } })`. Always returns; never throws to renderer.

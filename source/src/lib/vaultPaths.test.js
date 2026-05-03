@@ -1,0 +1,39 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildFolderTree,
+  fileNameFromPath,
+  folderFromPath,
+  joinVaultPath,
+  normalizeMarkdownFileName,
+  normalizeVaultFolder,
+} from './vaultPaths.js';
+
+describe('vault path helpers', () => {
+  it('normalizes vault-relative folders', () => {
+    expect(normalizeVaultFolder(' notes\\daily/ ')).toBe('notes/daily');
+    expect(normalizeVaultFolder('.')).toBe('');
+    expect(() => normalizeVaultFolder('C:/Users/gavin')).toThrow(/vault-relative/);
+    expect(() => normalizeVaultFolder('../outside')).toThrow(/parent/);
+  });
+
+  it('normalizes markdown filenames and joins paths', () => {
+    expect(normalizeMarkdownFileName('Plan')).toBe('Plan.md');
+    expect(normalizeMarkdownFileName('Plan.md')).toBe('Plan.md');
+    expect(joinVaultPath('notes/daily', 'Plan')).toBe('notes/daily/Plan.md');
+    expect(fileNameFromPath('notes/daily/Plan.md')).toBe('Plan.md');
+    expect(folderFromPath('notes/daily/Plan.md')).toBe('notes/daily');
+  });
+
+  it('builds a counted folder tree from entry paths', () => {
+    const tree = buildFolderTree([
+      { _path: 'notes/a.md' },
+      { _path: 'notes/daily/b.md' },
+      { _path: 'articles/c.md' },
+    ]);
+    expect(tree).toEqual([
+      { path: 'articles', name: 'articles', depth: 0, count: 1 },
+      { path: 'notes', name: 'notes', depth: 0, count: 1 },
+      { path: 'notes/daily', name: 'daily', depth: 1, count: 1 },
+    ]);
+  });
+});

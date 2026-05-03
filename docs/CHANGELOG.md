@@ -10,6 +10,79 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.12] — 2026-05-03
+
+### Added
+- Sidebar folder browsing derived from real vault-relative entry paths, plus a create-folder action for disk vault organization.
+- Entry file-management actions in the detail panel: reveal in Explorer/Finder, rename file, and move to another vault folder.
+- Settings > Vault trash review surface with restore, permanent delete, and empty-trash support for files moved under `.jotfolio/trash`.
+- Per-entry recovery snapshot review and restore surface in the detail panel.
+- Bulk entry selection with move-to-trash action for larger cleanup workflows.
+- Dropped-file attachment import into `attachments/YYYY-MM-DD/` with a markdown link inserted into the new entry notes.
+- Vault path and attachment helper test coverage.
+
+### Changed
+- Electron `vault:list` now returns all vault files instead of only markdown, allowing desktop builds to see bases, canvases, templates, plugins, trash, and attachments through the same adapter contract as the browser fallback.
+- Sidebar Bases section is now framed as Smart Views so saved filters/sorts read as workflow tools rather than unexplained objects.
+- Add-entry drop-zone copy now accurately says files are imported into `attachments/` instead of only filling the title/notes.
+
+### Fixed
+- The previous desktop listing behavior could make non-markdown vault objects invisible to renderer features that already expected the adapter to list them.
+
+## [0.5.0-alpha.11] — 2026-05-02
+
+### Added
+- Settings > System tab that explains app version, runtime, data location, vault health, update availability, and telemetry status in one place.
+- First-run onboarding explanation for entries, the disk vault model, Constellation, Bases, and Canvases before import choices.
+
+### Changed
+- User-facing product model now treats `entry` as the umbrella object, with notes as one entry type.
+- Graph-related wording now consistently uses Constellation in the visible app shell and Electron menu.
+- Sidebar is framed as primary navigation; ribbon is framed as quick actions.
+- Quick Switcher copy now clarifies that it opens or creates entries, while Command Palette runs app commands.
+- Settings IA now keeps AI configuration in Settings > AI and makes JSON import visible in Settings > Data.
+- Base, Canvas, Constellation, search, empty-state, and keyboard-list copy now use clearer user-facing terminology.
+
+## [0.5.0-alpha.10] — 2026-05-02
+
+### Added
+- Settings > Updates tab showing the installed app version, current update state, manual check-now behavior, and restart-now action when an update is ready.
+- Electron telemetry preference bridge so the renderer Privacy toggle and main-process Sentry gate share the same persisted desktop setting.
+
+### Changed
+- Settings > Vault now consumes the root app vault state instead of creating a second independent `useVault()` instance.
+- Vault issue messaging now explains that broken files are skipped rather than overwritten and points users toward repair/rescan.
+- Storage corruption messaging now names the quarantined key and explains why writes are blocked.
+- Current-state docs now distinguish historical pivot status from the alpha.10 runtime state.
+
+### Fixed
+- Windows installer artifact naming now matches `latest.yml`, preventing update metadata from pointing at a differently named setup file.
+- Updater failures now surface in-product instead of disappearing after the main process emits `state: 'error'`.
+- Renderer telemetry preference hydration no longer treats the default off state as an explicit user decision.
+
+### Security
+- Crash telemetry remains opt-in; enabling it from Settings now updates the same Electron `settings.json` value read by the main process, and send-time gates re-check the current opt-in value before submitting events.
+
+## [0.5.0-alpha.9] — 2026-05-01
+
+### Added
+- GitHub security posture plan implementation: CI, CodeQL, Dependabot, and release-permission hardening.
+- Canvas and Constellation accessible alternatives for keyboard and screen-reader users.
+
+### Changed
+- Minimal light theme muted text now meets WCAG AA contrast on white and pale-gray surfaces.
+- A11y Playwright flows now seed deterministic app state and run against real UI states.
+- Release process now treats `master` as the canonical release branch.
+
+### Fixed
+- Add-entry helper labels no longer rely on opacity that drops contrast below WCAG AA.
+- Destructive delete actions use a darker red that passes contrast on light surfaces.
+- Quick-capture a11y flow no longer accidentally scans the ribbon Templates route.
+
+### Security
+- Release workflow is prepared to use the built-in GitHub token with explicit contents write permission instead of a repository PAT.
+- Security scanning workflows/configuration added for CodeQL and Dependabot.
+
 ## [0.5.0-alpha.2] — 2026-04-24
 
 Remediation sweep of Codex's stress-test findings. 14 of 15 closed. Only #5 (RAF setOffsets re-render pressure) deferred — scoped as a performance refactor rather than a bug fix.
@@ -121,7 +194,7 @@ Performance benchmarks + accessibility scaffold (Phase 7). Closes the roadmap fo
 - `docs/perf/bench-targets.md` — target rationale, revision rules, first-run results.
 
 ### Added — CI
-- `.github/workflows/bench.yml` — two jobs: perf (runs bench, regression check vs baseline) + a11y (builds dist, serves it, runs Playwright axe suite). Triggers: PR, push-to-main, nightly 02:00 UTC.
+- `source/.github/workflows/bench.yml` — two jobs: perf (runs bench, regression check vs baseline) + a11y (builds dist, serves it, runs Playwright axe suite). Triggers: PR, push-to-main, nightly 02:00 UTC.
 
 ### Added — Pattern
 - `docs/phase-plans/07-performance.md` — detailed implementation plan produced by the `testing-performance-benchmarker` agent before execution. New convention: each phase starts with a specialist plan committed under `docs/phase-plans/`, then executed inline. Roadmap at `~/.claude/plans/jotfolio-electron-pivot.md` stays the top-level view.
@@ -158,7 +231,7 @@ Full table: `bench/baseline.json`.
 CI/CD + distribution + SRE (Phase 6). First shippable desktop build.
 
 ### Added — CI/CD
-- `.github/workflows/release.yml` — tag-triggered build matrix (macos-latest, windows-latest, ubuntu-latest) → signed installers published to GitHub Releases via `electron-builder --publish always`
+- `source/.github/workflows/release.yml` — tag-triggered build matrix (macos-latest, windows-latest, ubuntu-latest) → signed installers published to GitHub Releases via `electron-builder --publish always`
 - Source-map upload to Sentry per release via `@sentry/cli`
 - Platform-specific env wiring for notarization + signing secrets
 
@@ -188,11 +261,11 @@ CI/CD + distribution + SRE (Phase 6). First shippable desktop build.
 - Windows signing cert (OV for v0, upgrade to Azure Trusted Signing when ready)
 - Replace `TEAMID_REPLACE_ME` in `package.json` with your Apple Team ID
 
-### Accepted risks (still documented)
+### Accepted risks recorded at the time
 - CSP `connect-src *` until 0.5.0 (per-plugin allowlist composition)
 - Plugins run in renderer JS context until 0.5.0 (sandboxed extension host)
 - No symlink realpath check until 0.5.0
-- No in-app "restart to update" banner yet — auto-updates apply silently on quit. Settings > Updates banner lands 0.5.0.
+- This release had no in-app restart-to-update banner; auto-updates applied silently on quit. Resolved in the later alpha line with updater banner + Settings > Updates.
 
 ### Test counts
 - 79 → 84 total. All green.

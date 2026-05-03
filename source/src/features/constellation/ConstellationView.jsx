@@ -453,6 +453,40 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
 
   const focalNode=focal?nodeById[focal]:null;
 
+  const describeGraphNode=useCallback((n)=>{
+    const degree=(n.links||[]).length;
+    if(n._unresolved)return `Ghost note ${n.title}, referenced by ${(n._sourceIds||[]).length} note${(n._sourceIds||[]).length===1?'':'s'}`;
+    return `${n.title||'Untitled'}, ${LABEL[n.type]||n.type}, ${degree} link${degree===1?'':'s'}`;
+  },[]);
+
+  const activateGraphNode=useCallback((n)=>{
+    if(n._unresolved){
+      if(onCreateFromMissing)onCreateFromMissing(n.title);
+      return;
+    }
+    onFocalDrill(n.id);
+  },[onCreateFromMissing,onFocalDrill]);
+
+  const openGraphNode=useCallback((n)=>{
+    if(n._unresolved){
+      if(onCreateFromMissing)onCreateFromMissing(n.title);
+      return;
+    }
+    onOpen(n.id);
+  },[onCreateFromMissing,onOpen]);
+
+  const onGraphNodeKeyDown=useCallback((e,n)=>{
+    if(e.key==='Enter'||e.key===' '){
+      e.preventDefault();
+      activateGraphNode(n);
+      return;
+    }
+    if(e.key==='o'||e.key==='O'){
+      e.preventDefault();
+      openGraphNode(n);
+    }
+  },[activateGraphNode,openGraphNode]);
+
   // Lock graph until 3 entries — all hooks above run so Rules-of-Hooks holds
   if(entries.length<3){
     return(
@@ -497,7 +531,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
               and never clip; other controls below shrink/wrap as needed. */}
           <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0,order:0}}>
           <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden'}}>
-            {[['messy','◉ Messy','C'],['clusters','✦ Clusters','C'],['affinity','⚛ Affinity','A']].map(([k,label,hint])=>{
+            {[['messy','◉ Spread','C'],['clusters','✦ Link groups','C'],['affinity','⚛ Similarity','A']].map(([k,label,hint])=>{
               const isActive=layoutMode===k;
               return(
                 <button key={k} onClick={()=>setLayoutMode(k)}
@@ -511,20 +545,20 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             <InfoButton open={infoOpen==='layout'} onToggle={()=>setInfoOpen(o=>o==='layout'?null:'layout')}
               title="Layout modes"
               body={(<>
-                <div style={{marginBottom:4}}><strong>◉ Messy</strong>: organic spiral. Notes scattered evenly around the canvas. Best for any vault.</div>
-                <div style={{marginBottom:4}}><strong>✦ Clusters</strong>: groups of linked notes get their own cell on a grid. Best when you have lots of links between notes.</div>
-                <div><strong>⚛ Affinity</strong>: notes that share tags / type / dates pull together. Best for finding hidden similarities.</div>
+                <div style={{marginBottom:4}}><strong>◉ Spread</strong>: entries are scattered evenly so the vault is easy to scan.</div>
+                <div style={{marginBottom:4}}><strong>✦ Link groups</strong>: entries connected by links get grouped together.</div>
+                <div><strong>⚛ Similarity</strong>: entries that share tags, type, or dates pull together.</div>
               </>)}/>
           </div>
           <div style={{position:'relative',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
             <button onClick={()=>setShowUnresolved(s=>!s)}
-              title={showUnresolved?'Hide ghost notes':'Show ghost notes'}
+              title={showUnresolved?'Hide missing linked notes':'Show missing linked notes'}
               style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:showUnresolved?'var(--ac)':'transparent',color:showUnresolved?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-              {showUnresolved?'◌ Ghost notes: on':'◌ Ghost notes: off'}
+              {showUnresolved?'◌ Missing linked notes: on':'◌ Missing linked notes: off'}
             </button>
             <InfoButton open={infoOpen==='ghosts'} onToggle={()=>setInfoOpen(o=>o==='ghosts'?null:'ghosts')}
-              title="Ghost notes"
-              body="Notes you mention with [[wiki-link]] syntax but haven't created yet show up as dashed ghost circles in the graph. Click a ghost to create the real note instantly. Toggle this off if you want a clean view of only the notes that already exist."/>
+              title="Missing linked notes"
+              body="Names you mention with [[wiki-link]] syntax but have not created yet show up as dashed circles. Click one to create the real note entry. Toggle this off if you want to see only entries that already exist."/>
           </div>
           <button onClick={resetAll} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Reset</button>
           <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace',flexShrink:0}}>{displayedZoom}%</span>
@@ -541,6 +575,33 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
           </div>
         </div>
       </div>
+      {renderNodes.length>0&&(
+        <details style={{borderBottom:'1px solid var(--br)',background:'var(--b2)',padding:'6px 20px'}}>
+          <summary style={{cursor:'pointer',fontSize:12,fontWeight:700,color:'var(--t2)'}}>
+            Keyboard list for Constellation ({renderNodes.length} entries, {edges.length} links)
+          </summary>
+          <ol aria-label="Constellation graph nodes" style={{margin:'8px 0 0',paddingLeft:20,display:'grid',gap:6,maxHeight:180,overflowY:'auto'}}>
+            {renderNodes.map(n=>(
+              <li key={n.id} style={{fontSize:12,color:'var(--t2)'}}>
+                <span>{describeGraphNode(n)}</span>
+                {focalSet?.has(n.id)&&<span style={{marginLeft:6,color:'var(--ac)',fontWeight:700}}>in focus</span>}
+                <span style={{display:'inline-flex',gap:4,marginLeft:8,flexWrap:'wrap'}}>
+                  <button type="button" onClick={()=>activateGraphNode(n)}
+                    style={{padding:'3px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
+                    {n._unresolved?'Create':'Focus'}
+                  </button>
+                  {!n._unresolved&&(
+                    <button type="button" onClick={()=>openGraphNode(n)}
+                      style={{padding:'3px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
+                      Open
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       <div style={{flex:1,position:'relative',overflow:'hidden'}}>
         {nodes.length===0?(
           <div style={{textAlign:'center',padding:'120px 20px',color:'var(--t3)'}}>
@@ -600,7 +661,11 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                       onPointerMove={n._unresolved?undefined:onNodePointerMove}
                       onPointerUp={e=>{if(n._unresolved){handleUnresolvedClick();return}onNodePointerUp(e,n.id)}}
                       onPointerCancel={e=>{compDragRef.current=null}}
+                      onKeyDown={e=>onGraphNodeKeyDown(e,n)}
                       onMouseEnter={()=>setHover(n.id)} onMouseLeave={()=>setHover(null)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${describeGraphNode(n)}. Press Enter to ${n._unresolved?'create this ghost note':'focus this node'}. Press O to open.`}
                       style={{cursor:n._unresolved?'pointer':(compDragRef.current?.nodeId===n.id?'grabbing':'pointer'),touchAction:'none'}} opacity={n._unresolved?0.7:op}>
                       {n.starred&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#e0a600" strokeWidth={1.4} opacity={0.6}/>}
                       <circle cx={0} cy={0} r={r} fill={fill}

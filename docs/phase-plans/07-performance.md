@@ -87,7 +87,7 @@ bench/
   a11y/
     flows.spec.js
 .tmp/                      # git-ignored
-.github/workflows/bench.yml
+source/.github/workflows/bench.yml
 docs/perf/bench-targets.md
 docs/perf/known-a11y-gaps.md
 ```

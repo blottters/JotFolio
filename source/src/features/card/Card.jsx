@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { ICON, statusTone, statusBg } from '../../lib/types.js';
+import { ICON, statusTone, statusBg, displayStatus } from '../../lib/types.js';
 import { formatDate } from '../../lib/storage.js';
 
 // ── Card / Row ─────────────────────────────────────────────────────────────
 // FIX: removed className="mgn-card-body" — it was an orphan never referenced in any CSS rule
-export function Card({entry,prefs,onStar,onOpen}){
+export function Card({entry,prefs,selected,onSelectChange,onStar,onOpen,onDelete}){
   const color=statusTone(entry.status);
   const displayDate=entry.entry_date||entry.date?.slice(0,10);
   const dp={compact:{p:'10px 12px',pt:'10px 12px 0',pb:'0 12px 10px',clamp:1,gap:4},comfortable:{p:'14px',pt:'14px 14px 0',pb:'0 14px 14px',clamp:2,gap:8},spacious:{p:'18px',pt:'18px 18px 0',pb:'0 18px 18px',clamp:3,gap:10}};
@@ -13,9 +13,13 @@ export function Card({entry,prefs,onStar,onOpen}){
   return(
     <article className="mgn-card" onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)} style={{background:'var(--cd)',border:`1px solid ${hover?'var(--ac)':'var(--br)'}`,borderRadius:'var(--rd)',display:'flex',flexDirection:'column',transform:hover?'translateY(-1px)':'none',transition:'transform 0.12s, border-color 0.12s'}}>
       <div style={{display:'flex',alignItems:'center',gap:6,padding:d.pt}}>
+        {onSelectChange&&(
+          <input type="checkbox" checked={!!selected} onChange={e=>onSelectChange(e.target.checked)}
+            onClick={e=>e.stopPropagation()} aria-label={`Select ${entry.title||'untitled entry'}`} style={{accentColor:'var(--ac)',margin:0}}/>
+        )}
         <span aria-hidden="true" style={{fontSize:12}}>{ICON[entry.type]}</span>
         <span style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'var(--t3)'}}>{entry.type}</span>
-        {entry.status&&<span style={{marginLeft:'auto',fontSize:10,padding:'2px 7px',borderRadius:99,background:statusBg(color),color,fontWeight:700}}>{entry.status}</span>}
+        {entry.status&&<span style={{marginLeft:'auto',fontSize:10,padding:'2px 7px',borderRadius:99,background:statusBg(color),color,fontWeight:700}}>{displayStatus(entry.status)}</span>}
         <button type="button" onClick={onStar} aria-label={entry.starred?'Unstar entry':'Star entry'} aria-pressed={!!entry.starred} title={entry.starred?'Unstar':'Star'}
           style={{background:'none',border:'none',cursor:'pointer',padding:4,fontSize:18,color:entry.starred?'#f59e0b':'var(--t3)',marginLeft:entry.status?0:'auto',flexShrink:0}}>
           {entry.starred?'★':'☆'}
@@ -32,9 +36,21 @@ export function Card({entry,prefs,onStar,onOpen}){
           {entry.tags.length>3&&<span style={{fontSize:10,color:'var(--t3)'}}>+{entry.tags.length-3}</span>}
         </div>}
       </button>
-      {prefs?.showDateOnCards!==false&&<div style={{padding:d.pb}}>
-        <span style={{fontSize:11,color:'var(--t3)'}}>{formatDate(displayDate)}</span>
-      </div>}
+      <div style={{padding:d.pb,display:'flex',alignItems:'center',gap:8,marginTop:'auto'}}>
+        {prefs?.showDateOnCards!==false&&<span style={{fontSize:11,color:'var(--t3)',flex:1}}>{formatDate(displayDate)}</span>}
+        {prefs?.showDateOnCards===false&&<span style={{flex:1}}/>}
+        {onDelete&&(
+          <button
+            type="button"
+            aria-label={`Delete ${entry.title||'untitled entry'}`}
+            title="Delete entry"
+            onMouseDown={e=>e.stopPropagation()}
+            onClick={e=>{e.stopPropagation();onDelete();}}
+            style={{width:20,height:20,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid transparent',borderRadius:'var(--rd)',background:'transparent',color:'var(--t3)',cursor:'pointer',fontSize:14,lineHeight:1,fontFamily:'var(--fn)',flexShrink:0}}>
+            ×
+          </button>
+        )}
+      </div>
     </article>
   );
 }

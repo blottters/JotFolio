@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useId } from "react";
-import { ICON, STATUSES, NO_URL_TYPES, today, statusTone, statusBg } from '../../lib/types.js';
+import { ICON, STATUSES, NO_URL_TYPES, today, statusTone, statusBg, displayStatus } from '../../lib/types.js';
 import { isSafeUrl, normalizeTags, pickEntryFields, formatDate, withAlpha, startVoiceRecognition } from '../../lib/storage.js';
 import { useEscapeKey, useAutoFocus } from '../../lib/hooks.js';
 import { IconButton } from '../primitives/IconButton.jsx';
@@ -27,6 +27,57 @@ function PropertiesSection({entry,entries,onUpdate}){
   );
 }
 
+function RecoverySnapshotsSection({entry,onToast}){
+  const snapshots=typeof window!=='undefined'?window.electron?.snapshots:null;
+  const[loading,setLoading]=useState(false);
+  const[items,setItems]=useState(null);
+  const[error,setError]=useState('');
+  const canUse=!!snapshots?.list&&!!entry?._path;
+  const load=async()=>{
+    if(!canUse)return;
+    setLoading(true);setError('');
+    try{setItems(await snapshots.list(entry._path))}
+    catch(err){setError(err.message||'Snapshot list failed')}
+    finally{setLoading(false)}
+  };
+  const restore=async(item)=>{
+    const ok=window.confirm(`Restore snapshot from ${item.date || item.label || 'this point'}? This overwrites the current file, so review the entry after restore.`);
+    if(!ok)return;
+    try{
+      await snapshots.restore(entry._path,item.date);
+      onToast?.('Snapshot restored. Rescan may take a moment.','info');
+    }catch(err){setError(err.message||'Snapshot restore failed')}
+  };
+  return(
+    <div style={{marginBottom:16,padding:10,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+        <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,flex:1}}>Recovery snapshots</div>
+        <button type="button" onClick={load} disabled={!canUse||loading}
+          style={{padding:'4px 9px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:canUse?'var(--t2)':'var(--t3)',cursor:canUse&&!loading?'pointer':'default',fontFamily:'var(--fn)'}}>
+          {loading?'Checking…':'Check'}
+        </button>
+      </div>
+      <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5}}>
+        {canUse?'Review older saved copies for this file before restoring.':'Snapshots are available in the packaged desktop app after a real vault file exists.'}
+      </div>
+      {error&&<div role="alert" style={{fontSize:11,color:'#b91c1c',marginTop:6}}>{error}</div>}
+      {Array.isArray(items)&&(
+        <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:8}}>
+          {items.length===0?(
+            <div style={{fontSize:11,color:'var(--t3)'}}>No snapshots found for this entry.</div>
+          ):items.slice(0,8).map((item,idx)=>(
+            <div key={`${item.date||idx}`} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--t2)'}}>
+              <span style={{flex:1,fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.date||item.label||`Snapshot ${idx+1}`}</span>
+              <button type="button" onClick={()=>restore(item)}
+                style={{padding:'2px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Restore</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formFromEntry(entry){
   return {...entry,tags:(entry.tags||[]).join(', ')};
 }
@@ -36,7 +87,7 @@ function comparableForm(form,entry){
 }
 
 // ── Detail Panel ──────────────────────────────────────────────────────────
-export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing}){
+export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing,onRevealFile,onMoveFile,onRenameFile}){
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState(()=>formFromEntry(entry));
   const[recording,setRecording]=useState(false);
@@ -116,14 +167,15 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
   const navIndex=navEntries.findIndex(e=>e.id===entry.id);
   const hasPrev=navIndex>0;
   const hasNext=navIndex>=0&&navIndex<navEntries.length-1;
+  const fileActionStyle={padding:'5px 9px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',whiteSpace:'nowrap'};
   return(
     <div role="dialog" aria-modal="true" aria-labelledby="detail-title" className="mgn-panel"
       style={{position:'fixed',right:0,top:0,bottom:0,width:'min(380px,100vw)',background:'var(--bg)',borderLeft:'1px solid var(--br)',display:'flex',flexDirection:'column',zIndex:100,overflowY:'auto'}}>
       <div style={{padding:'14px 16px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:8,flexShrink:0,position:'sticky',top:0,background:'var(--bg)',zIndex:1}}>
         {confirmDelete?(
           <>
-            <span style={{flex:1,fontSize:13,color:'#ef4444',fontWeight:700}}>Delete entry?</span>
-            <button onClick={()=>{onDelete();setConfirmDelete(false)}} style={{padding:'4px 10px',fontSize:12,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'#ef4444',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0,fontWeight:700}}>Yes</button>
+            <span style={{flex:1,fontSize:13,color:'#b91c1c',fontWeight:700}}>Delete entry?</span>
+            <button onClick={()=>{onDelete();setConfirmDelete(false)}} style={{padding:'4px 10px',fontSize:12,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'#b91c1c',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0,fontWeight:700}}>Yes</button>
             <button onClick={()=>setConfirmDelete(false)} style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Cancel</button>
           </>
         ):(
@@ -135,7 +187,7 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
             <button onClick={()=>requestDiscard('next')} disabled={!hasNext} aria-label="Next entry"
               style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:hasNext?'var(--t2)':'var(--t3)',cursor:hasNext?'pointer':'not-allowed',opacity:hasNext?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>›</button>
             <button onClick={()=>setConfirmDelete(true)} aria-label="Delete entry"
-              style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'#ef4444',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Delete</button>
+              style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Delete</button>
             <button ref={editButtonRef} onClick={()=>editing?cancelEdit():setEditing(true)} aria-label={editing?'Cancel editing':'Edit entry'} aria-pressed={editing}
               style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>
               {editing?'Cancel':'Edit'}
@@ -145,7 +197,7 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
         )}
       </div>
       <div style={{padding:16,flex:1}}>
-        {entry.status&&!editing&&<span style={{display:'inline-block',fontSize:12,padding:'3px 10px',borderRadius:99,background:statusBg(color),color,fontWeight:700,marginBottom:12}}><SrOnly>Status:</SrOnly>{entry.status}</span>}
+        {entry.status&&!editing&&<span style={{display:'inline-block',fontSize:12,padding:'3px 10px',borderRadius:99,background:statusBg(color),color,fontWeight:700,marginBottom:12}}><SrOnly>Status:</SrOnly>{displayStatus(entry.status)}</span>}
         {editing?(
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             {confirmDiscard&&(
@@ -160,10 +212,10 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
               <div>
                 <label htmlFor={ids.url} style={ls}>URL</label>
                 <input id={ids.url} style={is} value={form.url||''} onChange={update('url')} aria-invalid={!!urlError} aria-describedby={urlError?`${ids.url}-error`:undefined}/>
-                {urlError&&<div id={`${ids.url}-error`} role="alert" style={{fontSize:11,color:'#ef4444',marginTop:4}}>{urlError}</div>}
+                {urlError&&<div id={`${ids.url}-error`} role="alert" style={{fontSize:11,color:'#b91c1c',marginTop:4}}>{urlError}</div>}
               </div>
             )}
-            <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status||''} onChange={v=>update('status')({target:{value:v}})} options={(STATUSES[entry.type]||[]).map(s=>({value:s,label:s}))}/></div>
+            <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status||''} onChange={v=>update('status')({target:{value:v}})} options={(STATUSES[entry.type]||[]).map(s=>({value:s,label:displayStatus(s)}))}/></div>
             <div><label htmlFor={ids.editDate} style={ls}>{entry.type==='journal'?'Journal Date':'Date consumed'}</label><input id={ids.editDate} type="date" style={is} value={form.entry_date||''} max={today()} onChange={update('entry_date')}/></div>
             <div>
               <label htmlFor={ids.tags} style={ls}>Tags</label>
@@ -174,19 +226,19 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
               <div style={{display:'flex',alignItems:'center',marginBottom:3}}>
                 <label htmlFor={ids.notes} style={ls}>Notes</label>
                 <button type="button" onClick={handleVoice} aria-label={recording?'Stop voice input':'Start voice input'} aria-pressed={recording}
-                  style={{marginLeft:'auto',padding:'3px 9px',fontSize:11,background:recording?'#ef4444':'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:recording?'#fff':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
+                  style={{marginLeft:'auto',padding:'3px 9px',fontSize:11,background:recording?'#b91c1c':'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:recording?'#fff':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
                   {recording?'🔴 Listening…':'🎤 Voice'}
                 </button>
               </div>
-              {voiceError&&<div role="alert" style={{fontSize:11,color:'#ef4444',marginBottom:4}}>{voiceError}</div>}
+              {voiceError&&<div role="alert" style={{fontSize:11,color:'#b91c1c',marginBottom:4}}>{voiceError}</div>}
               <textarea id={ids.notes} style={{...is,height:160,resize:'vertical'}} value={form.notes||''} onChange={update('notes')}/>
             </div>
             <div style={{display:'flex',gap:8}}>
               <button onClick={save} style={{flex:1,padding:9,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Save</button>
               {confirmingDelete?(
-                <button onClick={onDelete} aria-label="Confirm delete entry" style={{padding:'9px 14px',background:'#ef4444',border:'1px solid #ef4444',borderRadius:'var(--rd)',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Confirm delete</button>
+                <button onClick={onDelete} aria-label="Confirm delete entry" style={{padding:'9px 14px',background:'#b91c1c',border:'1px solid #b91c1c',borderRadius:'var(--rd)',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Confirm delete</button>
               ):(
-                <button onClick={()=>setConfirmingDelete(true)} aria-label="Delete entry" style={{padding:'9px 14px',background:withAlpha('#ef4444',0.07),border:'1px solid #ef4444',borderRadius:'var(--rd)',color:'#ef4444',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13}}>🗑</button>
+                <button onClick={()=>setConfirmingDelete(true)} aria-label="Delete entry" style={{padding:'9px 14px',background:withAlpha('#b91c1c',0.07),border:'1px solid #b91c1c',borderRadius:'var(--rd)',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13}}>🗑</button>
               )}
             </div>
           </div>
@@ -206,6 +258,18 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
             {entry.entry_date&&entry.entry_date!==entry.date?.slice(0,10)&&(
               <div style={{fontSize:11,color:'var(--t3)',marginBottom:16}}>Entry date: {formatDate(entry.entry_date)}</div>
             )}
+            {entry._path&&(
+              <div style={{marginBottom:16,padding:10,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)'}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:6}}>Vault file</div>
+                <div style={{fontSize:11,color:'var(--t2)',fontFamily:'monospace',wordBreak:'break-all',marginBottom:8}}>{entry._path}</div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {onRevealFile&&<button type="button" onClick={()=>onRevealFile(entry)} style={fileActionStyle}>Reveal</button>}
+                  {onRenameFile&&<button type="button" onClick={()=>onRenameFile(entry)} style={fileActionStyle}>Rename file</button>}
+                  {onMoveFile&&<button type="button" onClick={()=>onMoveFile(entry)} style={fileActionStyle}>Move folder</button>}
+                </div>
+              </div>
+            )}
+            <RecoverySnapshotsSection entry={entry} onToast={onToast}/>
             <div style={{marginBottom:16}}>
               <div style={{display:'flex',alignItems:'center',marginBottom:8}}>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,flex:1}}>Links{linkedEntries.length?` (${linkedEntries.length})`:''}</div>

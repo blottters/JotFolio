@@ -2,7 +2,7 @@ import { TYPES, ICON, LABEL } from '../../lib/types.js';
 import { Pressable } from '../primitives/Pressable.jsx';
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,bases=[],onSelectBase,onNewBase,canvases=[],onSelectCanvas,onNewCanvas,pluginPanelsSlot}){
+export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,folders=[],onSelectFolder,onNewFolder,bases=[],onSelectBase,onNewBase,onDeleteBase,canvases=[],onSelectCanvas,onNewCanvas,onDeleteCanvas,pluginPanelsSlot}){
   return(
     <aside className="mgn-sb" style={{width,background:'var(--sb)',borderRight:'1px solid var(--br)',display:'flex',flexDirection:'column',flexShrink:0,transition:'width 0.2s',overflow:'hidden',zIndex:10}}>
       <Pressable onPress={onToggle} ariaLabel={open?'Collapse sidebar':'Expand sidebar'}
@@ -11,6 +11,7 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
         {open&&<span style={{fontWeight:700,fontSize:15,color:'var(--ac)',whiteSpace:'nowrap',letterSpacing:-0.3}}>JotFolio</span>}
         <span style={{marginLeft:'auto',fontSize:11,opacity:.4,flexShrink:0}}>{open?'‹':'›'}</span>
       </Pressable>
+      {open&&<div style={{padding:'8px 12px 0',fontSize:10,color:'var(--t3)',letterSpacing:1.2,textTransform:'uppercase'}}>Sidebar = navigation</div>}
       <div style={{padding:'10px 8px 6px',flexShrink:0}}>
         <button className="mgn-btn-acc" onClick={()=>onAdd()} aria-label="New entry (N)" title="New entry — press N"
           style={{width:'100%',padding:open?'9px 14px':'9px',background:'var(--ac)',color:'var(--act)',border:'1px solid var(--br)',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',justifyContent:open?'flex-start':'center',gap:6}}>
@@ -21,9 +22,32 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
         {open?<NavHeader>Library</NavHeader>:<div style={{height:8}}/>}
         <NavItem icon="◈" label="All Entries" count={counts.all} active={section==='all'} open={open} onClick={()=>setSection('all')}/>
         <NavItem icon="★" label="Starred" count={counts.starred} active={section==='starred'} open={open} onClick={()=>setSection('starred')}/>
-        <NavItem icon="✦" label="Constellation" count={counts.links} active={section==='graph'} open={open} onClick={()=>setSection('graph')}/>
+        <NavItem icon="✦" label="Constellation" active={section==='graph'} open={open} onClick={()=>setSection('graph')}/>
         {open?<NavHeader>Media</NavHeader>:<div style={{height:1,background:'var(--br)',margin:'8px 6px'}}/>}
         {TYPES.map(t=><NavItem key={t} icon={ICON[t]} label={LABEL[t]} count={counts[t]} active={section===t} open={open} onClick={()=>setSection(t)}/>)}
+        {open&&<>
+          <NavHeader>Folders</NavHeader>
+          {folders.length===0&&(
+            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',lineHeight:1.45}}>Move entries into folders to build a real vault tree.</div>
+          )}
+          {folders.map(f=>{
+            const active=section===`folder:${f.path}`;
+            return(
+              <Pressable key={f.path} onPress={()=>onSelectFolder&&onSelectFolder(f.path)} ariaLabel={`Open folder ${f.path}`} ariaPressed={active}
+                style={{padding:'5px 8px',paddingLeft:8+(f.depth*12),cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
+                <span style={{flexShrink:0,opacity:.6}}>▸</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
+                {f.count>0&&<span style={{fontSize:10,opacity:.45,flexShrink:0,marginLeft:4}}>{f.count}</span>}
+              </Pressable>
+            );
+          })}
+          {onNewFolder&&(
+            <Pressable onPress={onNewFolder} ariaLabel="Create new folder"
+              style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:11,color:'var(--t3)',display:'flex',alignItems:'center',gap:6,marginTop:2}}>
+              <span style={{flexShrink:0}}>+</span><span>New folder</span>
+            </Pressable>
+          )}
+        </>}
         {open&&allTags.length>0&&<>
           <NavHeader>Tags</NavHeader>
           {allTags.slice(0,14).map(t=>(
@@ -35,9 +59,9 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
           ))}
         </>}
         {open&&<>
-          <NavHeader>Bases</NavHeader>
+          <NavHeader>Smart Views</NavHeader>
           {bases.length===0&&(
-            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',fontStyle:'italic'}}>No bases yet</div>
+            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',lineHeight:1.45}}>Bases are saved filters, columns, and sorts for repeated workflows.</div>
           )}
           {bases.map(b=>{
             const active=section===`base:${b.id}`;
@@ -46,6 +70,17 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
                 style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
                 <span style={{flexShrink:0,opacity:.6}}>▦</span>
                 <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.name}</span>
+                {onDeleteBase&&(
+                  <button
+                    type="button"
+                    aria-label={`Delete base ${b.name}`}
+                    title="Delete base"
+                    onMouseDown={e=>e.stopPropagation()}
+                    onClick={e=>{e.stopPropagation();onDeleteBase(b.id)}}
+                    style={{flexShrink:0,width:18,height:18,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid transparent',borderRadius:'var(--rd)',background:'transparent',color:'var(--t3)',cursor:'pointer',fontSize:13,lineHeight:1,fontFamily:'var(--fn)'}}>
+                    ×
+                  </button>
+                )}
               </Pressable>
             );
           })}
@@ -57,7 +92,7 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
           )}
           <NavHeader>Canvases</NavHeader>
           {canvases.length===0&&(
-            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',fontStyle:'italic'}}>No canvases yet</div>
+            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',lineHeight:1.45}}>Spatial workspaces for arranging cards.</div>
           )}
           {canvases.map(c=>{
             const active=section===`canvas:${c.id}`;
@@ -66,6 +101,17 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
                 style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
                 <span style={{flexShrink:0,opacity:.6}}>◫</span>
                 <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.name}</span>
+                {onDeleteCanvas&&(
+                  <button
+                    type="button"
+                    aria-label={`Delete canvas ${c.name}`}
+                    title="Delete canvas"
+                    onMouseDown={e=>e.stopPropagation()}
+                    onClick={e=>{e.stopPropagation();onDeleteCanvas(c.id)}}
+                    style={{flexShrink:0,width:18,height:18,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid transparent',borderRadius:'var(--rd)',background:'transparent',color:'var(--t3)',cursor:'pointer',fontSize:13,lineHeight:1,fontFamily:'var(--fn)'}}>
+                    ×
+                  </button>
+                )}
               </Pressable>
             );
           })}

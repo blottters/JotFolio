@@ -136,10 +136,8 @@ ipcMain.handle('vault:list', wrapIpc(async () => {
     try { entries = await fs.readdir(dir, { withFileTypes: true }); }
     catch (err) { throw new VaultErr('io-error', err.message); }
     for (const e of entries) {
-      if (e.name.startsWith('.')) continue;
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) { await walk(abs); continue; }
-      if (!e.name.endsWith('.md')) continue;
       try {
         const stat = await fs.stat(abs);
         const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');
@@ -277,6 +275,14 @@ ipcMain.handle('app:relaunch', wrapIpc(async () => {
 }));
 
 ipcMain.handle('app:userDataPath', wrapIpc(async () => app.getPath('userData')));
+
+ipcMain.handle('telemetry:getOptIn', wrapIpc(async () => {
+  return { enabled: telemetry.userOptedIn(), decided: telemetry.hasDecided() };
+}));
+
+ipcMain.handle('telemetry:setOptIn', wrapIpc(async (enabled) => {
+  return telemetry.setOptIn(enabled === true);
+}));
 
 // ─── Window lifecycle ────────────────────────────────────────────
 async function createWindow() {

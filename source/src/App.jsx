@@ -43,6 +43,9 @@ import { pickRandomEntry } from './lib/random/randomNote.js';
 import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
 import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
 import { useKeywordRules } from './lib/keywordRules/useKeywordRules.js';
+import { moveToTrash } from './lib/vaultTrash.js';
+import { buildFolderTree, fileNameFromPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
+import { importAttachment } from './lib/vaultAttachments.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -56,6 +59,7 @@ export default function App(){
     vaultInfo,
     loading:vaultLoading,
     error:vaultError,
+    issues:vaultIssues,
     pickVault,
     saveEntry,
     deleteEntry:deleteVaultEntry,
@@ -90,9 +94,10 @@ export default function App(){
   const[filterStatus,setFilterStatus]=useState('');
   const[filterTag,setFilterTag]=useState('');
   const[sort,setSort]=useState('date');
+  const[selectedIds,setSelectedIds]=useState(()=>new Set());
   // FIX: addInitialType tracks the type to pre-select when modal opens
   const[showAddModal,setShowAddModal]=useState(false);
-  const[addInitialType,setAddInitialType]=useState('video');
+  const[addInitialType,setAddInitialType]=useState('note');
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[detailId,setDetailId]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
@@ -152,7 +157,7 @@ export default function App(){
     const opts=typeof arg==='string'?{type:arg}:(arg||{});
     setDetailId(null);
     setSettingsOpen(false);
-    setAddInitialType(opts.type??(TYPES.includes(section)?section:'video'));
+    setAddInitialType(opts.type??(TYPES.includes(section)?section:'note'));
     setAddQuickCapture(!!opts.quickCapture);
     setShowAddModal(true);
   },[section]);
@@ -160,6 +165,61 @@ export default function App(){
   const handleSection=(next)=>{setSection(next);setFilterStatus('')};
   const hasFilters=!!(query||filterStatus||filterTag);
   const clearFilters=()=>{setQuery('');setFilterStatus('');setFilterTag('')};
+  const folderTree=useMemo(()=>buildFolderTree(entries),[entries]);
+  const handleNewFolder=useCallback(async()=>{
+    const raw=window.prompt('Create vault folder. Use a vault-relative path, for example: notes/projects');
+    if(raw==null)return;
+    try{
+      const folder=normalizeVaultFolder(raw);
+      if(!folder){toast('Folder name is required','error');return}
+      await vaultAdapter.mkdir(folder);
+      toast(`Folder created: ${folder}`,'info');
+    }catch(err){reportError(err,'Folder create failed')}
+  },[toast,reportError]);
+  const revealEntryFile=useCallback(async(entry)=>{
+    if(!entry?._path){toast('No file path for this entry','error');return}
+    const reveal=window.electron?.app?.showItemInFolder;
+    if(!reveal){toast(`Browser preview cannot reveal files. Path: ${entry._path}`,'info');return}
+    try{await reveal(entry._path)}
+    catch(err){reportError(err,'Reveal in Explorer failed')}
+  },[toast,reportError]);
+  const moveEntryFile=useCallback(async(entry)=>{
+    if(!entry?._path){toast('No file path for this entry','error');return}
+    const currentFolder=folderFromPath(entry._path);
+    const raw=window.prompt('Move entry to vault folder. Leave blank for vault root.',currentFolder);
+    if(raw==null)return;
+    try{
+      const folder=normalizeVaultFolder(raw);
+      const target=joinVaultPath(folder,fileNameFromPath(entry._path));
+      if(target===entry._path){toast('Entry is already in that folder','info');return}
+      await vaultAdapter.move(entry._path,target);
+      await refreshVault();
+      toast(`Moved to ${folder||'vault root'}`,'info');
+    }catch(err){reportError(err,'Entry move failed')}
+  },[refreshVault,toast,reportError]);
+  const renameEntryFile=useCallback(async(entry)=>{
+    if(!entry?._path){toast('No file path for this entry','error');return}
+    const currentName=fileNameFromPath(entry._path);
+    const raw=window.prompt('Rename entry file. Keep it as markdown.',currentName);
+    if(raw==null)return;
+    try{
+      const target=joinVaultPath(folderFromPath(entry._path),raw);
+      if(target===entry._path){toast('Entry already has that file name','info');return}
+      await vaultAdapter.move(entry._path,target);
+      await refreshVault();
+      toast(`Renamed file to ${fileNameFromPath(target)}`,'info');
+    }catch(err){reportError(err,'Entry rename failed')}
+  },[refreshVault,toast,reportError]);
+  const handleImportAttachment=useCallback(async(file)=>{
+    try{
+      const path=await importAttachment(vaultAdapter,file,{nonce:uid()});
+      toast(`Imported attachment: ${file.name}`,'info');
+      return path;
+    }catch(err){
+      reportError(err,'Attachment import failed');
+      return null;
+    }
+  },[toast,reportError]);
 
   useOpenRouterCallback(toast);
   useAppShortcuts({blocked:showAddModal||!!detailId,openAdd});
@@ -318,6 +378,24 @@ export default function App(){
     await persistBase(created);
     setSection(`base:${created.id}`);
   },[persistBase]);
+  const handleDeleteBase=useCallback(async(id)=>{
+    const target=bases.find(b=>b.id===id);
+    if(!target)return;
+    const ok=window.confirm(`Delete base "${target.name}"? This moves the saved base file to JotFolio Trash. Entries will not be deleted.`);
+    if(!ok)return;
+    setBases(list=>list.filter(b=>b.id!==id));
+    if(section===`base:${id}`)setSection('all');
+    try{
+      await moveToTrash(vaultAdapter, basePath(id));
+      toast('Base moved to trash','info');
+    }catch(err){
+      reportError(err,'Base delete failed');
+      try{
+        const content=await vaultAdapter.read(basePath(id));
+        setBases(list=>list.some(b=>b.id===id)?list:[...list,normalizeBase(JSON.parse(content))]);
+      }catch{ /* leave UI optimistic if restore fails */ }
+    }
+  },[bases,section,toast,reportError]);
 
   // Load all .canvas.json files from the vault. Same skip-on-malformed
   // convention as bases — a hand-edit typo in one canvas shouldn't keep
@@ -370,6 +448,24 @@ export default function App(){
     await persistCanvas(created);
     setSection(`canvas:${created.id}`);
   },[persistCanvas]);
+  const handleDeleteCanvas=useCallback(async(id)=>{
+    const target=canvases.find(c=>c.id===id);
+    if(!target)return;
+    const ok=window.confirm(`Delete canvas "${target.name}"? This moves the canvas file to JotFolio Trash.`);
+    if(!ok)return;
+    setCanvases(list=>list.filter(c=>c.id!==id));
+    if(section===`canvas:${id}`)setSection('all');
+    try{
+      await moveToTrash(vaultAdapter, canvasPath(id));
+      toast('Canvas moved to trash','info');
+    }catch(err){
+      reportError(err,'Canvas delete failed');
+      try{
+        const content=await vaultAdapter.read(canvasPath(id));
+        setCanvases(list=>list.some(c=>c.id===id)?list:[...list,normalizeCanvas(JSON.parse(content))]);
+      }catch{ /* leave UI optimistic if restore fails */ }
+    }
+  },[canvases,section,toast,reportError]);
 
   // Load templates from <vault>/templates/ on vault ready. Same
   // skip-on-malformed convention as bases + canvases.
@@ -502,6 +598,7 @@ export default function App(){
       openRandomNote,
       openQuickSwitcher,
       openInsertTemplate,
+      openTemplates:()=>setSection('templates'),
     });
     return dispose;
   },[commandRegistry,openAdd,refreshVault,toggleTheme,createDailyNote,focusSearch,openRandomNote,openQuickSwitcher,openInsertTemplate]);
@@ -594,9 +691,44 @@ export default function App(){
       }
       // Free runtime provenance for the deleted entry (lives in useKeywordRules).
       clearProvenance(id);
-      toast('Entry deleted','info');
+      toast('Entry moved to trash','info');
     }catch(err){reportError(err,'Entry delete failed')}
-  },[entries,detailId,saveEntryWithRules,deleteVaultEntry,toast,reportError]);
+  },[entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,toast,reportError]);
+
+  const confirmDeleteEntry=useCallback((id)=>{
+    const target=entries.find(e=>e.id===id);
+    if(!target)return;
+    const label=target.title?.trim()||'Untitled entry';
+    const ok=window.confirm(`Delete "${label}"? This moves the entry file to JotFolio Trash.`);
+    if(!ok)return;
+    deleteEntry(id);
+  },[entries,deleteEntry]);
+  const toggleSelected=useCallback((id,on)=>{
+    setSelectedIds(prev=>{
+      const next=new Set(prev);
+      if(on)next.add(id);else next.delete(id);
+      return next;
+    });
+  },[]);
+  const clearSelection=useCallback(()=>setSelectedIds(new Set()),[]);
+  const bulkTrashSelected=useCallback(async()=>{
+    const ids=[...selectedIds].filter(id=>entries.some(e=>e.id===id));
+    if(ids.length===0)return;
+    const ok=window.confirm(`Move ${ids.length} selected entr${ids.length===1?'y':'ies'} to JotFolio Trash?`);
+    if(!ok)return;
+    const idSet=new Set(ids);
+    const affected=entries.filter(e=>!idSet.has(e.id)&&e.links?.some(linkId=>idSet.has(linkId)));
+    try{
+      await Promise.all(affected.map(e=>saveEntryWithRules({...e,links:e.links.filter(linkId=>!idSet.has(linkId)),[MANUAL_LINKS_FIELD]:true})));
+      for(const id of ids){
+        await deleteVaultEntry(id);
+        clearProvenance(id);
+      }
+      if(detailId&&idSet.has(detailId))setDetailId(null);
+      clearSelection();
+      toast(`${ids.length} entr${ids.length===1?'y':'ies'} moved to trash`,'info');
+    }catch(err){reportError(err,'Bulk delete failed');}
+  },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError]);
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
@@ -604,7 +736,11 @@ export default function App(){
   const parsedQuery=useMemo(()=>parseSearchQuery(deferredQuery),[deferredQuery]);
   const filtered=useMemo(()=>{
     let r=visibleEntries;
-    if(section==='starred')r=r.filter(e=>e.starred);else if(section!=='all')r=r.filter(e=>e.type===section);
+    if(section==='starred')r=r.filter(e=>e.starred);
+    else if(section.startsWith('folder:')){
+      const folder=section.slice(7);
+      r=r.filter(e=>folderFromPath(e._path||'')===folder);
+    }else if(section!=='all')r=r.filter(e=>e.type===section);
     if(deferredQuery)r=r.filter(e=>matchesQuery(e,parsedQuery));
     if(filterStatus)r=r.filter(e=>e.status===filterStatus);
     if(filterTag)r=r.filter(e=>(e.tags||[]).includes(filterTag));
@@ -684,9 +820,7 @@ export default function App(){
         onTemplates={()=>setSection('templates')}
         onQuickSwitcher={openQuickSwitcher}
         onNewCanvas={handleNewCanvas}
-        onInsertTemplate={openInsertTemplate}
         onPalette={()=>setPaletteOpen(o=>!o)}
-        onRandomNote={openRandomNote}
         onDailyNote={createDailyNote}
         onGraphView={()=>setSection('graph')}
         onSettings={()=>setSettingsOpen(s=>!s)}/>
@@ -697,12 +831,17 @@ export default function App(){
         onAdd={openAdd} onExportJSON={exportJSON} onExportMD={exportMD}
         victoryColors={customColors} setVictoryColors={setCustomColors}
         onOpenSettings={()=>setSettingsOpen(s=>!s)}
+        folders={folderTree}
+        onSelectFolder={folder=>setSection(`folder:${folder}`)}
+        onNewFolder={handleNewFolder}
         bases={bases}
         onSelectBase={id=>setSection(`base:${id}`)}
         onNewBase={handleNewBase}
+        onDeleteBase={handleDeleteBase}
         canvases={canvases}
         onSelectCanvas={id=>setSection(`canvas:${id}`)}
         onNewCanvas={handleNewCanvas}
+        onDeleteCanvas={handleDeleteCanvas}
         pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
@@ -731,7 +870,8 @@ export default function App(){
             base={currentBase}
             onBaseChange={persistBase}
             onCreateBase={persistBase}
-            onOpenEntry={id=>setDetailId(id)}/>
+            onOpenEntry={id=>setDetailId(id)}
+            onDeleteEntry={confirmDeleteEntry}/>
         ):section==='graph'?(
           <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}
             layoutMode={prefs.defaultLayoutMode||'messy'}
@@ -745,7 +885,7 @@ export default function App(){
             onOpenSettings={()=>setSettingsOpen(s=>!s)}/>
           <div style={{padding:'10px 14px 0',flexShrink:0}}>
             <div style={{display:'flex',alignItems:'baseline',gap:8}}>
-              <h2 style={{margin:0,fontSize:17,fontWeight:700}}>{section==='all'?'All Entries':section==='starred'?'★ Starred':ICON[section]+' '+LABEL[section]}</h2>
+              <h2 style={{margin:0,fontSize:17,fontWeight:700}}>{section==='all'?'All Entries':section==='starred'?'★ Starred':section.startsWith('folder:')?`▸ ${section.slice(7)}`:ICON[section]+' '+LABEL[section]}</h2>
               <span style={{fontSize:12,color:'var(--t3)'}}>{filtered.length} item{filtered.length!==1?'s':''}</span>
               {section==='all'&&<ProgressPill count={visibleEntries.length}/>}
             </div>
@@ -757,25 +897,38 @@ export default function App(){
             <FirstSaveBanner count={visibleEntries.length} onAdd={openAdd}/>
           )}
           <div style={{flex:1,overflowY:'auto',padding:14}}>
-            {storageError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Storage recovery needed for {storageError.key}. A backup was written to {storageError.quarantineKey||'a quarantine key'}; writes are blocked until recovery.</div>)
+            {storageError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13,lineHeight:1.5}}>
+              <div style={{fontWeight:700,marginBottom:4}}>Storage recovery needed</div>
+              <div>JotFolio found corrupt browser storage at <code>{storageError.key}</code>. A quarantine copy was written to <code>{storageError.quarantineKey||'a quarantine key'}</code>, and writes are blocked until that data is recovered or cleared.</div>
+            </div>)
             :vaultError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Vault error: {vaultError.message}</div>)
             :!loaded?(<div style={{textAlign:'center',padding:'80px 20px',color:'var(--t3)'}}>Loading…</div>)
             :filtered.length===0?(<EmptyState section={section} onAdd={openAdd} hasFilters={hasFilters} onClear={clearFilters} query={query}/>)
-            :view==='grid'?(
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:12}}>
-                {filtered.map(e=><Card key={e.id} entry={e} prefs={prefs} onStar={()=>updateEntry(e.id,{starred:!e.starred})} onOpen={()=>setDetailId(e.id)}/>)}
-              </div>
-            ):(
-              <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                {filtered.map(e=><Row key={e.id} entry={e} prefs={prefs} onStar={()=>updateEntry(e.id,{starred:!e.starred})} onOpen={()=>setDetailId(e.id)}/>)}
-              </div>
-            )}
+            :(<>
+              {selectedIds.size>0&&(
+                <div style={{position:'sticky',top:0,zIndex:2,marginBottom:10,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:12,fontWeight:700,color:'var(--tx)',flex:1}}>{selectedIds.size} selected</span>
+                  <button type="button" onClick={()=>setSelectedIds(new Set(filtered.map(e=>e.id)))} style={{padding:'5px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Select view</button>
+                  <button type="button" onClick={bulkTrashSelected} style={{padding:'5px 10px',fontSize:11,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>Move to trash</button>
+                  <button type="button" onClick={clearSelection} style={{padding:'5px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Clear</button>
+                </div>
+              )}
+              {view==='grid'?(
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:12}}>
+                  {filtered.map(e=><Card key={e.id} entry={e} prefs={prefs} selected={selectedIds.has(e.id)} onSelectChange={on=>toggleSelected(e.id,on)} onStar={()=>updateEntry(e.id,{starred:!e.starred})} onOpen={()=>setDetailId(e.id)} onDelete={()=>confirmDeleteEntry(e.id)}/>)}
+                </div>
+              ):(
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {filtered.map(e=><Row key={e.id} entry={e} prefs={prefs} selected={selectedIds.has(e.id)} onSelectChange={on=>toggleSelected(e.id,on)} onStar={()=>updateEntry(e.id,{starred:!e.starred})} onOpen={()=>setDetailId(e.id)} onDelete={()=>confirmDeleteEntry(e.id)}/>)}
+                </div>
+              )}
+            </>)}
           </div>
         </>)}
       </div>
 
-      {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
-      {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
+      {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onImportFile={handleImportAttachment} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
       {loaded&&!isOnboarded()&&visibleEntries.length===0&&(
         <WelcomePanel
           onImport={async items=>{await Promise.all(items.map(e=>saveEntryWithRules(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}
@@ -797,6 +950,13 @@ export default function App(){
         keywordRules={keywordRules}
         onKeywordRulesChange={handleKeywordRulesChange}
         onRescanVault={handleRescanVault}
+        vaultInfo={vaultInfo}
+        pickVault={pickVault}
+        migrateFromLocalStorage={migrateFromLocalStorage}
+        vaultLoading={vaultLoading}
+        vaultError={vaultError}
+        vaultIssues={vaultIssues}
+        refreshVault={refreshVault}
         onClose={()=>setSettingsOpen(false)}/>}
       <CommandPalette
         open={paletteOpen}

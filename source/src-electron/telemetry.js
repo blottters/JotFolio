@@ -24,6 +24,10 @@ function userOptedIn() {
   return readSettings().telemetry?.enabled === true;
 }
 
+function hasDecided() {
+  return typeof readSettings().telemetry?.enabled === 'boolean';
+}
+
 function scrub(event) {
   if (!event) return event;
   // Strip absolute paths from stack frames; keep only basename
@@ -60,16 +64,21 @@ function writeLocalLog(err) {
   } catch { /* noop */ }
 }
 
-let initialized = false;
+let handlersInstalled = false;
+let sentryInitialized = false;
 
 function init() {
-  if (initialized) return;
-  initialized = true;
+  if (!handlersInstalled) {
+    handlersInstalled = true;
+    process.on('uncaughtException', err => writeLocalLog(err));
+    process.on('unhandledRejection', err => writeLocalLog(err));
+  }
 
-  // Always wire local log — this fires regardless of telemetry opt-in
-  process.on('uncaughtException', err => writeLocalLog(err));
-  process.on('unhandledRejection', err => writeLocalLog(err));
+  initSentryIfAllowed();
+}
 
+function initSentryIfAllowed() {
+  if (sentryInitialized) return;
   if (!DSN) return;                    // no DSN = telemetry disabled at build time
   if (!userOptedIn()) return;          // user hasn't opted in
 
@@ -82,7 +91,10 @@ function init() {
       release: app.getVersion(),
       environment: app.isPackaged ? 'production' : 'development',
       tracesSampleRate: 0,      // no perf sampling in v0
-      beforeSend: scrub,
+      beforeSend: (event) => {
+        if (!userOptedIn()) return null;
+        return scrub(event);
+      },
       beforeBreadcrumb: (bc) => {
         // Drop breadcrumbs that could leak note content
         if (bc.category === 'console' && typeof bc.message === 'string' && bc.message.length > 500) {
@@ -91,9 +103,24 @@ function init() {
         return bc;
       },
     });
+    sentryInitialized = true;
   } catch (err) {
     console.warn('Sentry main-process init skipped:', err.message);
   }
 }
 
-module.exports = { init, userOptedIn };
+function setOptIn(value) {
+  const settings = readSettings();
+  settings.telemetry = { ...(settings.telemetry || {}), enabled: value === true };
+  try {
+    fsSync.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
+    fsSync.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+  } catch (err) {
+    console.error('telemetry preference save failed', err);
+    return { ok: false, error: err.message };
+  }
+  if (value === true) initSentryIfAllowed();
+  return { ok: true, enabled: value === true };
+}
+
+module.exports = { init, userOptedIn, hasDecided, setOptIn };

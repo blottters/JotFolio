@@ -53,11 +53,16 @@ const updater = {
   onStatus(cb) { updateListeners.add(cb); return () => updateListeners.delete(cb); },
 };
 
-// Plugin bridge stub — Phase 4 wires real handlers
+const telemetry = {
+  async getOptIn() { return ipcRenderer.invoke('telemetry:getOptIn'); },
+  async setOptIn(enabled) { return ipcRenderer.invoke('telemetry:setOptIn', enabled); },
+};
+
+// Native plugin bridge is not exposed yet; the renderer plugin host owns the current runtime.
 const plugin = {
   async list() { return []; },
-  async enable(_id) { throw new Error('Plugins not yet implemented'); },
-  async disable(_id) { throw new Error('Plugins not yet implemented'); },
+  async enable(_id) { throw new Error('Native plugin bridge is not available'); },
+  async disable(_id) { throw new Error('Native plugin bridge is not available'); },
 };
 
 contextBridge.exposeInMainWorld('electron', {
@@ -66,5 +71,6 @@ contextBridge.exposeInMainWorld('electron', {
   plugin,
   snapshots,
   updater,
+  telemetry,
   platform: process.platform, // 'darwin' | 'win32' | 'linux'
 });

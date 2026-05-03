@@ -263,9 +263,52 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
     setMediaPath('');
   };
 
-  const handleRemoveNode = (id) => {
-    commit(removeNode(localCanvas, id));
-  };
+  const describeNode = useCallback((node) => {
+    if (node.type === 'file') {
+      const entry = entryById.get(node.file);
+      return `Note card: ${entry?.title || node.file || 'missing entry'}`;
+    }
+    if (node.type === 'media') return `Media card: ${node.file || 'missing media'}`;
+    return `Text card: ${String(node.text || 'empty').slice(0, 80)}`;
+  }, [entryById]);
+
+  const handleRemoveNode = useCallback((nodeOrId) => {
+    const node = typeof nodeOrId === 'string'
+      ? localCanvas?.nodes?.find(n => n.id === nodeOrId)
+      : nodeOrId;
+    if (!node) return;
+    const ok = window.confirm(`Remove ${describeNode(node)} from this canvas? This does not delete the entry file from your vault.`);
+    if (!ok) return;
+    commit(removeNode(localCanvas, node.id));
+  }, [commit, describeNode, localCanvas]);
+
+  const moveNodeByKeyboard = useCallback((node, dx, dy) => {
+    commit(moveNode(localCanvas, node.id, node.x + dx, node.y + dy));
+  }, [commit, localCanvas]);
+
+  const handleNodeKeyDown = useCallback((e, node) => {
+    if (editingNodeId === node.id) return;
+    const step = e.shiftKey ? 50 : 10;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleNodeClick(node);
+      return;
+    }
+    if (e.key === 'F2' && node.type === 'text') {
+      e.preventDefault();
+      setEditingNodeId(node.id);
+      return;
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      handleRemoveNode(node);
+      return;
+    }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); moveNodeByKeyboard(node, -step, 0); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); moveNodeByKeyboard(node, step, 0); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); moveNodeByKeyboard(node, 0, -step); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveNodeByKeyboard(node, 0, step); }
+  }, [editingNodeId, handleNodeClick, handleRemoveNode, moveNodeByKeyboard]);
 
   const filteredEntries = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -353,6 +396,35 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
         </div>
       )}
 
+      {(localCanvas?.nodes || []).length > 0 && (
+        <details style={{ borderBottom: '1px solid var(--br)', background: 'var(--b2)', padding: '6px 12px' }}>
+          <summary style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--t2)' }}>
+            Keyboard list for canvas cards ({localCanvas.nodes.length})
+          </summary>
+          <ol aria-label="Canvas cards" style={{ margin: '8px 0 0', paddingLeft: 20, display: 'grid', gap: 6 }}>
+            {localCanvas.nodes.map(node => (
+              <li key={node.id} style={{ fontSize: 12, color: 'var(--t2)' }}>
+                <span>{describeNode(node)}</span>
+                <span style={{ marginLeft: 8, color: 'var(--t3)' }}>x {node.x}, y {node.y}</span>
+                <span style={{ display: 'inline-flex', gap: 4, marginLeft: 8, flexWrap: 'wrap' }}>
+                  {node.type === 'file' && node.file && (
+                    <button type="button" onClick={() => handleNodeClick(node)} style={TOOLBAR_BTN}>Open</button>
+                  )}
+                  {node.type === 'text' && (
+                    <button type="button" onClick={() => setEditingNodeId(node.id)} style={TOOLBAR_BTN}>Edit</button>
+                  )}
+                  <button type="button" onClick={() => moveNodeByKeyboard(node, -10, 0)} style={TOOLBAR_BTN}>Left</button>
+                  <button type="button" onClick={() => moveNodeByKeyboard(node, 10, 0)} style={TOOLBAR_BTN}>Right</button>
+                  <button type="button" onClick={() => moveNodeByKeyboard(node, 0, -10)} style={TOOLBAR_BTN}>Up</button>
+                  <button type="button" onClick={() => moveNodeByKeyboard(node, 0, 10)} style={TOOLBAR_BTN}>Down</button>
+                  <button type="button" onClick={() => handleRemoveNode(node)} style={TOOLBAR_BTN}>Remove</button>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+
       {/* Canvas surface */}
       <div
         ref={containerRef}
@@ -436,12 +508,14 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
               onPointerDown={(e) => onNodePointerDown(e, node)}
               onClick={() => handleNodeClick(node)}
               onDoubleClick={() => { if (node.type === 'text') setEditingNodeId(node.id); }}
-              onRemove={() => handleRemoveNode(node.id)}
+              onKeyDown={(e) => handleNodeKeyDown(e, node)}
+              onRemove={() => handleRemoveNode(node)}
               onCommitText={(text) => {
                 commit(updateNode(localCanvas, node.id, { text }));
                 setEditingNodeId(null);
               }}
               onCancelEdit={() => setEditingNodeId(null)}
+              ariaLabel={`${describeNode(node)}. Press Enter to activate, F2 to edit text cards, arrow keys to move, Delete to remove.`}
             />
           ))}
         </div>
@@ -466,7 +540,7 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
   );
 }
 
-function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, editing, onPointerDown, onClick, onDoubleClick, onRemove, onCommitText, onCancelEdit }) {
+function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, editing, onPointerDown, onClick, onDoubleClick, onKeyDown, onRemove, onCommitText, onCancelEdit, ariaLabel }) {
   const [hover, setHover] = useState(false);
   const [draftText, setDraftText] = useState(node.text || '');
   useEffect(() => { if (editing) setDraftText(node.text || ''); }, [editing, node.text]);
@@ -482,9 +556,13 @@ function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, e
       onPointerDown={onPointerDown}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onKeyDown={onKeyDown}
       onContextMenu={(e) => { e.preventDefault(); onRemove(); }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      role="button"
+      tabIndex={editing ? -1 : 0}
+      aria-label={ariaLabel}
       style={{
         position: 'absolute',
         left: node.x,
@@ -517,24 +595,6 @@ function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, e
       }}>
         <span>{node.type}</span>
         <div style={{ flex: 1 }} />
-        {hover && !editing && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            aria-label="Remove card"
-            style={{
-              padding: '0 6px',
-              fontSize: 14,
-              lineHeight: 1,
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--t3)',
-              cursor: 'pointer',
-            }}
-          >
-            ×
-          </button>
-        )}
       </div>
       <div style={{ flex: 1, padding: 8, overflow: 'hidden', fontSize: 13, color: 'var(--tx)' }}>
         <NodeBody
@@ -547,6 +607,36 @@ function CanvasNode({ node, entry, colors, dragging, connectMode, connectFrom, e
           onCancelEdit={onCancelEdit}
         />
       </div>
+      {!editing && (
+        <button
+          type="button"
+          onPointerDown={e => e.stopPropagation()}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onRemove(); }}
+          aria-label="Remove card"
+          title="Remove card"
+          style={{
+            position: 'absolute',
+            right: 6,
+            bottom: 6,
+            width: 20,
+            height: 20,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+            lineHeight: 1,
+            background: 'rgba(15,23,42,0.18)',
+            border: '1px solid transparent',
+            borderRadius: 'var(--rd)',
+            color: 'var(--t3)',
+            cursor: 'pointer',
+            fontFamily: 'var(--fn)',
+          }}
+        >
+          ×
+        </button>
+      )}
     </div>
   );
 }

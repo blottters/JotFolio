@@ -727,7 +727,7 @@ export default function App(){
       if(detailId&&idSet.has(detailId))setDetailId(null);
       clearSelection();
       toast(`${ids.length} entr${ids.length===1?'y':'ies'} moved to trash`,'info');
-    }catch(err){reportError(err,'Bulk delete failed')}
+    }catch(err){reportError(err,'Bulk delete failed');}
   },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError]);
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning

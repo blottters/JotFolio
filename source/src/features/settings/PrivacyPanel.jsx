@@ -1,21 +1,15 @@
 // Settings > Privacy tab. Controls the telemetry opt-in + shows what gets sent.
 
 import { useState, useEffect } from 'react';
-import { userOptedIn, setOptIn, hasDecided, hydrateOptInFromMain } from '../../lib/telemetry.js';
+import { userOptedIn, setOptIn, hasDecided } from '../../lib/telemetry.js';
 
 export function PrivacyPanel() {
   const [enabled, setEnabled] = useState(userOptedIn());
   const [decided, setDecided] = useState(hasDecided());
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const next = await hydrateOptInFromMain();
-      if (cancelled) return;
-      setEnabled(next);
-      setDecided(hasDecided());
-    })();
-    return () => { cancelled = true; };
+    setEnabled(userOptedIn());
+    setDecided(hasDecided());
   }, []);
 
   const toggle = () => {

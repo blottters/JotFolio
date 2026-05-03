@@ -6,19 +6,19 @@ import { createEmptyBase } from '../../lib/base/baseTypes.js';
 // Otherwise just delegates to BaseView. Save/Save-As is handled implicitly:
 // the parent (App.jsx) persists every onBaseChange to the vault.
 
-export function BaseExplorer({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry, onCreateBase }) {
+export function BaseExplorer({ entries, base, onBaseChange, onOpenEntry, onCreateBase }) {
   const [creating, setCreating] = useState(false);
   const [draftName, setDraftName] = useState('');
 
   if (base) {
-    return <BaseView entries={entries} base={base} onBaseChange={onBaseChange} onOpenEntry={onOpenEntry} onDeleteEntry={onDeleteEntry} />;
+    return <BaseView entries={entries} base={base} onBaseChange={onBaseChange} onOpenEntry={onOpenEntry} />;
   }
 
   return (
     <div style={{ padding: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, color: 'var(--t2)' }}>
       <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--tx)' }}>No base selected</div>
       <div style={{ fontSize: 13, color: 'var(--t3)', textAlign: 'center', maxWidth: 380 }}>
-        Bases are saved views of entries in your vault. Pick filters, sort, and columns, then reopen the same working set anytime.
+        Bases are saved queries over your vault — pick filters, sort, and a view, and reopen the result anytime.
       </div>
       {creating ? (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

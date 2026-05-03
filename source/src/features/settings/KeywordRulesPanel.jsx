@@ -4,7 +4,7 @@ import { IconButton } from '../primitives/IconButton.jsx';
 // How long the "click again to confirm" state persists before auto-disarming.
 const RESCAN_CONFIRM_TIMEOUT_MS = 10000;
 
-// ── Keyword Library Panel ─────────────────────────────────────────────────
+// ── Keyword Rules Panel ───────────────────────────────────────────────────
 // Settings tab UI for the user-curated keyword library. Renders the rule list,
 // inline add/edit form, and empty state. State lives upstream — App.jsx owns
 // load/save and passes `rules` + `onRulesChange` down.
@@ -321,13 +321,13 @@ export function KeywordRulesPanel({ rules, onRulesChange, onRescanVault, entryCo
   return (
     <div>
       <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.5, marginTop: 8, marginBottom: 4 }}>
-        Keyword Library is JotFolio's transparent automation layer: rules you author can tag entries and attach wiki-links when title, notes, or URL text matches.
+        Auto-tag entries on save when their title, notes, or URL contains a trigger word.
       </div>
       <div style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.4, marginBottom: 4 }}>
         Stored in <code style={{ fontSize: 11 }}>{RULES_FILE_PATH}</code>.
       </div>
 
-      <span style={sectionHeader}>Authored rules</span>
+      <span style={sectionHeader}>Rules</span>
 
       {ruleList.length === 0 && editingTag !== '__new__' && (
         <EmptyState onAdd={startAdd} />
@@ -359,14 +359,14 @@ export function KeywordRulesPanel({ rules, onRulesChange, onRescanVault, entryCo
       {ruleList.length > 0 && editingTag !== '__new__' && (
         <button type="button" onClick={startAdd}
           style={{ ...buttonGhost, width: '100%', marginTop: 12 }}>
-          + Add automation rule
+          + Add rule
         </button>
       )}
 
       <div style={{ borderTop: '1px solid var(--br)', marginTop: 18, paddingTop: 4 }}>
         <span style={sectionHeader}>Apply</span>
         <div style={{ fontSize: 12, color: 'var(--t2)', lineHeight: 1.5, marginBottom: 10 }}>
-          Re-scan all entries against your current Keyword Library. Adds new auto-tags and wiki-links; respects existing opt-outs.
+          Re-scan all entries against the current rules. Adds new auto-tags; respects existing opt-outs.
         </div>
         {rescanArmed ? (
           <div style={{ display: 'flex', gap: 6 }}>

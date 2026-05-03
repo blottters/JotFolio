@@ -1,5 +1,5 @@
 import { useState, useRef, useId } from "react";
-import { TYPES, ICON, LABEL, STATUSES, NO_URL_TYPES, today, displayStatus } from '../../lib/types.js';
+import { TYPES, ICON, LABEL, STATUSES, NO_URL_TYPES, today } from '../../lib/types.js';
 import { isSafeUrl, normalizeTags, pickEntryFields, withAlpha } from '../../lib/storage.js';
 import { useEscapeKey, useAutoFocus } from '../../lib/hooks.js';
 import { IconButton } from '../primitives/IconButton.jsx';
@@ -10,7 +10,7 @@ import { Select } from '../dropdowns/Select.jsx';
 // FIX: initialType prop pre-selects the type; existingUrls enables inline dup warning
 // FIX: ids.journalDate and ids.consumedDate are two distinct IDs — no collision
 // FIX: window.confirm replaced with inline amber banner + "Save anyway" button
-export function AddModal({initialType='video',quickCapture=false,existingUrls,allTags,onImportFile,onClose,onAdd}){
+export function AddModal({initialType='video',quickCapture=false,existingUrls,allTags,onClose,onAdd}){
   const[type,setType]=useState(initialType);
   const[form,setForm]=useState({
     title:'',url:'',notes:'',tags:'',
@@ -32,21 +32,7 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
     if(key==='url'){setUrlError('');setDupWarning(false);}
     setForm(prev=>({...prev,[key]:e.target.value}));
   };
-  const onDrop=async e=>{
-    e.preventDefault();
-    const u=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain');
-    if(u){
-      if(isSafeUrl(u)){setForm(p=>({...p,url:u}));setUrlError('');setDupWarning(false);}
-      else setUrlError('Only http(s) URLs are accepted.');
-    }
-    const file=e.dataTransfer.files?.[0];
-    if(file){
-      setDirty(true);
-      const importedPath=onImportFile?await onImportFile(file):null;
-      const attachmentLine=importedPath?`📎 [${file.name}](${importedPath})`:`📎 ${file.name}`;
-      setForm(p=>({...p,title:p.title||file.name.replace(/\.[^.]+$/,''),notes:p.notes?`${p.notes}\n${attachmentLine}`:attachmentLine}));
-    }
-  };
+  const onDrop=e=>{e.preventDefault();const u=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain');if(u){if(isSafeUrl(u)){setForm(p=>({...p,url:u}));setUrlError('');setDupWarning(false);}else setUrlError('Only http(s) URLs are accepted.')}const file=e.dataTransfer.files?.[0];if(file)setForm(p=>({...p,title:p.title||file.name.replace(/\.[^.]+$/,''),notes:p.notes?p.notes+'\n📎 '+file.name:'📎 '+file.name}))};
 
   // Shared save logic — bypasses dup check (used by "Save anyway")
   const doSave=()=>{const cleaned=pickEntryFields(form,type);onAdd({type,...cleaned,tags:normalizeTags(form.tags)})};
@@ -86,7 +72,7 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
             </button>
           ))}
         </div>)}
-        {!quickCapture&&<div style={{padding:10,background:'var(--b2)',border:'2px dashed var(--br)',borderRadius:'var(--rd)',textAlign:'center',fontSize:12,color:'var(--t3)',marginBottom:14}}>Drop an http(s) URL or file here. Files are copied into <code>attachments/</code> and linked in notes.</div>}
+        {!quickCapture&&<div style={{padding:10,background:'var(--b2)',border:'2px dashed var(--br)',borderRadius:'var(--rd)',textAlign:'center',fontSize:12,color:'var(--t3)',marginBottom:14}}>📎 Drop a URL or file here</div>}
         <div style={{display:'flex',flexDirection:'column',gap:11}}>
           {type==='journal'&&(
             <div>
@@ -123,7 +109,7 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
           )}
           {type==='video'&&<><div><label htmlFor={ids.channel} style={ls}>Channel</label><input id={ids.channel} style={is} value={form.channel} onChange={update('channel')} placeholder="Channel or creator"/></div><div><label htmlFor={ids.duration} style={ls}>Duration</label><input id={ids.duration} style={is} value={form.duration} onChange={update('duration')} placeholder="e.g. 45 min"/></div></>}
           {type==='podcast'&&<><div><label htmlFor={ids.guest} style={ls}>Guest / Host</label><input id={ids.guest} style={is} value={form.guest} onChange={update('guest')} placeholder="Guest or host"/></div><div><label htmlFor={ids.episode} style={ls}>Episode #</label><input id={ids.episode} style={is} value={form.episode} onChange={update('episode')} placeholder="e.g. Ep. 42"/></div><div><label htmlFor={ids.highlight} style={ls}>Key Highlight</label><textarea id={ids.highlight} style={{...is,height:60,resize:'vertical'}} value={form.highlight} onChange={update('highlight')} placeholder="A moment worth remembering…"/></div></>}
-          <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status} onChange={v=>update('status')({target:{value:v}})} options={STATUSES[type].map(s=>({value:s,label:displayStatus(s)}))}/></div>
+          <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status} onChange={v=>update('status')({target:{value:v}})} options={STATUSES[type].map(s=>({value:s,label:s}))}/></div>
           <div>
             <label htmlFor={ids.tags} style={ls}>Tags <span style={{fontWeight:400}}>(comma-separated)</span></label>
             <input id={ids.tags} style={is} value={form.tags} onChange={update('tags')} placeholder="ai, research, dev…"/>

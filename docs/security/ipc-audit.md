@@ -6,7 +6,7 @@ Reviewed against the threat model — each row either mitigates a threat or acce
 
 ---
 
-## Channels (as of 0.5.0-alpha.12)
+## Channels (as of 0.4.0-rc.1)
 
 | Channel | Direction | Input | Output | Validation | Trust |
 |---|---|---|---|---|---|
@@ -24,13 +24,6 @@ Reviewed against the threat model — each row either mitigates a threat or acce
 | `app:show-item-in-folder` | renderer → main | `relPath: string` | `undefined` | `resolveSafe` before calling `shell.showItemInFolder` | Can only reveal files inside vault |
 | `app:relaunch` | renderer → main | — | never (exits process) | — | Trivial; benign |
 | `app:userDataPath` | renderer → main | — | `string` | — | Read-only lookup |
-| `snapshot:list` | renderer → main | `relPath: string` | `SnapshotRecord[]` | Snapshot module is scoped to current vault root | Lists recovery snapshots for a vault file |
-| `snapshot:restore` | renderer → main | `relPath: string, date: string` | restore result | Snapshot module is scoped to current vault root | Restores a recovery snapshot for a vault file |
-| `update:check` | renderer → main | — | `{ ok, info?, error? }` | Packaged updater owns remote lookup | Manual check-now trigger; no renderer URL input |
-| `update:install-now` | renderer → main | — | process restarts | — | Applies already-downloaded update |
-| `update:status` | main → renderer (send) | — | `{ state, version?, message?, percent? }` | Main-originated updater event | Drives banner and Settings > Updates |
-| `telemetry:getOptIn` | renderer → main | — | `{ enabled, decided }` | Read-only settings lookup | Keeps Privacy UI aligned with main-process opt-in gate |
-| `telemetry:setOptIn` | renderer → main | `enabled: boolean` | `{ ok, enabled?, error? }` | Coerces to boolean; writes only telemetry preference | Enables/disables opt-in crash telemetry in Electron settings |
 | `menu:*` events | main → renderer (send) | — | — | Strings dispatched from native menu clicks; renderer treats as commands | Main-originated; treated as trusted |
 | **Reserved / not yet wired** | | | | | |
 | `plugin:list`, `plugin:enable`, `plugin:disable`, `plugin:uninstall` | | | | Phase 4b currently runs plugin host in renderer; IPC wiring lands when plugin process moves out-of-renderer (0.5.0) |
@@ -63,20 +56,7 @@ window.electron = {
     relaunch(): Promise<void>
     userDataPath(): Promise<string>
   },
-  snapshots: {
-    list(relPath): Promise<SnapshotRecord[]>
-    restore(relPath, date): Promise<void>
-  },
-  updater: {
-    check(): Promise<{ok:boolean, info?:unknown, error?:string}>
-    installNow(): Promise<void>
-    onStatus(cb): () => void
-  },
-  telemetry: {
-    getOptIn(): Promise<{enabled:boolean, decided:boolean}>
-    setOptIn(enabled): Promise<{ok:boolean, enabled?:boolean, error?:string}>
-  },
-  plugin: {
+  plugin: {                              // stub — real bridge 0.5.0
     list(): Promise<[]>
     enable(id): throws
     disable(id): throws

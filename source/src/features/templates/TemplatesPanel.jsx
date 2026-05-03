@@ -60,10 +60,7 @@ export function TemplatesPanel({
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '14px 18px', borderBottom: '1px solid var(--br)',
       }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Template Library</div>
-          <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 2 }}>Create reusable note starters. Apply inserts the selected template into the active entry.</div>
-        </div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Templates</div>
         <div style={{ flex: 1 }} />
         {creating ? (
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -116,7 +113,7 @@ export function TemplatesPanel({
               padding: '16px 18px', color: 'var(--t3)', fontSize: 12,
               lineHeight: 1.5,
             }}>
-              No templates yet. Create a reusable note starter with the button above. It will be
+              No templates yet. Create one with the button above — it will be
               saved as <code style={{ fontFamily: 'monospace' }}>templates/&lt;name&gt;.md</code>.
             </div>
           ) : list.map(t => {
@@ -163,14 +160,14 @@ export function TemplatesPanel({
                   type="button"
                   onClick={() => onEdit?.(selected)}
                   style={ghostButton()}
-                >Edit file</button>
+                >Edit selected</button>
                 <button
                   type="button"
                   disabled={!activeEntryId}
                   onClick={() => onApplyToActive?.(selected)}
                   style={primaryButton(!activeEntryId)}
                   title={activeEntryId ? '' : 'Open a note first to apply this template'}
-                >Insert into active entry</button>
+                >Apply to active note</button>
               </div>
               <pre style={{
                 flex: 1, margin: 0, padding: '14px 18px', overflow: 'auto',

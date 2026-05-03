@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { applyBase, getPropertyKeys } from '../../lib/base/queryBase.js';
 import { FILTER_OPS, VIEW_TYPES, DEFAULT_COLUMNS } from '../../lib/base/baseTypes.js';
-import { ICON, displayStatus } from '../../lib/types.js';
+import { ICON } from '../../lib/types.js';
 
 // BaseView — the all-in-one renderer for a saved Base.
 //
@@ -43,11 +43,6 @@ function formatCell(v) {
   if (typeof v === 'boolean') return v ? '✓' : '';
   if (typeof v === 'string' && v.length > 80) return v.slice(0, 80) + '…';
   return String(v);
-}
-
-function formatEntryCell(entry, key) {
-  if (key === 'status') return displayStatus(entry?.status);
-  return formatCell(entry?.[key]);
 }
 
 function ViewSwitcher({ base, onBaseChange }) {
@@ -153,7 +148,7 @@ function SortEditor({ base, onBaseChange, propertyKeys }) {
   );
 }
 
-function BaseTable({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry }) {
+function BaseTable({ entries, base, onBaseChange, onOpenEntry }) {
   const cols = (base.columns && base.columns.length > 0) ? base.columns : DEFAULT_COLUMNS;
   const sorts = base.sorts || [];
   const sortByCol = (key) => {
@@ -183,11 +178,6 @@ function BaseTable({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry }) 
                 {c}{primary && primary.key === c ? (primary.dir === 'asc' ? ' ↑' : ' ↓') : ''}
               </th>
             ))}
-            {onDeleteEntry&&(
-              <th style={{ width: 34, padding: '7px 10px', borderBottom: '1px solid var(--br)' }}>
-                <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>Actions</span>
-              </th>
-            )}
           </tr>
         </thead>
         <tbody>
@@ -202,24 +192,11 @@ function BaseTable({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry }) 
                       style={{ background: 'transparent', border: 'none', padding: 0, color: 'var(--ac)', cursor: 'pointer', fontFamily: 'var(--fn)', fontSize: 12, textAlign: 'left' }}
                     >
                       {ICON[e.type] ? <span aria-hidden="true" style={{ marginRight: 4 }}>{ICON[e.type]}</span> : null}
-                      {formatEntryCell(e, c) || '(untitled)'}
+                      {formatCell(e[c]) || '(untitled)'}
                     </button>
-                  ) : formatEntryCell(e, c)}
+                  ) : formatCell(e[c])}
                 </td>
               ))}
-              {onDeleteEntry&&(
-                <td style={{ padding: '6px 10px', textAlign: 'right' }}>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${e.title||'untitled entry'}`}
-                    title="Delete entry"
-                    onClick={() => onDeleteEntry(e.id)}
-                    style={{ width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 'var(--rd)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontFamily: 'var(--fn)' }}
-                  >
-                    ×
-                  </button>
-                </td>
-              )}
             </tr>
           ))}
         </tbody>
@@ -228,89 +205,54 @@ function BaseTable({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry }) 
   );
 }
 
-function BaseCards({ entries, base, onOpenEntry, onDeleteEntry }) {
+function BaseCards({ entries, base, onOpenEntry }) {
   const cols = (base.columns && base.columns.length > 0) ? base.columns : DEFAULT_COLUMNS;
   const meta = cols.filter(c => c !== 'title').slice(0, 3);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
       {entries.map(e => (
-        <article
+        <button
+          type="button"
           key={e.id}
-          className="mgn-card"
-          style={{ padding: 10, background: 'var(--b2)', border: '1px solid var(--br)', borderRadius: 'var(--rd)', fontFamily: 'var(--fn)', color: 'var(--tx)', display: 'flex', flexDirection: 'column', gap: 6 }}
+          onClick={() => onOpenEntry?.(e.id)}
+          style={{ padding: 10, background: 'var(--b2)', border: '1px solid var(--br)', borderRadius: 'var(--rd)', cursor: 'pointer', fontFamily: 'var(--fn)', textAlign: 'left', color: 'var(--tx)', display: 'flex', flexDirection: 'column', gap: 6 }}
         >
-          <button
-            type="button"
-            onClick={() => onOpenEntry?.(e.id)}
-            aria-label={`Open ${e.title||'untitled entry'}`}
-            style={{ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, color: 'var(--tx)', fontFamily: 'var(--fn)', textAlign: 'left', flex: 1 }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-              {ICON[e.type] && <span aria-hidden="true">{ICON[e.type]}</span>}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || '(untitled)'}</span>
+          <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {ICON[e.type] && <span aria-hidden="true">{ICON[e.type]}</span>}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || '(untitled)'}</span>
+          </div>
+          {meta.map(k => (
+            <div key={k} style={{ fontSize: 11, color: 'var(--t3)' }}>
+              <span style={{ fontWeight: 700, marginRight: 4 }}>{k}:</span>
+              {formatCell(e[k])}
             </div>
-            {meta.map(k => (
-              <div key={k} style={{ fontSize: 11, color: 'var(--t3)' }}>
-                <span style={{ fontWeight: 700, marginRight: 4 }}>{k}:</span>
-                {formatEntryCell(e, k)}
-              </div>
-            ))}
-          </button>
-          {onDeleteEntry&&(
-            <button
-              type="button"
-              aria-label={`Delete ${e.title||'untitled entry'}`}
-              title="Delete entry"
-              onMouseDown={event=>event.stopPropagation()}
-              onClick={event=>{event.stopPropagation();onDeleteEntry(e.id);}}
-              style={{ alignSelf: 'flex-end', marginTop: 'auto', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 'var(--rd)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontFamily: 'var(--fn)' }}
-            >
-              ×
-            </button>
-          )}
-        </article>
+          ))}
+        </button>
       ))}
     </div>
   );
 }
 
-function BaseList({ entries, onOpenEntry, onDeleteEntry }) {
+function BaseList({ entries, onOpenEntry }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {entries.map(e => (
-        <div
+        <button
+          type="button"
           key={e.id}
-          className="mgn-card"
-          style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--br)', borderRadius: 'var(--rd)', fontFamily: 'var(--fn)', fontSize: 12, color: 'var(--tx)', display: 'flex', alignItems: 'center', gap: 8 }}
+          onClick={() => onOpenEntry?.(e.id)}
+          style={{ padding: '6px 10px', background: 'transparent', border: '1px solid var(--br)', borderRadius: 'var(--rd)', cursor: 'pointer', fontFamily: 'var(--fn)', fontSize: 12, color: 'var(--tx)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}
         >
-          <button
-            type="button"
-            onClick={() => onOpenEntry?.(e.id)}
-            style={{ all: 'unset', cursor: 'pointer', flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--tx)', fontFamily: 'var(--fn)', textAlign: 'left' }}
-          >
-            {ICON[e.type] && <span aria-hidden="true" style={{ flexShrink: 0 }}>{ICON[e.type]}</span>}
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || '(untitled)'}</span>
-            {e.status && <span style={{ fontSize: 11, color: 'var(--t3)', flexShrink: 0 }}>{displayStatus(e.status)}</span>}
-          </button>
-          {onDeleteEntry&&(
-            <button
-              type="button"
-              aria-label={`Delete ${e.title||'untitled entry'}`}
-              title="Delete entry"
-              onMouseDown={event=>event.stopPropagation()}
-              onClick={event=>{event.stopPropagation();onDeleteEntry(e.id);}}
-              style={{ width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid transparent', borderRadius: 'var(--rd)', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontSize: 14, lineHeight: 1, fontFamily: 'var(--fn)', flexShrink: 0 }}
-            >
-              ×
-            </button>
-          )}
-        </div>
+          {ICON[e.type] && <span aria-hidden="true" style={{ flexShrink: 0 }}>{ICON[e.type]}</span>}
+          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title || '(untitled)'}</span>
+          {e.status && <span style={{ fontSize: 11, color: 'var(--t3)', flexShrink: 0 }}>{e.status}</span>}
+        </button>
       ))}
     </div>
   );
 }
 
-export function BaseView({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry }) {
+export function BaseView({ entries, base, onBaseChange, onOpenEntry }) {
   const propertyKeys = useMemo(() => getPropertyKeys(entries), [entries]);
   const filtered = useMemo(() => applyBase(entries, base), [entries, base]);
   const activeView = (base.views || []).find(v => v.id === base.activeViewId) || (base.views || [])[0] || { type: 'table' };
@@ -318,12 +260,12 @@ export function BaseView({ entries, base, onBaseChange, onOpenEntry, onDeleteEnt
   const renderBody = () => {
     switch (activeView.type) {
       case 'cards':
-        return <BaseCards entries={filtered} base={base} onOpenEntry={onOpenEntry} onDeleteEntry={onDeleteEntry} />;
+        return <BaseCards entries={filtered} base={base} onOpenEntry={onOpenEntry} />;
       case 'list':
-        return <BaseList entries={filtered} onOpenEntry={onOpenEntry} onDeleteEntry={onDeleteEntry} />;
+        return <BaseList entries={filtered} onOpenEntry={onOpenEntry} />;
       case 'table':
       default:
-        return <BaseTable entries={filtered} base={base} onBaseChange={onBaseChange} onOpenEntry={onOpenEntry} onDeleteEntry={onDeleteEntry} />;
+        return <BaseTable entries={filtered} base={base} onBaseChange={onBaseChange} onOpenEntry={onOpenEntry} />;
     }
   };
 

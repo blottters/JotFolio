@@ -6,7 +6,7 @@
 //   npm run dev         # separate terminal
 //   npm run a11y        # runs this spec against localhost:5174
 //
-// CI: `source/.github/workflows/bench.yml` step "a11y" runs `npm run build`,
+// CI: `.github/workflows/bench.yml` step "a11y" runs `npm run build`,
 // `npx serve dist` on a background port, then `npx playwright test bench/a11y`.
 //
 // Results write to `a11y-results.json`. Any NEW violations (not listed in

@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { TYPES, STATUSES, LABEL, ALL_STATUS_VALUES, displayStatus } from '../../lib/types.js';
+import { TYPES, STATUSES, LABEL, ALL_STATUS_VALUES } from '../../lib/types.js';
 import { SrOnly } from '../primitives/SrOnly.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 
@@ -7,7 +7,7 @@ import { Select } from '../dropdowns/Select.jsx';
 export function Toolbar({query,setQuery,section,filterStatus,setFilterStatus,sort,setSort,view,setView,hasFilters,onClear,onOpenSettings}){
   const is={padding:'8px 10px',background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--tx)',fontFamily:'var(--fn)',fontSize:13,outline:'none',boxSizing:'border-box',width:'100%'};
   const opts=TYPES.includes(section)?STATUSES[section]:ALL_STATUS_VALUES;
-  const ph=section==='all'?'Search entries…':section==='starred'?'Search starred entries…':`Search ${LABEL[section]||section}…`;
+  const ph=section==='all'?'Search everything…':section==='starred'?'Search starred…':`Search ${LABEL[section]||section}…`;
   const sid=useId(),stid=useId(),soid=useId();
   return(
     <div style={{padding:'10px 14px',borderBottom:'1px solid var(--br)',display:'flex',gap:8,alignItems:'center',background:'var(--b2)',flexShrink:0,flexWrap:'wrap',overflowX:'auto'}}>
@@ -18,7 +18,7 @@ export function Toolbar({query,setQuery,section,filterStatus,setFilterStatus,sor
       </div>
       <div style={{width:128,flexShrink:0}}>
         <Select ariaLabel="Filter by status" value={filterStatus} onChange={setFilterStatus}
-          options={[{value:'',label:'Status'},...opts.map(s=>({value:s,label:displayStatus(s)}))]}/>
+          options={[{value:'',label:'Status'},...opts.map(s=>({value:s,label:s}))]}/>
       </div>
       <div style={{width:128,flexShrink:0}}>
         <Select ariaLabel="Sort entries" value={sort} onChange={setSort}

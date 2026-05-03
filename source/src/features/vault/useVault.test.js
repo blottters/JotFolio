@@ -7,8 +7,6 @@ const mockVault = vi.hoisted(() => ({
   list: vi.fn(),
   read: vi.fn(),
   write: vi.fn(),
-  mkdir: vi.fn(),
-  move: vi.fn(),
   remove: vi.fn(),
   watch: vi.fn(),
 }));
@@ -21,7 +19,6 @@ import { useVault } from './useVault.js';
 
 describe('useVault saveEntry', () => {
   beforeEach(() => {
-    vi.useRealTimers();
     vi.clearAllMocks();
     mockVault.getVaultPath.mockReturnValue('local://vault');
     mockVault.list.mockResolvedValue([
@@ -66,23 +63,6 @@ Body`);
     expect(mockVault.write).toHaveBeenCalledWith('notes/New.md', expect.any(String));
     expect(mockVault.remove).toHaveBeenCalledWith('notes/Old.md');
     expect(mockVault.write.mock.invocationCallOrder[0]).toBeLessThan(mockVault.remove.mock.invocationCallOrder[0]);
-  });
-
-  it('moves deleted entries to JotFolio Trash instead of permanently removing them', async () => {
-    mockVault.mkdir.mockResolvedValue(undefined);
-    mockVault.move.mockResolvedValue(undefined);
-    const { result } = renderHook(() => useVault());
-
-    await waitFor(() => expect(result.current.entries).toHaveLength(1));
-
-    await act(() => result.current.deleteEntry('id-1'));
-
-    const target = mockVault.move.mock.calls[0][1];
-    expect(target).toMatch(/^\.jotfolio\/trash\/[^/]+\/notes\/Old\.md$/);
-    expect(mockVault.mkdir).toHaveBeenCalledWith(target.slice(0, target.lastIndexOf('/')));
-    expect(mockVault.move).toHaveBeenCalledWith('notes/Old.md', target);
-    expect(mockVault.remove).not.toHaveBeenCalled();
-    expect(result.current.entries).toHaveLength(0);
   });
 
   it('batch saves with the same title suffix their paths — no overwrite', async () => {

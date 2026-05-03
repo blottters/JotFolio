@@ -21,7 +21,7 @@
 
 ## Findings
 
-- **Canonical source `C:\Dev\Projects\JotFolio` confirmed real-dir.** ~1.62 GiB. Last touched 2026-04-28 (alpha.10 line work).
+- **Canonical source `C:\Dev\Projects\JotFolio` confirmed real-dir.** ~1.62 GiB. Last touched 2026-04-28 (alpha.8 work).
 - **`C:\Dev\jotfolio` does NOT exist.** The `launch.json` config `jotfolio` pointing here is broken. Safe to delete (handled by T3).
 - **`C:\Users\gavin\OneDrive\Desktop\JotFolio` (no `.lnk`) does NOT exist as a real dir.** The `launch.json` config `jotfolio-desktop` pointing at `OneDrive\Desktop\JotFolio\source` is broken (parent dir missing entirely). Safe to delete (T3).
 - **`OneDrive\Desktop\JotFolio.lnk` exists** as a shortcut file (2,259 bytes, mtime 2026-04-25). T4 will inspect target. Out of scope here.

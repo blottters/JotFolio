@@ -643,7 +643,7 @@ git commit -m "fix(slop): version sync, empty-state copy, easing token, locale p
 ## Acceptance criteria (whole plan)
 
 - [ ] Re-run slop-judge v2 audit — verify hit count drops from 11 to ≤2 (App.jsx 800-line cap is deferred; charter resolution may close 1 more)
-- [ ] `npm run build` succeeds — Electron packager produces a working alpha.11 candidate
+- [ ] `npm run build` succeeds — Electron packager produces a working alpha.8 candidate
 - [ ] Cold reload of dev server shows zero requests to `fonts.googleapis.com` or `fonts.gstatic.com`
 - [ ] CSP violations log is empty after using AI provider features
 - [ ] User-pref-saved `fontFamily` migration handles dropped fonts gracefully (no crash, falls back to theme default)

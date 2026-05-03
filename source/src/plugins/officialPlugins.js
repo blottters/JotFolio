@@ -6,6 +6,8 @@
 
 import dailyNotesManifest from '../../plugins/daily-notes/manifest.json?raw';
 import dailyNotesMain from '../../plugins/daily-notes/main.js?raw';
+import gitSyncManifest from '../../plugins/git-sync/manifest.json?raw';
+import gitSyncMain from '../../plugins/git-sync/main.js?raw';
 
 import { vault } from '../adapters/index.js';
 
@@ -22,6 +24,7 @@ import { vault } from '../adapters/index.js';
 /** @type {OfficialPlugin[]} */
 export const OFFICIAL_PLUGINS = [
   wrap('daily-notes', dailyNotesManifest, dailyNotesMain),
+  wrap('git-sync', gitSyncManifest, gitSyncMain),
 ];
 
 function wrap(id, manifestRaw, mainRaw) {

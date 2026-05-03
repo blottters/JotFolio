@@ -13,11 +13,9 @@ const { autoUpdater } = require('electron-updater');
 const { app, ipcMain } = require('electron');
 
 let mainWindowRef = null;
-let handlersInstalled = false;
 
 function setup(mainWindow) {
   mainWindowRef = mainWindow;
-  installIpcHandlers();
   if (!app.isPackaged) return; // no-op in dev
 
   autoUpdater.autoDownload = true;          // download silently in background
@@ -63,17 +61,8 @@ function setup(mainWindow) {
   setTimeout(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), 3_000);
   setInterval(() => autoUpdater.checkForUpdatesAndNotify().catch(() => {}), CHECK_INTERVAL_MS);
 
-}
-
-function installIpcHandlers() {
-  if (handlersInstalled) return;
-  handlersInstalled = true;
-
   // IPC: renderer can ask for an on-demand check + trigger install
   ipcMain.handle('update:check', async () => {
-    if (!app.isPackaged) {
-      return { ok: false, error: 'Update checks are only available in packaged desktop builds.' };
-    }
     try {
       const result = await autoUpdater.checkForUpdatesAndNotify();
       return result ? { ok: true, info: result.updateInfo } : { ok: true, info: null };
@@ -83,10 +72,8 @@ function installIpcHandlers() {
   });
 
   ipcMain.handle('update:install-now', async () => {
-    if (!app.isPackaged) return { ok: false, error: 'Updates are only installed in packaged desktop builds.' };
     // Fires `before-quit` + restarts into the new version
     autoUpdater.quitAndInstall(false, true);
-    return { ok: true };
   });
 }
 

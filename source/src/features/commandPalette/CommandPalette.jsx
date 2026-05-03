@@ -89,7 +89,7 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
         <input id={inputId} ref={inputRef}
           value={query} onChange={e => { setQuery(e.target.value); setActiveIdx(0); }}
           onKeyDown={handleKey}
-          placeholder="Run an app command…"
+          placeholder="Type a command…"
           aria-label="Command palette search"
           style={{
             padding: '14px 16px', fontSize: 15, fontFamily: 'var(--fn)',
@@ -147,7 +147,6 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
           <span>↑↓ navigate</span>
           <span>↵ run</span>
           <span>Esc close</span>
-          <span>Ctrl+O opens entries</span>
           <span style={{ marginLeft: 'auto' }}>{filtered.length} / {all.length}</span>
         </div>
       </div>

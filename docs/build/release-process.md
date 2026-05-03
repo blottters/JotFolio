@@ -12,14 +12,14 @@ Tagged release → GitHub Actions builds all 3 platforms in parallel → signed 
 
 ## Cutting a release
 
-1. Ensure the branch you are releasing from is green: `npm test`, `npm run build`, and `npm run a11y`.
+1. Ensure `master` is green: `npm test`, `npm run build`, and `npm run a11y`.
 2. Bump version in `source/package.json` and `source/package-lock.json` following SemVer (`CHANGELOG.md` has bump rules).
-3. Update `docs/CHANGELOG.md` — new `[x.y.z] — YYYY-MM-DD` section with `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security` subsections as applicable.
-4. Commit: `git commit -am "release: 0.5.0-alpha.12"`.
-5. Tag: `git tag v0.5.0-alpha.12`.
+3. Update `CHANGELOG.md` — new `[x.y.z] — YYYY-MM-DD` section with `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security` subsections as applicable.
+4. Commit: `git commit -am "release: 0.5.0-alpha.9"`.
+5. Tag: `git tag v0.5.0-alpha.9`.
 6. Push: `git push && git push --tags`.
-7. GitHub Actions picks up the tag, runs `source/.github/workflows/release.yml`, builds signed installers for macOS + Windows + Linux.
-8. When done, a GitHub Release has the generated assets attached. Confirm the notes match `docs/CHANGELOG.md`, then publish or edit as needed.
+7. GitHub Actions picks up the tag, runs `.github/workflows/release.yml`, builds signed installers for macOS + Windows + Linux.
+8. When done, a draft GitHub Release exists with all assets attached. Edit release notes (pull from CHANGELOG), then publish.
 
 ## Pre-release / beta channels
 
@@ -31,7 +31,7 @@ To expose beta channel:
 
 ## Hotfix
 
-Bump patch version (`0.4.0` → `0.4.1`), same flow. Packaged clients check roughly 3 seconds after launch and then every 15 minutes while open; downloaded updates install on quit unless the user triggers "Restart now" from the renderer banner.
+Bump patch version (`0.4.0` → `0.4.1`), same flow. Users on `0.4.0` auto-update within 6 hours (our poll interval).
 
 ## Rollback
 
@@ -60,7 +60,7 @@ Paste in the GitHub Release body:
 
 ## Full changelog
 
-https://github.com/blottters/jotfolio/blob/v0.5.0-alpha.12/docs/CHANGELOG.md#050-alpha12---2026-05-03
+https://github.com/blottters/jotfolio/blob/v0.5.0-alpha.9/CHANGELOG.md#050-alpha9---2026-05-01
 
 ## Checksums
 
@@ -79,27 +79,19 @@ If `SENTRY_AUTH_TOKEN` is not set, the step is skipped — no release is created
 ## Auto-update flow in detail
 
 1. App starts → `updater.setup(mainWindow)` called in `src-electron/main.js`
-2. ~3s after launch: `autoUpdater.checkForUpdatesAndNotify()` fires
-3. Every 15 minutes thereafter: same check while the app stays open
+2. 30s after launch: `autoUpdater.checkForUpdatesAndNotify()` fires
+3. Every 6 hours thereafter: same check
 4. `electron-updater` reads `https://github.com/blottters/jotfolio/releases/latest/download/latest.yml` (Mac: `latest-mac.yml`, Linux: `latest-linux.yml`)
 5. Parses version → compares with `app.getVersion()` → if newer exists, starts download in background
-6. While downloading, renderer receives `update:status` with `state: 'downloading'`; when complete it receives `state: 'ready'`
+6. Download completes → renderer receives `update:status` event with `state: 'ready'` → optional UI banner prompts user to restart now
 7. User quits app → electron-updater replaces the binary → next launch runs the new version
 
 Signatures are verified before the swap. Disabling that check is NOT done.
 
-Windows installer artifacts use `JotFolio-Setup-${version}.exe`; keep that filename aligned with `latest.yml` or updater downloads will fail.
-
 ## Renderer update UI
 
-Shipped partially in the current alpha line:
-- Download progress banner for `state: 'downloading'`
-- Ready-to-install banner with `Restart now`
-- Settings > Updates tab with current version, check-now, update status, and error display
-
-Not shipped yet:
-- channel selector / update preferences UI
+Not yet wired in v0 — pure background updates, no banner. Phase 6.5 adds a Settings > Updates tab showing current version + check-now + "restart to update" button. Until then, users get seamless background updates with no interruption.
 
 ## Disabling auto-update for a specific user
 
-No supported opt-out environment variable exists in the current code. If a disable flag is ever added, document it only after `src-electron/updater.js` actually implements it.
+Users on restrictive networks can set env var `JOTFOLIO_DISABLE_UPDATES=1` before launching. `updater.setup` checks this and no-ops if set. (Implementation detail; add check to `updater.js` if this becomes a real request.)

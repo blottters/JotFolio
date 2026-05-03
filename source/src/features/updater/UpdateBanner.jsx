@@ -26,10 +26,9 @@ export function UpdateBanner() {
   }, []);
 
   if (!status || dismissed) return null;
-  if (status.state !== 'ready' && status.state !== 'downloading' && status.state !== 'error') return null;
+  if (status.state !== 'ready' && status.state !== 'downloading') return null;
 
   const isReady = status.state === 'ready';
-  const isError = status.state === 'error';
   const handleRestart = async () => {
     try { await window.electron?.updater?.installNow?.(); }
     catch (err) { console.error('install-now failed', err); }
@@ -49,23 +48,19 @@ export function UpdateBanner() {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{
           width: 24, height: 24, borderRadius: '50%',
-          background: isReady ? 'var(--ac)' : isError ? '#ef4444' : 'var(--b2)',
-          color: isReady || isError ? 'white' : 'var(--t2)',
+          background: isReady ? 'var(--ac)' : 'var(--b2)',
+          color: isReady ? 'var(--act)' : 'var(--t2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 14, fontWeight: 700, flexShrink: 0,
-        }}>{isReady ? '↓' : isError ? '!' : '⋯'}</div>
+        }}>{isReady ? '↓' : '⋯'}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, marginBottom: 2 }}>
-            {isError
-              ? 'Update check failed'
-              : isReady
+            {isReady
               ? `Update ${status.version || ''} ready`
               : `Downloading ${status.percent || 0}%`}
           </div>
           <div style={{ color: 'var(--t2)', lineHeight: 1.5 }}>
-            {isError
-              ? (status.message || 'Open Settings > Updates for details.')
-              : isReady
+            {isReady
               ? 'Restart now to install, or it will install automatically the next time you quit.'
               : `${status.transferredMB || '?'} / ${status.totalMB || '?'} MB`}
           </div>

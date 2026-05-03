@@ -23,33 +23,11 @@ export function userOptedIn() {
 export function setOptIn(value) {
   try { localStorage.setItem(PREF_KEY, JSON.stringify({ enabled: !!value, decidedAt: new Date().toISOString() })); }
   catch { /* noop */ }
-  try { window.electron?.telemetry?.setOptIn?.(!!value); }
-  catch { /* noop */ }
   if (value && !initialized && DSN) init();
 }
 
 export function hasDecided() {
   try { return !!localStorage.getItem(PREF_KEY); } catch { return false; }
-}
-
-export async function hydrateOptInFromMain() {
-  try {
-    const pref = await window.electron?.telemetry?.getOptIn?.();
-    if (!pref || typeof pref.enabled !== 'boolean') return userOptedIn();
-    if (pref.decided) {
-      localStorage.setItem(PREF_KEY, JSON.stringify({
-        enabled: pref.enabled,
-        decidedAt: new Date().toISOString(),
-        source: 'electron',
-      }));
-    } else {
-      localStorage.removeItem(PREF_KEY);
-    }
-    if (pref.enabled && !initialized && DSN) init();
-    return pref.enabled;
-  } catch {
-    return userOptedIn();
-  }
 }
 
 function scrub(event) {
@@ -84,10 +62,7 @@ export async function init() {
       release: VERSION,
       environment: import.meta.env?.PROD ? 'production' : 'development',
       tracesSampleRate: 0,
-      beforeSend: (event) => {
-        if (!userOptedIn()) return null;
-        return scrub(event);
-      },
+      beforeSend: scrub,
     });
     sentryModule = mod;
     initialized = true;
@@ -98,7 +73,6 @@ export async function init() {
 
 export function captureError(err, context) {
   try {
-    if (!userOptedIn()) return;
     if (!initialized || !sentryModule) return;
     sentryModule.captureException(err, context ? { extra: context } : undefined);
   } catch { /* noop */ }

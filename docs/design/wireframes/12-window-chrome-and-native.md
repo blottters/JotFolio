@@ -38,7 +38,7 @@ JotFolio                  File                  Edit                  View
   ─                         Quick Capture (⇧⌘N)   ─                    ─
   Open Vault…               ─                     Cut/Copy/Paste       Command Palette (⌘P)
   Recent Vaults ▸           Open Quick Switcher   Find (⌘F)            Quick Switcher (⌘O)
-  ─                         Close Tab (⌘W)        Find in Vault (⌘⇧F)  Constellation (⌘G)
+  ─                         Close Tab (⌘W)        Find in Vault (⌘⇧F)  Graph View (⌘G)
   Services ▸                ─                     ─                    ─
   Hide JotFolio (⌘H)        Open in File Mgr      Jump to Today (⌘T)   Zoom In/Out (⌘+/⌘−)
   Quit JotFolio (⌘Q)        Reveal in Finder      ─                    Actual Size (⌘0)

@@ -12,7 +12,6 @@
 //     toggleTheme(),        // cycle dark mode
 //     createDailyNote(),    // App-defined daily-note creator
 //     focusSearch(),        // focus the toolbar search input
-//     openTemplates(),      // open the template library
 //   }
 
 export function registerBuiltinCommands(registry, appCtx) {
@@ -57,15 +56,6 @@ export function registerBuiltinCommands(registry, appCtx) {
   }));
 
   disposers.push(registry.register({
-    id: 'core:open-templates',
-    name: 'Open template library',
-    hint: 'Manage saved note templates and apply them to the active note',
-    section: 'Templates',
-    keywords: ['template', 'templates', 'library', 'manage'],
-    run: () => appCtx.openTemplates?.(),
-  }));
-
-  disposers.push(registry.register({
     id: 'core:insert-template',
     name: 'Insert template at cursor',
     hint: 'Pick a template and insert into the active note',
@@ -76,7 +66,7 @@ export function registerBuiltinCommands(registry, appCtx) {
 
   disposers.push(registry.register({
     id: 'core:open-graph',
-    name: 'Open Constellation',
+    name: 'Open graph',
     hint: 'Switch to the Constellation view',
     section: 'View',
     keywords: ['constellation', 'graph', 'web'],

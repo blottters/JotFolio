@@ -57,12 +57,12 @@ export function PluginsPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
       <div style={{ fontSize: 12, color: 'var(--t3)', lineHeight: 1.5 }}>
-        Extensions are optional workflow add-ons stored in <code>&lt;vault&gt;/.jotfolio/plugins/</code>. They should deepen the local vault workflow, not replace it. Enable only plugins whose permissions match their purpose.
+        Plugins live in <code>&lt;vault&gt;/.jotfolio/plugins/</code>. They run inside the app with the permissions declared in their manifest.
       </div>
       {err && <div role="alert" style={errStyle}>{err}</div>}
 
       {plugins.length === 0 && (
-        <div style={{ fontSize: 12, color: 'var(--t3)' }}>No extensions installed. JotFolio's core vault workflow works without plugins.</div>
+        <div style={{ fontSize: 12, color: 'var(--t3)' }}>No plugins installed.</div>
       )}
 
       {plugins.map(rec => (
@@ -112,7 +112,7 @@ export function PluginsPanel() {
       {notYetInstalled.length > 0 && (
         <>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 12, marginBottom: 4 }}>
-            Official workflow add-ons
+            Official plugins
           </div>
           {notYetInstalled.map(p => (
             <div key={p.id} style={row(false)}>

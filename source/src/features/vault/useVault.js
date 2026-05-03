@@ -3,7 +3,7 @@
 // Responsibilities:
 //   - Track current vault info (path/name) or null
 //   - Load entries by scanning vault.list() + parsing each .md file
-//   - Save/delete entries via entryToFile + vault.write / vault.move-to-trash
+//   - Save/delete entries via entryToFile + vault.write / vault.remove
 //   - Expose pickVault() that triggers folder picker (web-virtual or native dialog)
 //   - Migration helper: copy legacy localStorage['mgn-e'] entries into the vault
 //   - Subscribe to vault.watch() for external changes (plugins, user edits raw file)
@@ -17,7 +17,6 @@ import { vault } from '../../adapters/index.js';
 import { entryToFile, fileToEntry, MANUAL_LINKS_FIELD } from '../../lib/frontmatter.js';
 import { buildVaultIndex } from '../../lib/index/vaultIndex.js';
 import { VaultError } from '../../adapters/VaultError.js';
-import { moveToTrash } from '../../lib/vaultTrash.js';
 
 const LEGACY_KEY = 'mgn-e';
 
@@ -191,7 +190,7 @@ export function useVault() {
     const entry = entries.find(e => e.id === id);
     if (!entry) return;
     if (entry._path) {
-      try { await moveToTrash(vault, entry._path); }
+      try { await vault.remove(entry._path); }
       catch (err) { if (err?.code !== 'not-found') throw err; }
       pathsInUseRef.current.delete(entry._path);
     }

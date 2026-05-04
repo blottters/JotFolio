@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current version: **0.5.0-alpha.12** (2026-05-03)*
+*Current version: **0.5.0-alpha.13** (2026-05-04)*
 
 ---
 
@@ -237,6 +237,22 @@ Verification:
 - Packaged smoke launched `dist-electron/win-unpacked/JotFolio.exe` from `app.asar` and Electron reported `0.5.0-alpha.12`.
 - Packaged screenshots were captured for normal rendering, forced-colors/reduced-motion, 200% zoom, and 400% zoom.
 - NVDA is not installed on this machine; Narrator exists but was not launched automatically because it changes the active desktop session.
+
+---
+
+## 0.5.0-alpha.13 — New-entry writing experience (2026-05-04)
+
+Focused on making entry creation match the actual purpose of each text-heavy type.
+
+- Notes now behave as quick capture: title, tags, and a lightweight jot-down field for short thoughts, reminders, snippets, and loose observations.
+- Journals now own the full writing surface: a wider modal, professional markdown toolbar, live word/character count, and a collapsible rendered preview.
+- Journal toolbar actions include headings, bold, italic, strikethrough, underline, lists, tasks, links, images, tables, quotes, inline code, code blocks, wiki links, dividers, and callouts.
+- This separates quick notes from date-first long-form journal writing instead of making both tabs feel like the same editor.
+
+Verification:
+- `npm run build` passed locally on 2026-05-04.
+- `npm test` passed locally on 2026-05-04: 436/436 tests.
+- Browser smoke against `http://127.0.0.1:5176/` verified quick-note mode, Journal toolbar, and collapsible Journal markdown preview.
 
 ---
 

@@ -36,4 +36,11 @@ describe('vault path helpers', () => {
       { path: 'notes/daily', name: 'daily', depth: 1, count: 1 },
     ]);
   });
+
+  it('includes explicit empty folders in the folder tree', () => {
+    expect(buildFolderTree([], ['notes/projects'])).toEqual([
+      { path: 'notes', name: 'notes', depth: 0, count: 0 },
+      { path: 'notes/projects', name: 'projects', depth: 1, count: 0 },
+    ]);
+  });
 });

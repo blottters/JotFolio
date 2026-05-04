@@ -137,7 +137,34 @@ ipcMain.handle('vault:list', wrapIpc(async () => {
     catch (err) { throw new VaultErr('io-error', err.message); }
     for (const e of entries) {
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) { await walk(abs); continue; }
+      if (e.isDirectory()) {
+        try {
+          const stat = await fs.stat(abs);
+          const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');
+          const folder = path.dirname(rel);
+          results.push({
+            path: rel,
+            name: e.name,
+            folder: folder === '.' ? '' : folder,
+            size: 0,
+            mtime: stat.mtimeMs,
+            type: 'folder',
+          });
+        } catch (err) {
+          const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');
+          results.push({
+            path: rel,
+            name: e.name,
+            folder: path.dirname(rel),
+            size: 0,
+            mtime: 0,
+            type: 'folder',
+            error: { code: 'io-error', message: err.message },
+          });
+        }
+        await walk(abs);
+        continue;
+      }
       try {
         const stat = await fs.stat(abs);
         const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');

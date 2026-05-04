@@ -6,7 +6,7 @@ Reviewed against the threat model — each row either mitigates a threat or acce
 
 ---
 
-## Channels (as of 0.5.0-alpha.12)
+## Channels (as of 0.5.0-alpha.13)
 
 | Channel | Direction | Input | Output | Validation | Trust |
 |---|---|---|---|---|---|

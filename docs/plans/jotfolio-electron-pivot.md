@@ -4,7 +4,7 @@ _Created 2026-04-23. Last updated 2026-05-03 to separate historical roadmap mate
 
 ---
 
-## STATUS — INITIAL PIVOT COMPLETE; CURRENT REPO HAS MOVED TO v0.5.0-alpha.12
+## STATUS — INITIAL PIVOT COMPLETE; CURRENT REPO HAS MOVED TO v0.5.0-alpha.13
 
 | Phase | Status | Shipped In | Notes |
 |---|---|---|---|
@@ -20,9 +20,9 @@ _Created 2026-04-23. Last updated 2026-05-03 to separate historical roadmap mate
 | 7 — Performance + a11y scaffold | ✅ Done | v0.4.1 | 14 benchmarks (all targets met), committed baseline, bench.yml CI, Playwright a11y spec, known gaps documented |
 
 **Historical milestone:** the original 7-phase pivot closed at **v0.4.1** on 2026-04-24.
-**Current local source line:** subsequent work moved the repo to **v0.5.0-alpha.12** (see `docs/CHANGELOG.md`).
+**Current local source line:** subsequent work moved the repo to **v0.5.0-alpha.13** (see `docs/CHANGELOG.md`).
 **Current verified tests:** 433/433 green (`npm test` run locally on 2026-05-03).
-**Current verified desktop state:** unsigned local Windows installer built as `JotFolio-Setup-0.5.0-alpha.12.exe`; packaged smoke launched from `app.asar` and reported `0.5.0-alpha.12`. Any already-installed desktop copy remains on its previous installed version until the alpha.12 installer is run or auto-update receives a published alpha.12 release.
+**Current verified desktop state:** the latest fully packaged local smoke documented here remains `0.5.0-alpha.12`. The `0.5.0-alpha.13` source line has not been installer-smoked until a new `npm run electron:build -- --win --publish never` run is completed for that version. Any already-installed desktop copy remains on its previous installed version until an alpha.13 installer is run or auto-update receives a published alpha.13 release.
 **Current perf truth:** baseline still exists, but the latest local bench run failed regression thresholds on 2026-05-02; do not describe perf as green until those deltas are investigated.
 **Process pattern evolved:** each phase started with specialist-authored plan at `docs/phase-plans/` (or inline for phases before convention was adopted), executed inline by Claude Code. Subagent dispatch for plan authorship worked; dispatch for execution consistently truncated — pattern abandoned mid-session.
 
@@ -262,9 +262,9 @@ Each phase exit requires, at minimum:
 
 ---
 
-## v0.5.0 Backlog (current open work after alpha.12)
+## v0.5.0 Backlog (current open work after alpha.13)
 
-Historical accepted risks from phases 0–7 are preserved below, but this list has been pruned to the work that is still actually open after the alpha.12 local source line.
+Historical accepted risks from phases 0–7 are preserved below, but this list has been pruned to the work that is still actually open after the alpha.13 local source line.
 
 ### Security (carried from Phase 5)
 - **Symlink realpath check** in `src-electron/main.js:resolveSafe`. Reject files whose `fs.realpath(abs)` escapes vault root.

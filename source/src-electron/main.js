@@ -73,13 +73,24 @@ function wrapIpc(fn) {
   };
 }
 
-// ─── Watcher (lazy require chokidar; optional dep) ───────────────
-function startWatcher() {
+// ─── Watcher (lazy load chokidar; optional dep) ───────────────
+async function loadChokidar() {
+  try {
+    return require('chokidar');
+  } catch (err) {
+    if (err?.code !== 'ERR_REQUIRE_ESM') throw err;
+    const mod = await import('chokidar');
+    return mod.default ?? mod;
+  }
+}
+async function startWatcher() {
   stopWatcher();
   if (!vaultRoot) return;
+  const root = vaultRoot;
   try {
-    const chokidar = require('chokidar');
-    watcher = chokidar.watch(vaultRoot, {
+    const chokidar = await loadChokidar();
+    if (!vaultRoot || vaultRoot !== root) return;
+    watcher = chokidar.watch(root, {
       ignored: ['**/node_modules/**', '**/.git/**', '**/.jotfolio/recovery/**'],
       ignoreInitial: true,
       persistent: true,
@@ -87,7 +98,7 @@ function startWatcher() {
     });
     const emit = (type) => (absPath) => {
       if (!mainWindow || !vaultRoot) return;
-      const rel = path.relative(vaultRoot, absPath).replaceAll(path.sep, '/');
+      const rel = path.relative(root, absPath).replaceAll(path.sep, '/');
       mainWindow.webContents.send('vault:watch:event', { type, path: rel });
     };
     watcher.on('add', emit('create'));

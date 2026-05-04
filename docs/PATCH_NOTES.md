@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current version: **0.5.0-alpha.13** (2026-05-04)*
+*Current source version: **0.5.0-alpha.14** (2026-05-04)*
 
 ---
 
@@ -253,6 +253,23 @@ Verification:
 - `npm run build` passed locally on 2026-05-04.
 - `npm test` passed locally on 2026-05-04: 436/436 tests.
 - Browser smoke against `http://127.0.0.1:5176/` verified quick-note mode, Journal toolbar, and collapsible Journal markdown preview.
+
+---
+
+## 0.5.0-alpha.14 — Production dependency remediation (2026-05-04)
+
+Focused on reducing production dependency risk after the alpha.13 editor release.
+
+- Upgraded `marked` from `18.0.2` to `18.0.3`.
+- Upgraded `chokidar` from `4.0.3` to `5.0.0`.
+- Updated the Electron vault watcher to handle ESM-only `chokidar` without disabling file watching in packaged builds.
+
+Verification:
+- `npm audit --omit=dev` passed locally on 2026-05-04 with 0 production vulnerabilities.
+- `npm test` passed locally on 2026-05-04: 436/436 tests.
+- `npm run build` passed locally on 2026-05-04.
+- `npm run a11y -- --workers=1` passed locally on 2026-05-04: 5/5 Playwright + axe flows.
+- `npm run electron:build -- --win --publish never` built unsigned local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.14.exe`.
 
 ---
 

@@ -10,6 +10,15 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.14] — 2026-05-04
+
+### Changed
+- Upgraded production markdown/watch dependencies: `marked` to `18.0.3` and `chokidar` to `5.0.0`.
+- Electron vault watching now lazy-loads both CommonJS and ESM-only `chokidar`, preserving packaged watcher compatibility after the dependency upgrade.
+
+### Security
+- Started the post-alpha.13 dependency-alert remediation line for production runtime dependencies.
+
 ## [0.5.0-alpha.13] — 2026-05-04
 
 ### Added
@@ -19,6 +28,9 @@ Bump rules:
 ### Changed
 - New Note creation is now framed as quick capture with a lighter jot-down field, making Notes distinct from dated long-form Journals.
 - The Journal new-entry modal widens to give the full editor toolbar and writing body room to breathe.
+
+### Fixed
+- The Journal editor footer helper text no longer sits behind the sticky Save/Cancel action row.
 
 ## [0.5.0-alpha.12] — 2026-05-03
 

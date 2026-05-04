@@ -25,6 +25,21 @@ dist/
 **/vite-dev.out.log
 **/vite-dev.err.log
 
+# Local agent/review artifacts
+.archive/
+.outputs/
+.snapshots/
+
+# Stray root-level app stubs; the real app package lives in source/
+/index.html
+/main.js
+/package.json
+
+# Local Superpowers/Codex handoff audits
+docs/superpowers/*audit-*.md
+docs/superpowers/handoff-*.md
+docs/superpowers/skills-alignment-*.md
+
 # OS
 .DS_Store
 Thumbs.db

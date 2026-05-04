@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current version: **0.5.0-alpha.12** (2026-05-03)*
+*Current source version: **0.5.0-alpha.15** (2026-05-04)*
 
 ---
 
@@ -237,6 +237,58 @@ Verification:
 - Packaged smoke launched `dist-electron/win-unpacked/JotFolio.exe` from `app.asar` and Electron reported `0.5.0-alpha.12`.
 - Packaged screenshots were captured for normal rendering, forced-colors/reduced-motion, 200% zoom, and 400% zoom.
 - NVDA is not installed on this machine; Narrator exists but was not launched automatically because it changes the active desktop session.
+
+---
+
+## 0.5.0-alpha.13 — New-entry writing experience (2026-05-04)
+
+Focused on making entry creation match the actual purpose of each text-heavy type.
+
+- Notes now behave as quick capture: title, tags, and a lightweight jot-down field for short thoughts, reminders, snippets, and loose observations.
+- Journals now own the full writing surface: a wider modal, professional markdown toolbar, live word/character count, and a collapsible rendered preview.
+- Journal toolbar actions include headings, bold, italic, strikethrough, underline, lists, tasks, links, images, tables, quotes, inline code, code blocks, wiki links, dividers, and callouts.
+- This separates quick notes from date-first long-form journal writing instead of making both tabs feel like the same editor.
+
+Verification:
+- `npm run build` passed locally on 2026-05-04.
+- `npm test` passed locally on 2026-05-04: 436/436 tests.
+- Browser smoke against `http://127.0.0.1:5176/` verified quick-note mode, Journal toolbar, and collapsible Journal markdown preview.
+
+---
+
+## 0.5.0-alpha.14 — Production dependency remediation (2026-05-04)
+
+Focused on reducing production dependency risk after the alpha.13 editor release.
+
+- Upgraded `marked` from `18.0.2` to `18.0.3`.
+- Upgraded `chokidar` from `4.0.3` to `5.0.0`.
+- Updated the Electron vault watcher to handle ESM-only `chokidar` without disabling file watching in packaged builds.
+
+Verification:
+- `npm audit --omit=dev` passed locally on 2026-05-04 with 0 production vulnerabilities.
+- `npm test` passed locally on 2026-05-04: 436/436 tests.
+- `npm run build` passed locally on 2026-05-04.
+- `npm run a11y -- --workers=1` passed locally on 2026-05-04: 5/5 Playwright + axe flows.
+- `npm run electron:build -- --win --publish never` built unsigned local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.14.exe`.
+
+---
+
+## 0.5.0-alpha.15 — Templates and folder polish (2026-05-04)
+
+Focused on making Templates and Folders feel like real workspace tools instead of rough utility panels.
+
+- Rebuilt Template Library into a three-pane workspace: search/list, inline markdown editor, and template help/details.
+- Added direct template save/reset behavior.
+- Kept Apply to active entry available from the template editor.
+- Reworked sidebar folders into a collapsible nested tree with clearer folder icons, expand/collapse controls, and total child counts.
+- Folder filters now include entries inside nested subfolders when selecting a parent folder.
+
+Verification:
+- `npm test` passed locally on 2026-05-04: 437/437 tests.
+- `npm run build` passed locally on 2026-05-04.
+- `npm run a11y -- --workers=1` passed locally on 2026-05-04: 5/5 Playwright + axe flows.
+- Browser smoke against `http://127.0.0.1:5176/` verified template search, inline template edit/save, and parent-folder filtering across nested folders.
+- `npm run electron:build -- --win --publish never` built unsigned local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.15.exe`.
 
 ---
 

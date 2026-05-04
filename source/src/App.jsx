@@ -7,7 +7,7 @@ import { DEFAULT_FEATURE_FLAGS, filterEntriesForUI, normalizeFeatureFlags } from
 import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
 import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
-import { MANUAL_LINKS_FIELD } from './lib/frontmatter.js';
+import { MANUAL_LINKS_FIELD, serialize as serializeFrontmatter } from './lib/frontmatter.js';
 import { exportVaultBundle, exportEntriesMD, importVaultBundle } from './lib/exports.js';
 import { getConstellationDemoEntries } from './lib/demoEntries.js';
 import { useSystemDark } from './lib/hooks.js';
@@ -44,7 +44,7 @@ import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
 import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
 import { useKeywordRules } from './lib/keywordRules/useKeywordRules.js';
 import { moveToTrash } from './lib/vaultTrash.js';
-import { buildFolderTree, fileNameFromPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
+import { buildFolderTree, fileNameFromPath, folderContainsPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
 import { importAttachment } from './lib/vaultAttachments.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
@@ -56,6 +56,7 @@ export default function App(){
   const[migrationDone,setMigrationDone]=useState(false);
   const{
     entries,
+    folders,
     vaultInfo,
     loading:vaultLoading,
     error:vaultError,
@@ -102,6 +103,8 @@ export default function App(){
   const[detailId,setDetailId]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
   const[settingsOpen,setSettingsOpen]=useState(false);
+  const[folderDialogOpen,setFolderDialogOpen]=useState(false);
+  const[folderDraft,setFolderDraft]=useState('');
 
   // Bases — declared up here (above useActivation + the big effects below)
   // because the load effect runs once vault is ready, and the sidebar reads
@@ -165,17 +168,22 @@ export default function App(){
   const handleSection=(next)=>{setSection(next);setFilterStatus('')};
   const hasFilters=!!(query||filterStatus||filterTag);
   const clearFilters=()=>{setQuery('');setFilterStatus('');setFilterTag('')};
-  const folderTree=useMemo(()=>buildFolderTree(entries),[entries]);
-  const handleNewFolder=useCallback(async()=>{
-    const raw=window.prompt('Create vault folder. Use a vault-relative path, for example: notes/projects');
-    if(raw==null)return;
+  const folderTree=useMemo(()=>buildFolderTree(entries,folders),[entries,folders]);
+  const handleNewFolder=useCallback(()=>{
+    setFolderDraft('');
+    setFolderDialogOpen(true);
+  },[]);
+  const submitNewFolder=useCallback(async(raw)=>{
     try{
       const folder=normalizeVaultFolder(raw);
       if(!folder){toast('Folder name is required','error');return}
       await vaultAdapter.mkdir(folder);
+      await refreshVault();
+      setFolderDialogOpen(false);
+      setFolderDraft('');
       toast(`Folder created: ${folder}`,'info');
     }catch(err){reportError(err,'Folder create failed')}
-  },[toast,reportError]);
+  },[refreshVault,toast,reportError]);
   const revealEntryFile=useCallback(async(entry)=>{
     if(!entry?._path){toast('No file path for this entry','error');return}
     const reveal=window.electron?.app?.showItemInFolder;
@@ -222,7 +230,7 @@ export default function App(){
   },[toast,reportError]);
 
   useOpenRouterCallback(toast);
-  useAppShortcuts({blocked:showAddModal||!!detailId,openAdd});
+  useAppShortcuts({blocked:showAddModal||folderDialogOpen||!!detailId,openAdd});
 
   // Cmd/Ctrl+P toggles the command palette globally — the only kbd
   // handler the palette itself doesn't own (Esc + arrows are handled
@@ -584,6 +592,15 @@ export default function App(){
       toast(`Template created: ${slug}`);
     }catch(err){reportError(err,'Template create failed')}
   },[toast,reportError]);
+  const handleSaveTemplate=useCallback(async(template,body)=>{
+    if(!template?.path){toast('No template file selected','error');return}
+    try{
+      await vaultAdapter.write(template.path,serializeFrontmatter({frontmatter:template.frontmatter||{},body:body||''}));
+      const list=await loadTemplates(vaultAdapter);
+      setTemplates(list);
+      toast(`Template saved: ${template.name}`);
+    }catch(err){reportError(err,'Template save failed')}
+  },[toast,reportError]);
 
   // Register builtin commands once the dependent callbacks are stable.
   // The disposer cleans up if the App ever unmounts (test environments).
@@ -739,7 +756,7 @@ export default function App(){
     if(section==='starred')r=r.filter(e=>e.starred);
     else if(section.startsWith('folder:')){
       const folder=section.slice(7);
-      r=r.filter(e=>folderFromPath(e._path||'')===folder);
+      r=r.filter(e=>folderContainsPath(folder,e._path||''));
     }else if(section!=='all')r=r.filter(e=>e.type===section);
     if(deferredQuery)r=r.filter(e=>matchesQuery(e,parsedQuery));
     if(filterStatus)r=r.filter(e=>e.status===filterStatus);
@@ -846,12 +863,12 @@ export default function App(){
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {section==='templates'?(
-          <div style={{flex:1,overflowY:'auto',padding:24}}>
+          <div style={{flex:1,overflow:'hidden'}}>
             <TemplatesPanel
               templates={templates}
               onCreate={handleCreateTemplate}
               onApplyToActive={handleInsertTemplate}
-              onEdit={t=>{setSection('all');toast(`Open ${t.path} in editor (path open n/a yet)`,'info')}}
+              onSave={handleSaveTemplate}
               activeEntryId={detailId}/>
           </div>
         ):currentCanvasId?(
@@ -928,6 +945,11 @@ export default function App(){
       </div>
 
       {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {folderDialogOpen&&<FolderCreateDialog
+        value={folderDraft}
+        onChange={setFolderDraft}
+        onSubmit={()=>submitNewFolder(folderDraft)}
+        onClose={()=>setFolderDialogOpen(false)}/>}
       {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onImportFile={handleImportAttachment} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
       {loaded&&!isOnboarded()&&visibleEntries.length===0&&(
         <WelcomePanel
@@ -979,6 +1001,33 @@ export default function App(){
       <Toasts toasts={toasts}/>
       <UpdateBanner/>
       <ActivationToast visible={celebrating} onDone={()=>{setCelebrating(false);setSection('graph')}}/>
+    </div>
+  );
+}
+
+function FolderCreateDialog({value,onChange,onSubmit,onClose}){
+  return(
+    <div role="dialog" aria-modal="true" aria-labelledby="folder-create-title"
+      style={{position:'absolute',inset:0,zIndex:70,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(15,23,42,.42)',backdropFilter:'blur(2px)'}}
+      onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <form onSubmit={e=>{e.preventDefault();onSubmit()}}
+        style={{width:'min(420px,calc(100vw - 32px))',background:'var(--bg)',border:'1px solid var(--br)',borderRadius:'calc(var(--rd) + 6px)',boxShadow:'0 24px 80px rgba(0,0,0,.28)',padding:18,display:'flex',flexDirection:'column',gap:14}}>
+        <div>
+          <div id="folder-create-title" style={{fontSize:16,fontWeight:800,color:'var(--tx)',marginBottom:4}}>Create folder</div>
+          <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.45}}>Use a vault-relative path. Nested folders work, for example <code>notes/projects</code>.</div>
+        </div>
+        <label style={{display:'flex',flexDirection:'column',gap:6,fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:1.2,color:'var(--t3)'}}>
+          Folder path
+          <input autoFocus value={value} onChange={e=>onChange(e.target.value)} placeholder="notes/projects"
+            style={{fontFamily:'var(--fn)',fontSize:14,color:'var(--tx)',background:'var(--b1)',border:'1px solid var(--br)',borderRadius:'var(--rd)',padding:'10px 12px',outline:'none'}}/>
+        </label>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+          <button type="button" onClick={onClose}
+            style={{fontFamily:'var(--fn)',fontSize:13,padding:'8px 12px',border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b1)',color:'var(--t2)',cursor:'pointer'}}>Cancel</button>
+          <button type="submit"
+            style={{fontFamily:'var(--fn)',fontSize:13,padding:'8px 12px',border:'1px solid var(--ac)',borderRadius:'var(--rd)',background:'var(--ac)',color:'var(--act)',fontWeight:800,cursor:'pointer'}}>Create folder</button>
+        </div>
+      </form>
     </div>
   );
 }

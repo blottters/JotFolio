@@ -37,16 +37,29 @@ export function fileNameFromPath(path) {
   return idx === -1 ? rel : rel.slice(idx + 1);
 }
 
-export function buildFolderTree(entries = []) {
+export function folderContainsPath(folder, entryPath) {
+  const cleanFolder = normalizeVaultFolder(folder);
+  if (!cleanFolder) return false;
+  const entryFolder = folderFromPath(entryPath);
+  return entryFolder === cleanFolder || entryFolder.startsWith(`${cleanFolder}/`);
+}
+
+export function buildFolderTree(entries = [], explicitFolders = []) {
   const counts = new Map();
-  for (const entry of entries) {
-    const folder = normalizeVaultFolder(entry?._path ? folderFromPath(entry._path) : '');
-    if (!folder) continue;
-    const parts = folder.split('/');
+  const ensureFolder = (folder) => {
+    const clean = normalizeVaultFolder(folder);
+    if (!clean) return;
+    const parts = clean.split('/');
     for (let i = 1; i <= parts.length; i += 1) {
       const key = parts.slice(0, i).join('/');
       counts.set(key, counts.get(key) || 0);
     }
+  };
+  for (const folder of explicitFolders) ensureFolder(folder);
+  for (const entry of entries) {
+    const folder = normalizeVaultFolder(entry?._path ? folderFromPath(entry._path) : '');
+    if (!folder) continue;
+    ensureFolder(folder);
     counts.set(folder, (counts.get(folder) || 0) + 1);
   }
   return [...counts.entries()]

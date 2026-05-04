@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { TYPES, ICON, LABEL } from '../../lib/types.js';
 import { Pressable } from '../primitives/Pressable.jsx';
 
@@ -26,27 +27,11 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
         {open?<NavHeader>Media</NavHeader>:<div style={{height:1,background:'var(--br)',margin:'8px 6px'}}/>}
         {TYPES.map(t=><NavItem key={t} icon={ICON[t]} label={LABEL[t]} count={counts[t]} active={section===t} open={open} onClick={()=>setSection(t)}/>)}
         {open&&<>
-          <NavHeader>Folders</NavHeader>
-          {folders.length===0&&(
-            <div style={{fontSize:11,color:'var(--t3)',padding:'2px 8px',lineHeight:1.45}}>Move entries into folders to build a real vault tree.</div>
-          )}
-          {folders.map(f=>{
-            const active=section===`folder:${f.path}`;
-            return(
-              <Pressable key={f.path} onPress={()=>onSelectFolder&&onSelectFolder(f.path)} ariaLabel={`Open folder ${f.path}`} ariaPressed={active}
-                style={{padding:'5px 8px',paddingLeft:8+(f.depth*12),cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
-                <span style={{flexShrink:0,opacity:.6}}>▸</span>
-                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.name}</span>
-                {f.count>0&&<span style={{fontSize:10,opacity:.45,flexShrink:0,marginLeft:4}}>{f.count}</span>}
-              </Pressable>
-            );
-          })}
-          {onNewFolder&&(
-            <Pressable onPress={onNewFolder} ariaLabel="Create new folder"
-              style={{padding:'5px 8px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:11,color:'var(--t3)',display:'flex',alignItems:'center',gap:6,marginTop:2}}>
-              <span style={{flexShrink:0}}>+</span><span>New folder</span>
-            </Pressable>
-          )}
+          <FolderTreeSection
+            folders={folders}
+            section={section}
+            onSelectFolder={onSelectFolder}
+            onNewFolder={onNewFolder}/>
         </>}
         {open&&allTags.length>0&&<>
           <NavHeader>Tags</NavHeader>
@@ -128,6 +113,78 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
   );
 }
 function NavHeader({children}){return<div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:'var(--t3)',padding:'10px 4px 4px',textTransform:'uppercase'}}>{children}</div>}
+function FolderTreeSection({folders,section,onSelectFolder,onNewFolder}){
+  const tree=useMemo(()=>buildTree(folders),[folders]);
+  const [collapsed,setCollapsed]=useState(()=>new Set());
+  const toggle=(path)=>setCollapsed(prev=>{
+    const next=new Set(prev);
+    if(next.has(path))next.delete(path);else next.add(path);
+    return next;
+  });
+  const renderNode=(node)=> {
+    const active=section===`folder:${node.path}`;
+    const hasChildren=node.children.length>0;
+    const closed=collapsed.has(node.path);
+    return(
+      <div key={node.path}>
+        <div
+          style={{padding:'0 7px',paddingLeft:7+(node.depth*13),borderRadius:'var(--rd)',fontSize:12,color:active?'var(--ac)':'var(--t2)',background:active?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:5,overflow:'hidden',marginBottom:1}}>
+          <button type="button" aria-label={`${closed?'Expand':'Collapse'} ${node.path}`} title={hasChildren?(closed?'Expand':'Collapse'):''}
+            onClick={()=>{if(hasChildren)toggle(node.path)}}
+            disabled={!hasChildren}
+            style={{width:16,height:16,border:'none',background:'transparent',color:'var(--t3)',display:'inline-flex',alignItems:'center',justifyContent:'center',padding:0,cursor:hasChildren?'pointer':'default',fontFamily:'var(--fn)',fontSize:10,opacity:hasChildren?1:.35,flexShrink:0}}>
+            {hasChildren?(closed?'▸':'▾'):'•'}
+          </button>
+          <Pressable onPress={()=>onSelectFolder&&onSelectFolder(node.path)} ariaLabel={`Open folder ${node.path}`} ariaPressed={active} title={node.path}
+            style={{minWidth:0,flex:1,padding:'5px 0',cursor:'pointer',display:'flex',alignItems:'center',gap:5,overflow:'hidden'}}>
+            <span style={{flexShrink:0,opacity:.75}}>📁</span>
+            <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:active?750:500}}>{node.name}</span>
+            {node.total>0&&<span style={{fontSize:10,opacity:.55,flexShrink:0,marginLeft:4,border:'1px solid var(--br)',borderRadius:99,padding:'0 5px'}}>{node.total}</span>}
+          </Pressable>
+        </div>
+        {hasChildren&&!closed&&node.children.map(renderNode)}
+      </div>
+    );
+  };
+  return(
+    <>
+      <div style={{display:'flex',alignItems:'center',gap:6,padding:'10px 4px 4px'}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:'var(--t3)',textTransform:'uppercase',flex:1}}>Folders</div>
+        {onNewFolder&&(
+          <button type="button" onClick={onNewFolder} aria-label="Create new folder" title="New folder"
+            style={{width:22,height:22,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:800,lineHeight:1}}>+</button>
+        )}
+      </div>
+      {tree.length===0?(
+        <div style={{fontSize:11,color:'var(--t3)',padding:'4px 8px 7px',lineHeight:1.45,border:'1px dashed var(--br)',borderRadius:'var(--rd)',margin:'2px 0 4px'}}>
+          No folders yet. Create one, then move entries into it from the detail panel.
+        </div>
+      ):(
+        <div style={{display:'flex',flexDirection:'column',gap:1}}>{tree.map(renderNode)}</div>
+      )}
+    </>
+  );
+}
+function buildTree(folders=[]){
+  const byPath=new Map();
+  for(const f of folders){
+    if(!f?.path)continue;
+    byPath.set(f.path,{...f,children:[],total:f.count||0});
+  }
+  const roots=[];
+  for(const node of [...byPath.values()].sort((a,b)=>a.path.localeCompare(b.path))){
+    const parentPath=node.path.includes('/')?node.path.slice(0,node.path.lastIndexOf('/')):'';
+    const parent=parentPath?byPath.get(parentPath):null;
+    if(parent)parent.children.push(node);else roots.push(node);
+  }
+  const sum=(node)=>{
+    node.children.sort((a,b)=>a.name.localeCompare(b.name));
+    node.total=(node.count||0)+node.children.reduce((acc,child)=>acc+sum(child),0);
+    return node.total;
+  };
+  roots.forEach(sum);
+  return roots;
+}
 function NavItem({icon,label,count,active,open,onClick}){
   return(<Pressable onPress={onClick} ariaLabel={!open?label:undefined} title={!open?label:undefined} ariaPressed={active}
     style={{padding:'7px 8px',cursor:'pointer',borderRadius:'var(--rd)',display:'flex',alignItems:'center',gap:8,background:active?'var(--b2)':'transparent',color:active?'var(--ac)':'var(--t2)',fontWeight:active?700:400,fontSize:13,marginBottom:2,userSelect:'none'}}>

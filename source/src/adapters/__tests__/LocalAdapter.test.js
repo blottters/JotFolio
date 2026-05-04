@@ -53,6 +53,26 @@ describe('LocalAdapter', () => {
     expect(a.mtime).toBeGreaterThan(0);
   });
 
+  it('mkdir persists empty folders and emits a folder create event', async () => {
+    const v = new LocalAdapter();
+    const events = [];
+    v.watch(e => events.push(e));
+
+    await v.mkdir('notes/projects');
+    const files = await v.list();
+    const folder = files.find(f => f.path === 'notes/projects');
+
+    expect(folder).toMatchObject({
+      path: 'notes/projects',
+      name: 'projects',
+      folder: 'notes',
+      size: 0,
+      type: 'folder',
+    });
+    expect(folder.mtime).toBeGreaterThan(0);
+    expect(events).toContainEqual({ type: 'create', path: 'notes/projects', itemType: 'folder' });
+  });
+
   it('read on missing path throws VaultError("not-found")', async () => {
     const v = new LocalAdapter();
     await expect(v.read('missing.md')).rejects.toMatchObject({

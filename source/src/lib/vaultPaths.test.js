@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFolderTree,
   fileNameFromPath,
+  folderContainsPath,
   folderFromPath,
   joinVaultPath,
   normalizeMarkdownFileName,
@@ -42,5 +43,12 @@ describe('vault path helpers', () => {
       { path: 'notes', name: 'notes', depth: 0, count: 0 },
       { path: 'notes/projects', name: 'projects', depth: 1, count: 0 },
     ]);
+  });
+
+  it('matches folder selections against nested entry paths', () => {
+    expect(folderContainsPath('notes', 'notes/Plan.md')).toBe(true);
+    expect(folderContainsPath('notes', 'notes/projects/Plan.md')).toBe(true);
+    expect(folderContainsPath('notes/projects', 'notes/Plan.md')).toBe(false);
+    expect(folderContainsPath('notes', 'articles/Plan.md')).toBe(false);
   });
 });

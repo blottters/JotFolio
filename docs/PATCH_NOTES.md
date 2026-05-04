@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current source version: **0.5.0-alpha.14** (2026-05-04)*
+*Current source version: **0.5.0-alpha.15** (2026-05-04)*
 
 ---
 
@@ -270,6 +270,25 @@ Verification:
 - `npm run build` passed locally on 2026-05-04.
 - `npm run a11y -- --workers=1` passed locally on 2026-05-04: 5/5 Playwright + axe flows.
 - `npm run electron:build -- --win --publish never` built unsigned local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.14.exe`.
+
+---
+
+## 0.5.0-alpha.15 — Templates and folder polish (2026-05-04)
+
+Focused on making Templates and Folders feel like real workspace tools instead of rough utility panels.
+
+- Rebuilt Template Library into a three-pane workspace: search/list, inline markdown editor, and template help/details.
+- Added direct template save/reset behavior.
+- Kept Apply to active entry available from the template editor.
+- Reworked sidebar folders into a collapsible nested tree with clearer folder icons, expand/collapse controls, and total child counts.
+- Folder filters now include entries inside nested subfolders when selecting a parent folder.
+
+Verification:
+- `npm test` passed locally on 2026-05-04: 437/437 tests.
+- `npm run build` passed locally on 2026-05-04.
+- `npm run a11y -- --workers=1` passed locally on 2026-05-04: 5/5 Playwright + axe flows.
+- Browser smoke against `http://127.0.0.1:5176/` verified template search, inline template edit/save, and parent-folder filtering across nested folders.
+- `npm run electron:build -- --win --publish never` built unsigned local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.15.exe`.
 
 ---
 

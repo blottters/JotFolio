@@ -37,6 +37,13 @@ export function fileNameFromPath(path) {
   return idx === -1 ? rel : rel.slice(idx + 1);
 }
 
+export function folderContainsPath(folder, entryPath) {
+  const cleanFolder = normalizeVaultFolder(folder);
+  if (!cleanFolder) return false;
+  const entryFolder = folderFromPath(entryPath);
+  return entryFolder === cleanFolder || entryFolder.startsWith(`${cleanFolder}/`);
+}
+
 export function buildFolderTree(entries = [], explicitFolders = []) {
   const counts = new Map();
   const ensureFolder = (folder) => {

@@ -1,7 +1,7 @@
 {
   "name": "jotfolio",
   "private": true,
-  "version": "0.5.0-alpha.14",
+  "version": "0.5.0-alpha.15",
   "type": "module",
   "main": "src-electron/main.js",
   "scripts": {

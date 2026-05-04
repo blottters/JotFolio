@@ -10,6 +10,17 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.15] — 2026-05-04
+
+### Added
+- Template Library now has an Obsidian-style three-pane workspace: searchable template list, full inline markdown editor, and a right rail for template variables/details.
+- Templates can now be edited and saved directly from the Template Library instead of showing a preview-only pane.
+- Sidebar folders now render as a collapsible nested tree with clearer folder affordances and total child counts.
+
+### Changed
+- Selecting a parent folder now includes entries in nested child folders, matching normal folder-browsing expectations.
+- Template Library now fills the main workspace instead of sitting inside a padded card area.
+
 ## [0.5.0-alpha.14] — 2026-05-04
 
 ### Changed

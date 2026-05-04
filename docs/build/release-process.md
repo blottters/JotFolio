@@ -20,6 +20,7 @@ Tagged release → GitHub Actions builds all 3 platforms in parallel → signed 
 6. Push: `git push && git push --tags`.
 7. GitHub Actions picks up the tag, runs `source/.github/workflows/release.yml`, builds signed installers for macOS + Windows + Linux.
 8. When done, a GitHub Release has the generated assets attached. Confirm the notes match `docs/CHANGELOG.md`, then publish or edit as needed.
+9. Complete `docs/build/release-closure-checklist.md` so every remaining concern is classified as fixed, accepted for alpha, blocked externally, or moved to a named follow-up.
 
 ## Pre-release / beta channels
 

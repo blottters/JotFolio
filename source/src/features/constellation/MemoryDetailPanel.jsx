@@ -263,8 +263,13 @@ export function MemoryDetailPanel({
 }
 
 function resolveSourceIds(entry, manifest) {
+  // Manifest stores each source as { id, hash, title, type }. Extract just
+  // the id so the caller can pass to vaultIndex.byId.get(id) without
+  // matching an object literal.
   const fromManifest = manifest?.entries?.[entry?.id]?.sources;
-  if (Array.isArray(fromManifest) && fromManifest.length > 0) return fromManifest;
+  if (Array.isArray(fromManifest) && fromManifest.length > 0) {
+    return fromManifest.map(s => (typeof s === 'string' ? s : s?.id)).filter(Boolean);
+  }
   if (Array.isArray(entry?.provenance)) return entry.provenance;
   return [];
 }

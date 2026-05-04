@@ -111,7 +111,6 @@ export default function App(){
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[detailId,setDetailId]=useState(null);
   const[splitMemoryTarget,setSplitMemoryTarget]=useState(null);
-  const[focalMemory,setFocalMemory]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
   const[settingsOpen,setSettingsOpen]=useState(false);
   const[folderDialogOpen,setFolderDialogOpen]=useState(false);
@@ -796,7 +795,7 @@ export default function App(){
       if(section==='templates'&&list.length===0)setSection('all');
       toast('Template moved to trash','info');
       await loadTrashItems();
-    }catch(err){reportError(err,'Template delete failed')}
+    }catch(err){reportError(err,'Template delete failed');}
   },[templates,selectedTemplateId,section,toast,reportError,loadTrashItems]);
 
   // Register builtin commands once the dependent callbacks are stable.
@@ -1071,17 +1070,29 @@ export default function App(){
         compileOpts:{compiler:'deterministic-stub',now:()=>new Date().toISOString()},
         compile,
       });
+      const childIds=[];
       for(const child of children){
-        await saveEntryWithRules({id:uid(),...child.entry});
+        const newId=uid();
+        childIds.push(newId);
+        await saveEntryWithRules({id:newId,...child.entry});
       }
-      await saveEntryWithRules(supersedingOriginal);
+      // splitMemory returns supersedingOriginal.superseded_by as placeholder
+      // {index} markers — map them to the real child ids we just minted.
+      const realSupersededBy=(supersedingOriginal.superseded_by||[]).map(p=>{
+        if(p&&typeof p==='object'&&typeof p.index==='number')return childIds[p.index];
+        return p;
+      }).filter(Boolean);
+      await saveEntryWithRules({...supersedingOriginal,superseded_by:realSupersededBy});
       setSplitMemoryTarget(null);
       toast(`Split into ${children.length} memories`);
-    }catch(err){reportError(err,'Split memory failed')}
+    }catch(err){reportError(err,'Split memory failed');}
   }
   function handleTraceToSources(entryId){
     setSection('graph');
-    setFocalMemory(entryId);
+    // TODO(alpha.20): wire focal-stack initializer in ConstellationView so
+    // trace lands directly on entryId scoped to its sources. Today this
+    // just navigates to the graph; user can click the memory node.
+    void entryId;
   }
 
   return(

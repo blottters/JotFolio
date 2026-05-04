@@ -1,12 +1,12 @@
 import { useId } from "react";
-import { TYPES, STATUSES, LABEL, ALL_STATUS_VALUES, displayStatus } from '../../lib/types.js';
+import { ALL_ENTRY_TYPES, STATUSES, LABEL, ALL_STATUS_VALUES, displayStatus } from '../../lib/types.js';
 import { SrOnly } from '../primitives/SrOnly.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 
 // ── Toolbar ────────────────────────────────────────────────────────────────
 export function Toolbar({query,setQuery,section,filterStatus,setFilterStatus,sort,setSort,view,setView,hasFilters,onClear,onOpenSettings}){
   const is={padding:'8px 10px',background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--tx)',fontFamily:'var(--fn)',fontSize:13,outline:'none',boxSizing:'border-box',width:'100%'};
-  const opts=TYPES.includes(section)?STATUSES[section]:ALL_STATUS_VALUES;
+  const opts=ALL_ENTRY_TYPES.includes(section)?STATUSES[section]:ALL_STATUS_VALUES;
   const ph=section==='all'?'Search entries…':section==='starred'?'Search starred entries…':`Search ${LABEL[section]||section}…`;
   const sid=useId(),stid=useId(),soid=useId();
   return(

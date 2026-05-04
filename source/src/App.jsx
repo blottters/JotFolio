@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useDeferredValue, useCallback, useRef } f
 import { updateLastSeen, logEvent, isOnboarded, useActivation, recordEntryAdded } from './onboarding/activation.js';
 import { WelcomePanel } from './onboarding/WelcomePanel.jsx';
 import { ProgressPill, FirstSaveBanner, Day2ReturnCard, ActivationToast } from './onboarding/nudges.jsx';
-import { TYPES, ICON, LABEL } from './lib/types.js';
+import { ALL_ENTRY_TYPES, ICON, LABEL } from './lib/types.js';
 import { DEFAULT_FEATURE_FLAGS, filterEntriesForUI, normalizeFeatureFlags } from './lib/featureFlags.js';
 import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
@@ -38,13 +38,14 @@ import { UpdateBanner } from './features/updater/UpdateBanner.jsx';
 import { TemplatesPanel } from './features/templates/TemplatesPanel.jsx';
 import { InsertTemplateModal } from './features/templates/InsertTemplateModal.jsx';
 import { QuickSwitcher } from './features/quickSwitcher/QuickSwitcher.jsx';
+import { TrashView } from './features/trash/TrashView.jsx';
 import { loadTemplates, applyTemplateToNote, TEMPLATE_DIR, TEMPLATE_EXT } from './lib/templates/templateStore.js';
 import { addTemplateUsageToEntry } from './lib/templates/templateBacklinks.js';
 import { pickRandomEntry } from './lib/random/randomNote.js';
 import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
 import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
 import { useKeywordRules } from './lib/keywordRules/useKeywordRules.js';
-import { moveToTrash } from './lib/vaultTrash.js';
+import { TRASH_DIR, moveToTrash, originalPathFromTrashPath, restoreFromTrash } from './lib/vaultTrash.js';
 import { buildFolderTree, fileNameFromPath, folderContainsPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
 import { importAttachment } from './lib/vaultAttachments.js';
 
@@ -106,6 +107,9 @@ export default function App(){
   const[settingsOpen,setSettingsOpen]=useState(false);
   const[folderDialogOpen,setFolderDialogOpen]=useState(false);
   const[folderDraft,setFolderDraft]=useState('');
+  const[trashItems,setTrashItems]=useState([]);
+  const[trashBusy,setTrashBusy]=useState(false);
+  const[trashError,setTrashError]=useState('');
 
   // Bases — declared up here (above useActivation + the big effects below)
   // because the load effect runs once vault is ready, and the sidebar reads
@@ -128,6 +132,7 @@ export default function App(){
   const[quickSwitcherOpen,setQuickSwitcherOpen]=useState(false);
   const[insertTemplateOpen,setInsertTemplateOpen]=useState(false);
   const[templates,setTemplates]=useState([]);
+  const[selectedTemplateId,setSelectedTemplateId]=useState(null);
   const commandRegistryRef=useRef(null);
   if(commandRegistryRef.current===null){commandRegistryRef.current=createCommandRegistry();}
   const commandRegistry=commandRegistryRef.current;
@@ -161,7 +166,7 @@ export default function App(){
     const opts=typeof arg==='string'?{type:arg}:(arg||{});
     setDetailId(null);
     setSettingsOpen(false);
-    setAddInitialType(opts.type??(TYPES.includes(section)?section:'note'));
+    setAddInitialType(opts.type??(ALL_ENTRY_TYPES.includes(section)?section:'note'));
     setAddQuickCapture(!!opts.quickCapture);
     setShowAddModal(true);
   },[section]);
@@ -170,6 +175,121 @@ export default function App(){
   const hasFilters=!!(query||filterStatus||filterTag);
   const clearFilters=()=>{setQuery('');setFilterStatus('');setFilterTag('')};
   const folderTree=useMemo(()=>buildFolderTree(entries,folders),[entries,folders]);
+  const folderFiles=useMemo(()=>[
+    ...entries
+      .filter(e=>e._path)
+      .map(e=>({
+        path:e._path,
+        label:e.title?.trim()||fileNameFromPath(e._path).replace(/\.md$/i,''),
+        icon:ICON[e.type]||'□',
+        kind:'entry',
+        entryId:e.id,
+      })),
+    ...templates.map(t=>({
+      path:t.path,
+      label:`${t.name}.md`,
+      icon:'▣',
+      kind:'template',
+      templateId:t.id,
+    })),
+    ...bases.map(b=>({
+      path:basePath(b.id),
+      label:b.name,
+      icon:'▦',
+      kind:'base',
+      baseId:b.id,
+    })),
+    ...canvases.map(c=>({
+      path:canvasPath(c.id),
+      label:c.name,
+      icon:'◫',
+      kind:'canvas',
+      canvasId:c.id,
+    })),
+  ],[entries,templates,bases,canvases]);
+  const handleSelectFolder=useCallback((folder)=>{
+    if(folder===TEMPLATE_DIR){
+      setSelectedTemplateId(id=>id&&templates.some(t=>t.id===id)?id:(templates[0]?.id||null));
+      setSection('templates');
+      return;
+    }
+    setSection(`folder:${folder}`);
+  },[templates]);
+  const handleOpenFolderFile=useCallback((file)=>{
+    if(!file)return;
+    if(file.kind==='template'){
+      setSelectedTemplateId(file.templateId||file.path);
+      setSection('templates');
+      return;
+    }
+    if(file.kind==='entry'&&file.entryId){
+      setDetailId(file.entryId);
+      setSection(`folder:${folderFromPath(file.path)}`);
+      return;
+    }
+    if(file.kind==='base'&&file.baseId){
+      setSection(`base:${file.baseId}`);
+      return;
+    }
+    if(file.kind==='canvas'&&file.canvasId){
+      setSection(`canvas:${file.canvasId}`);
+    }
+  },[]);
+  const loadTrashItems=useCallback(async()=>{
+    const needsPickedDesktopVault=typeof window!=='undefined'&&!!window.electron?.vault&&!vaultInfo;
+    if(needsPickedDesktopVault){setTrashItems([]);setTrashError('');return}
+    setTrashBusy(true);setTrashError('');
+    try{
+      const files=await vaultAdapter.list();
+      setTrashItems(files
+        .filter(f=>f.type!=='folder'&&f.path?.startsWith(`${TRASH_DIR}/`))
+        .sort((a,b)=>(b.mtime||0)-(a.mtime||0)));
+    }catch(err){setTrashError(err?.message||'Trash scan failed')}
+    finally{setTrashBusy(false)}
+  },[vaultInfo]);
+  useEffect(()=>{if(loaded)loadTrashItems()},[loaded,entries.length,loadTrashItems]);
+  const handleDeleteFolder=useCallback(async(folder)=>{
+    let clean;
+    try{clean=normalizeVaultFolder(folder)}
+    catch(err){reportError(err,'Folder delete failed');return}
+    if(!clean)return;
+    try{
+      const allFiles=await vaultAdapter.list();
+      const affectedFiles=allFiles
+        .filter(f=>f.type!=='folder'&&f.path&&folderContainsPath(clean,f.path))
+        .sort((a,b)=>a.path.localeCompare(b.path));
+      const affectedFolders=allFiles
+        .filter(f=>f.type==='folder'&&f.path&&(f.path===clean||f.path.startsWith(`${clean}/`)))
+        .sort((a,b)=>b.path.length-a.path.length);
+      const fileCount=affectedFiles.length;
+      const folderCount=Math.max(affectedFolders.length,1);
+      const message=fileCount>0
+        ? `Delete folder "${clean}"?\n\nThis moves ${fileCount} file${fileCount===1?'':'s'} inside it to JotFolio Trash and removes ${folderCount} folder shell${folderCount===1?'':'s'}.\n\nYou can restore the files from Trash.`
+        : `Delete empty folder "${clean}"?\n\nThis removes the folder shell only.`;
+      if(!window.confirm(message))return;
+      const nonce=uid();
+      for(const item of affectedFiles)await moveToTrash(vaultAdapter,item.path,{nonce});
+      const foldersToRemove=affectedFolders.length?affectedFolders:[{path:clean}];
+      for(const item of foldersToRemove){
+        try{await vaultAdapter.rmdir(item.path)}
+        catch(err){
+          if(!['not-found','not-empty'].includes(err?.code))throw err;
+        }
+      }
+      const movedPaths=new Set(affectedFiles.map(f=>f.path));
+      setTemplates(list=>list.filter(t=>!movedPaths.has(t.path)));
+      setBases(list=>list.filter(b=>!movedPaths.has(basePath(b.id))));
+      setCanvases(list=>list.filter(c=>!movedPaths.has(canvasPath(c.id))));
+      if(detail?._path&&movedPaths.has(detail._path))setDetailId(null);
+      if(section===`folder:${clean}`||(section.startsWith('folder:')&&section.slice(7).startsWith(`${clean}/`)))setSection('all');
+      if(section==='templates'&&clean===TEMPLATE_DIR)setSection('all');
+      if(currentBaseId&&movedPaths.has(basePath(currentBaseId)))setSection('all');
+      if(currentCanvasId&&movedPaths.has(canvasPath(currentCanvasId)))setSection('all');
+      await refreshVault();
+      await loadTrashItems();
+      toast(fileCount>0?`Folder moved to trash: ${clean}`:`Folder deleted: ${clean}`,'info');
+    }catch(err){reportError(err,'Folder delete failed')}
+  },[section,detail,currentBaseId,currentCanvasId,refreshVault,loadTrashItems,toast,reportError]);
   const handleNewFolder=useCallback(()=>{
     setFolderDraft('');
     setFolderDialogOpen(true);
@@ -192,6 +312,45 @@ export default function App(){
     try{await reveal(entry._path)}
     catch(err){reportError(err,'Reveal in Explorer failed')}
   },[toast,reportError]);
+  const restoreTrashItem=useCallback(async(path)=>{
+    let target=path;
+    try{target=originalPathFromTrashPath(path)}catch{ /* keep fallback */ }
+    const ok=window.confirm(`Restore "${target}" from JotFolio Trash? Restore will fail safely if a file already exists there.`);
+    if(!ok)return;
+    setTrashBusy(true);setTrashError('');
+    try{
+      await restoreFromTrash(vaultAdapter,path);
+      await refreshVault();
+      await loadTrashItems();
+      toast(`Restored ${target}`,'info');
+    }catch(err){setTrashError(err?.message||'Restore failed');reportError(err,'Restore failed')}
+    finally{setTrashBusy(false)}
+  },[refreshVault,loadTrashItems,toast,reportError]);
+  const permanentlyDeleteTrashItem=useCallback(async(path)=>{
+    let target=path;
+    try{target=originalPathFromTrashPath(path)}catch{ /* keep fallback */ }
+    const ok=window.confirm(`Permanently delete "${target}"? This cannot be undone.`);
+    if(!ok)return;
+    setTrashBusy(true);setTrashError('');
+    try{
+      await vaultAdapter.remove(path);
+      await loadTrashItems();
+      toast('File permanently deleted','info');
+    }catch(err){setTrashError(err?.message||'Permanent delete failed');reportError(err,'Permanent delete failed')}
+    finally{setTrashBusy(false)}
+  },[loadTrashItems,toast,reportError]);
+  const emptyTrash=useCallback(async()=>{
+    if(trashItems.length===0)return;
+    const ok=window.confirm(`Permanently delete all ${trashItems.length} file${trashItems.length===1?'':'s'} in JotFolio Trash? This cannot be undone.`);
+    if(!ok)return;
+    setTrashBusy(true);setTrashError('');
+    try{
+      for(const item of trashItems)await vaultAdapter.remove(item.path);
+      await loadTrashItems();
+      toast('Trash emptied','info');
+    }catch(err){setTrashError(err?.message||'Empty trash failed');reportError(err,'Empty trash failed')}
+    finally{setTrashBusy(false)}
+  },[trashItems,loadTrashItems,toast,reportError]);
   const moveEntryFile=useCallback(async(entry)=>{
     if(!entry?._path){toast('No file path for this entry','error');return}
     const currentFolder=folderFromPath(entry._path);
@@ -397,6 +556,7 @@ export default function App(){
     try{
       await moveToTrash(vaultAdapter, basePath(id));
       toast('Base moved to trash','info');
+      await loadTrashItems();
     }catch(err){
       reportError(err,'Base delete failed');
       try{
@@ -404,7 +564,7 @@ export default function App(){
         setBases(list=>list.some(b=>b.id===id)?list:[...list,normalizeBase(JSON.parse(content))]);
       }catch{ /* leave UI optimistic if restore fails */ }
     }
-  },[bases,section,toast,reportError]);
+  },[bases,section,toast,reportError,loadTrashItems]);
 
   // Load all .canvas.json files from the vault. Same skip-on-malformed
   // convention as bases — a hand-edit typo in one canvas shouldn't keep
@@ -467,6 +627,7 @@ export default function App(){
     try{
       await moveToTrash(vaultAdapter, canvasPath(id));
       toast('Canvas moved to trash','info');
+      await loadTrashItems();
     }catch(err){
       reportError(err,'Canvas delete failed');
       try{
@@ -474,7 +635,7 @@ export default function App(){
         setCanvases(list=>list.some(c=>c.id===id)?list:[...list,normalizeCanvas(JSON.parse(content))]);
       }catch{ /* leave UI optimistic if restore fails */ }
     }
-  },[canvases,section,toast,reportError]);
+  },[canvases,section,toast,reportError,loadTrashItems]);
 
   // Load templates from <vault>/templates/ on vault ready. Same
   // skip-on-malformed convention as bases + canvases.
@@ -603,6 +764,21 @@ export default function App(){
       toast(`Template saved: ${template.name}`);
     }catch(err){reportError(err,'Template save failed')}
   },[toast,reportError]);
+  const handleDeleteTemplate=useCallback(async(templateId)=>{
+    const target=templates.find(t=>t.id===templateId||t.path===templateId);
+    if(!target)return;
+    const ok=window.confirm(`Delete template "${target.name}.md"? This moves the template file to JotFolio Trash.`);
+    if(!ok)return;
+    try{
+      await moveToTrash(vaultAdapter,target.path);
+      const list=await loadTemplates(vaultAdapter);
+      setTemplates(list);
+      if(selectedTemplateId===target.id)setSelectedTemplateId(list[0]?.id||null);
+      if(section==='templates'&&list.length===0)setSection('all');
+      toast('Template moved to trash','info');
+      await loadTrashItems();
+    }catch(err){reportError(err,'Template delete failed')}
+  },[templates,selectedTemplateId,section,toast,reportError,loadTrashItems]);
 
   // Register builtin commands once the dependent callbacks are stable.
   // The disposer cleans up if the App ever unmounts (test environments).
@@ -711,8 +887,9 @@ export default function App(){
       // Free runtime provenance for the deleted entry (lives in useKeywordRules).
       clearProvenance(id);
       toast('Entry moved to trash','info');
+      await loadTrashItems();
     }catch(err){reportError(err,'Entry delete failed')}
-  },[entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,toast,reportError]);
+  },[entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,toast,reportError,loadTrashItems]);
 
   const confirmDeleteEntry=useCallback((id)=>{
     const target=entries.find(e=>e.id===id);
@@ -722,6 +899,13 @@ export default function App(){
     if(!ok)return;
     deleteEntry(id);
   },[entries,deleteEntry]);
+  const handleDeleteFolderFile=useCallback((file)=>{
+    if(!file)return;
+    if(file.kind==='entry'&&file.entryId){confirmDeleteEntry(file.entryId);return}
+    if(file.kind==='template'){handleDeleteTemplate(file.templateId||file.path);return}
+    if(file.kind==='base'){handleDeleteBase(file.baseId);return}
+    if(file.kind==='canvas'){handleDeleteCanvas(file.canvasId)}
+  },[confirmDeleteEntry,handleDeleteTemplate,handleDeleteBase,handleDeleteCanvas]);
   const toggleSelected=useCallback((id,on)=>{
     setSelectedIds(prev=>{
       const next=new Set(prev);
@@ -746,8 +930,9 @@ export default function App(){
       if(detailId&&idSet.has(detailId))setDetailId(null);
       clearSelection();
       toast(`${ids.length} entr${ids.length===1?'y':'ies'} moved to trash`,'info');
+      await loadTrashItems();
     }catch(err){reportError(err,'Bulk delete failed');}
-  },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError]);
+  },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError,loadTrashItems]);
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
@@ -770,7 +955,7 @@ export default function App(){
 
   const allTags=useMemo(()=>[...new Set(visibleEntries.flatMap(e=>e.tags||[]))]  ,[visibleEntries]);
   const tagCounts=useMemo(()=>{const m={};visibleEntries.forEach(e=>(e.tags||[]).forEach(t=>{m[t]=(m[t]||0)+1}));return m},[visibleEntries]);
-  const counts=useMemo(()=>{const m={all:visibleEntries.length,starred:visibleEntries.filter(e=>e.starred).length};TYPES.forEach(t=>{m[t]=visibleEntries.filter(e=>e.type===t).length});m.links=Math.round(visibleEntries.reduce((n,e)=>n+(e.links?.length||0),0)/2);return m},[visibleEntries]);
+  const counts=useMemo(()=>{const m={all:visibleEntries.length,starred:visibleEntries.filter(e=>e.starred).length,trash:trashItems.length};ALL_ENTRY_TYPES.forEach(t=>{m[t]=visibleEntries.filter(e=>e.type===t).length});m.links=Math.round(visibleEntries.reduce((n,e)=>n+(e.links?.length||0),0)/2);return m},[visibleEntries,trashItems.length]);
 
 
 
@@ -833,16 +1018,18 @@ export default function App(){
   };
 
   return(
-    <div className="mgn-app" style={{display:'flex',height:'100vh',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',overflow:'hidden',position:'relative'}}>
+    <div className="mgn-app" style={{display:'flex',height:'100%',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',overflow:'hidden',position:'relative'}}>
       <Ribbon
-        activeRoute={section==='graph'?'graph':section==='templates'?'templates':paletteOpen?'palette':quickSwitcherOpen?'quickswitch':insertTemplateOpen?'insertTemplate':null}
+        activeRoute={section==='graph'?'graph':section==='templates'?'templates':section==='trash'?'trash':paletteOpen?'palette':quickSwitcherOpen?'quickswitch':insertTemplateOpen?'insertTemplate':null}
         onTemplates={()=>setSection('templates')}
         onQuickSwitcher={openQuickSwitcher}
         onNewCanvas={handleNewCanvas}
         onPalette={()=>setPaletteOpen(o=>!o)}
         onDailyNote={createDailyNote}
         onGraphView={()=>setSection('graph')}
-        onSettings={()=>setSettingsOpen(s=>!s)}/>
+        onSettings={()=>setSettingsOpen(s=>!s)}
+        onTrash={()=>setSection('trash')}
+        trashCount={counts.trash}/>
       <Sidebar open={sidebarOpen} width={sidebarOpen?prefs.sidebarWidth:58} onToggle={()=>setSidebarOpen(o=>!o)}
         section={section} setSection={handleSection} counts={counts}
         allTags={allTags} tagCounts={tagCounts} filterTag={filterTag} setFilterTag={setFilterTag}
@@ -851,7 +1038,12 @@ export default function App(){
         victoryColors={customColors} setVictoryColors={setCustomColors}
         onOpenSettings={()=>setSettingsOpen(s=>!s)}
         folders={folderTree}
-        onSelectFolder={folder=>setSection(`folder:${folder}`)}
+        folderFiles={folderFiles}
+        activeFolderFilePath={section==='templates'?selectedTemplateId:currentBaseId?basePath(currentBaseId):currentCanvasId?canvasPath(currentCanvasId):(detail?._path||'')}
+        onSelectFolder={handleSelectFolder}
+        onOpenFolderFile={handleOpenFolderFile}
+        onDeleteFolderFile={handleDeleteFolderFile}
+        onDeleteFolder={handleDeleteFolder}
         onNewFolder={handleNewFolder}
         bases={bases}
         onSelectBase={id=>setSection(`base:${id}`)}
@@ -861,7 +1053,8 @@ export default function App(){
         onSelectCanvas={id=>setSection(`canvas:${id}`)}
         onNewCanvas={handleNewCanvas}
         onDeleteCanvas={handleDeleteCanvas}
-        pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}/>
+        pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}
+        flags={prefs.featureFlags}/>
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {section==='templates'?(
@@ -873,8 +1066,19 @@ export default function App(){
               onSave={handleSaveTemplate}
               activeEntryId={detailId}
               entries={entries}
+              selectedTemplateId={selectedTemplateId}
+              onSelectedTemplateChange={setSelectedTemplateId}
               onOpenEntry={setDetailId}/>
           </div>
+        ):section==='trash'?(
+          <TrashView
+            items={trashItems}
+            busy={trashBusy}
+            error={trashError}
+            onRefresh={loadTrashItems}
+            onRestore={restoreTrashItem}
+            onPermanentDelete={permanentlyDeleteTrashItem}
+            onEmptyTrash={emptyTrash}/>
         ):currentCanvasId?(
           <CanvasExplorer
             canvases={canvases}
@@ -897,7 +1101,8 @@ export default function App(){
           <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}
             layoutMode={prefs.defaultLayoutMode||'messy'}
             onLayoutModeChange={mode=>setPrefs(p=>({...p,defaultLayoutMode:mode}))}
-            onCreateFromMissing={createFromMissing}/>
+            onCreateFromMissing={createFromMissing}
+            flags={prefs.featureFlags}/>
         ):(<>
           <Toolbar query={query} setQuery={setQuery} section={section}
             filterStatus={filterStatus} setFilterStatus={setFilterStatus}
@@ -924,7 +1129,7 @@ export default function App(){
             </div>)
             :vaultError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Vault error: {vaultError.message}</div>)
             :!loaded?(<div style={{textAlign:'center',padding:'80px 20px',color:'var(--t3)'}}>Loading…</div>)
-            :filtered.length===0?(<EmptyState section={section} onAdd={openAdd} hasFilters={hasFilters} onClear={clearFilters} query={query}/>)
+            :filtered.length===0?(<EmptyState section={section} onAdd={openAdd} hasFilters={hasFilters} onClear={clearFilters} query={query} flags={prefs.featureFlags}/>)
             :(<>
               {selectedIds.size>0&&(
                 <div style={{position:'sticky',top:0,zIndex:2,marginBottom:10,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',display:'flex',alignItems:'center',gap:8}}>
@@ -954,7 +1159,7 @@ export default function App(){
         onChange={setFolderDraft}
         onSubmit={()=>submitNewFolder(folderDraft)}
         onClose={()=>setFolderDialogOpen(false)}/>}
-      {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onImportFile={handleImportAttachment} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}}/>}
+      {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onImportFile={handleImportAttachment} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}} flags={prefs.featureFlags}/>}
       {loaded&&!isOnboarded()&&visibleEntries.length===0&&(
         <WelcomePanel
           onImport={async items=>{await Promise.all(items.map(e=>saveEntryWithRules(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}

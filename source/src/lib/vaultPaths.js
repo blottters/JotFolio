@@ -44,11 +44,19 @@ export function folderContainsPath(folder, entryPath) {
   return entryFolder === cleanFolder || entryFolder.startsWith(`${cleanFolder}/`);
 }
 
+export function isInternalVaultPath(path) {
+  const rel = String(path || '').replaceAll('\\', '/').replace(/^\/+/, '');
+  return rel === '.jotfolio'
+    || rel.startsWith('.jotfolio/')
+    || rel === '_jotfolio'
+    || rel.startsWith('_jotfolio/');
+}
+
 export function buildFolderTree(entries = [], explicitFolders = []) {
   const counts = new Map();
   const ensureFolder = (folder) => {
     const clean = normalizeVaultFolder(folder);
-    if (!clean) return;
+    if (!clean || isInternalVaultPath(clean)) return;
     const parts = clean.split('/');
     for (let i = 1; i <= parts.length; i += 1) {
       const key = parts.slice(0, i).join('/');
@@ -58,7 +66,7 @@ export function buildFolderTree(entries = [], explicitFolders = []) {
   for (const folder of explicitFolders) ensureFolder(folder);
   for (const entry of entries) {
     const folder = normalizeVaultFolder(entry?._path ? folderFromPath(entry._path) : '');
-    if (!folder) continue;
+    if (!folder || isInternalVaultPath(folder)) continue;
     ensureFolder(folder);
     counts.set(folder, (counts.get(folder) || 0) + 1);
   }

@@ -4,6 +4,7 @@ import {
   fileNameFromPath,
   folderContainsPath,
   folderFromPath,
+  isInternalVaultPath,
   joinVaultPath,
   normalizeMarkdownFileName,
   normalizeVaultFolder,
@@ -40,6 +41,24 @@ describe('vault path helpers', () => {
 
   it('includes explicit empty folders in the folder tree', () => {
     expect(buildFolderTree([], ['notes/projects'])).toEqual([
+      { path: 'notes', name: 'notes', depth: 0, count: 0 },
+      { path: 'notes/projects', name: 'projects', depth: 1, count: 0 },
+    ]);
+  });
+
+  it('hides app-internal folders from the normal folder tree', () => {
+    expect(isInternalVaultPath('.jotfolio/trash/2026/journals')).toBe(true);
+    expect(isInternalVaultPath('_jotfolio/keyword-rules.yaml')).toBe(true);
+    expect(isInternalVaultPath('journals')).toBe(false);
+    expect(buildFolderTree([
+      { _path: 'journals/day.md' },
+      { _path: '.jotfolio/trash/2026/journals/deleted.md' },
+    ], [
+      '.jotfolio/trash/2026/journals',
+      '_jotfolio',
+      'notes/projects',
+    ])).toEqual([
+      { path: 'journals', name: 'journals', depth: 0, count: 1 },
       { path: 'notes', name: 'notes', depth: 0, count: 0 },
       { path: 'notes/projects', name: 'projects', depth: 1, count: 0 },
     ]);

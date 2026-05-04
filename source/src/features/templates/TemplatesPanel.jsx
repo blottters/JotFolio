@@ -11,6 +11,8 @@ export function TemplatesPanel({
   onSave,
   activeEntryId,
   entries = [],
+  selectedTemplateId,
+  onSelectedTemplateChange,
   onOpenEntry,
 }) {
   const list = Array.isArray(templates) ? templates : [];
@@ -21,13 +23,23 @@ export function TemplatesPanel({
   const [draftBody, setDraftBody] = useState('');
   const [saving, setSaving] = useState(false);
   const inputId = useId();
+  const selectTemplate = (id) => {
+    setSelectedId(id);
+    onSelectedTemplateChange?.(id);
+  };
+
+  useEffect(() => {
+    if (selectedTemplateId && list.some(t => t.id === selectedTemplateId) && selectedId !== selectedTemplateId) {
+      setSelectedId(selectedTemplateId);
+    }
+  }, [list, selectedId, selectedTemplateId]);
 
   useEffect(() => {
     if (list.length === 0) {
       if (selectedId !== null) setSelectedId(null);
       return;
     }
-    if (!list.some(t => t.id === selectedId)) setSelectedId(list[0].id);
+    if (!list.some(t => t.id === selectedId)) selectTemplate(list[0].id);
   }, [list, selectedId]);
 
   const selected = useMemo(
@@ -154,7 +166,7 @@ export function TemplatesPanel({
                   type="button"
                   role="option"
                   aria-selected={active}
-                  onClick={() => setSelectedId(t.id)}
+                  onClick={() => selectTemplate(t.id)}
                   style={{
                     width: '100%', textAlign: 'left', border: 'none',
                     borderLeft: `3px solid ${active ? 'var(--ac)' : 'transparent'}`,

@@ -270,6 +270,16 @@ ipcMain.handle('vault:remove', wrapIpc(async (rel) => {
   }
 }));
 
+ipcMain.handle('vault:rmdir', wrapIpc(async (rel) => {
+  const abs = resolveSafe(rel);
+  try { await fs.rmdir(abs); }
+  catch (err) {
+    if (err.code === 'ENOENT') throw new VaultErr('not-found', rel);
+    if (err.code === 'ENOTEMPTY' || err.code === 'EEXIST') throw new VaultErr('not-empty', rel);
+    throw new VaultErr('io-error', err.message);
+  }
+}));
+
 ipcMain.handle('vault:readBinary', wrapIpc(async (rel) => {
   const abs = resolveSafe(rel);
   try {

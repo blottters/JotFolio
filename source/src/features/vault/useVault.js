@@ -18,6 +18,7 @@ import { entryToFile, fileToEntry, MANUAL_LINKS_FIELD } from '../../lib/frontmat
 import { buildVaultIndex } from '../../lib/index/vaultIndex.js';
 import { VaultError } from '../../adapters/VaultError.js';
 import { moveToTrash } from '../../lib/vaultTrash.js';
+import { isInternalVaultPath } from '../../lib/vaultPaths.js';
 
 const LEGACY_KEY = 'mgn-e';
 
@@ -47,13 +48,13 @@ export function useVault() {
       const explicitFolders = [];
       for (const f of files) {
         if (f.type === 'folder') {
-          if (f.path) explicitFolders.push(f.path);
+          if (f.path && !isInternalVaultPath(f.path)) explicitFolders.push(f.path);
           continue;
         }
         // `.jotfolio/` is app-internal storage (plugin manifests, settings,
         // recovery snapshots, sync.log, etc). It is NOT user-authored notes
         // and must not be parsed as entries. Skip the whole subtree.
-        if (f.path === '.jotfolio' || f.path.startsWith('.jotfolio/')) continue;
+        if (isInternalVaultPath(f.path)) continue;
         // Only parse markdown files. Non-`.md` files that happen to live
         // at the vault root (images, PDFs, etc.) are future attachment
         // surface — ignore for entry parsing.

@@ -10,6 +10,25 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.17] — 2026-05-04
+
+### Added
+- Dedicated Trash route reachable from the bottom of the ribbon. Trash view shows deleted entries, bases, canvases, and template files with restore, permanent delete, and empty-trash actions. Items in the dedicated Trash no longer appear inside the regular Folders tree.
+- Sidebar folder tree renders disk folders + the entry/template/base/canvas files inside them, with collapsible nested groups, file counts, and per-row delete affordances.
+- Folder delete with explicit confirmation. Files inside the folder move to JotFolio Trash; the folder shell is removed only when empty.
+- Vault adapter now exposes `rmdir` for safe folder removal across local-storage and Electron node-fs adapters.
+
+### Changed
+- Sidebar Knowledge surfaces (Inbox/Wiki/Review entries) are now properly gated behind the corresponding feature flags. Surfaces stay hidden until Phase 4 compilation pipeline ships in alpha.18.
+- Add Entry modal type buttons filter to flag-enabled types only. Empty-state copy and Constellation type filter/legend follow the same gating.
+- App layout now uses `height: 100%` instead of `100vh` on the root flex shell so the bottom of the UI no longer clips inside iframe-style preview surfaces.
+
+### Removed
+- Git Sync plugin removed from the official bundled plugin list. The plugin source remains on disk for future activation but is not exposed in the Plugins panel until real Git operations are implemented.
+
+### Internal
+- Surgical revert of Codex-era feature-flag default flip (`wiki_mode`/`raw_inbox`/`review_queue`) back to `false`. Knowledge UI plumbing kept and made truly flag-gated for Phase 4/5 ship.
+
 ## [0.5.0-alpha.16] — 2026-05-04
 
 ### Added

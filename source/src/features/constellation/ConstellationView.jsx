@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { TYPES, LABEL } from '../../lib/types.js';
+import { ALL_ENTRY_TYPES, LABEL } from '../../lib/types.js';
 import { GraphLockOverlay } from '../../onboarding/nudges.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from './layout.js';
@@ -8,8 +8,10 @@ import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from 
 // Polar layout — nodes on circles, no physics sim (keeps bundle tiny, no hover
 // jitter). Node size encodes link-count. Node color encodes type. Starred
 // entries get a halo. Click node = open detail.
-export const TYPE_HUE={video:'#ef4444',podcast:'#a855f7',article:'#3b82f6',journal:'#10b981',link:'#f59e0b',note:'#14b8a6'};
-export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing}){
+export const TYPE_HUE={video:'#ef4444',podcast:'#a855f7',article:'#3b82f6',journal:'#10b981',link:'#f59e0b',note:'#14b8a6',raw:'#f97316',wiki:'#8b5cf6',review:'#ec4899'};
+const KNOWLEDGE_FLAG_MAP={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
+export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,flags={}}){
+  const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!KNOWLEDGE_FLAG_MAP[t]||flags[KNOWLEDGE_FLAG_MAP[t]]===true);
   const[filter,setFilter]=useState('all');
   const[tagFilter,setTagFilter]=useState('');
   const[titleQuery,setTitleQuery]=useState('');
@@ -571,7 +573,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
           </div>
           <div style={{width:140,flexShrink:0}}>
             <Select ariaLabel="Filter graph by type" value={filter} onChange={setFilter}
-              options={[{value:'all',label:'All types'},...TYPES.map(t=>({value:t,label:LABEL[t]}))]}/>
+              options={[{value:'all',label:'All types'},...visibleEntryTypes.map(t=>({value:t,label:LABEL[t]}))]}/>
           </div>
         </div>
       </div>
@@ -692,7 +694,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
               <button onClick={()=>setLegendOpen(false)} aria-label="Hide legend" title="Hide legend"
                 style={{padding:'0 6px',fontSize:14,lineHeight:1,background:'transparent',border:'none',color:'var(--t3)',cursor:'pointer'}}>×</button>
             </div>
-            {TYPES.map(t=>(
+            {visibleEntryTypes.map(t=>(
               <div key={t} style={{display:'flex',alignItems:'center',gap:7,color:'var(--t2)'}}>
                 <span style={{width:10,height:10,borderRadius:'50%',background:TYPE_HUE[t]}}/>
                 <span>{LABEL[t]}</span>

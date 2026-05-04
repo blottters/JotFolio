@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useId } from "react";
-import { TYPES } from '../../lib/types.js';
+import { ALL_ENTRY_TYPES } from '../../lib/types.js';
 import { THEMES as THEMES_MAP } from '../../lib/theme/themes.js';
 import { getThemeDefaults } from '../../lib/theme/defaults.js';
 import { AI_PROVIDERS, getAIConfig, setAIConfig, aiComplete } from '../../lib/ai/providers.js';
@@ -28,7 +28,7 @@ function TrashReview(){
     setBusy(true);setError('');
     try{
       const files=await vaultAdapter.list();
-      setItems(files.filter(f=>f.path?.startsWith(`${TRASH_DIR}/`)));
+      setItems(files.filter(f=>f.type!=='folder'&&f.path?.startsWith(`${TRASH_DIR}/`)));
     }catch(err){setError(err.message||'Trash scan failed')}
     finally{setBusy(false)}
   };
@@ -426,7 +426,7 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
           <div style={{fontSize:11,color:'var(--t3)',marginTop:-10,marginBottom:16}}>Duplicate IDs are skipped; tags normalized.</div>
           <span style={sH}>Library Stats</span>
           <div style={{fontSize:13,color:'var(--t2)',lineHeight:1.8}}>
-            {entries.length} total entries across {TYPES.filter(t=>entries.some(e=>e.type===t)).length} content types. {entries.filter(e=>e.starred).length} starred. {[...new Set(entries.flatMap(e=>e.tags||[]))].length} unique tags.
+            {entries.length} total entries across {ALL_ENTRY_TYPES.filter(t=>entries.some(e=>e.type===t)).length} content types. {entries.filter(e=>e.starred).length} starred. {[...new Set(entries.flatMap(e=>e.tags||[]))].length} unique tags.
           </div>
           <span style={sH}>Onboarding</span>
           <button onClick={()=>{localStorage.removeItem('mgn-onboarded');onClose();setTimeout(()=>location.reload(),50)}}

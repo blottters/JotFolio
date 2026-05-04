@@ -39,6 +39,7 @@ import { TemplatesPanel } from './features/templates/TemplatesPanel.jsx';
 import { InsertTemplateModal } from './features/templates/InsertTemplateModal.jsx';
 import { QuickSwitcher } from './features/quickSwitcher/QuickSwitcher.jsx';
 import { loadTemplates, applyTemplateToNote, TEMPLATE_DIR, TEMPLATE_EXT } from './lib/templates/templateStore.js';
+import { addTemplateUsageToEntry } from './lib/templates/templateBacklinks.js';
 import { pickRandomEntry } from './lib/random/randomNote.js';
 import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
 import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
@@ -574,7 +575,8 @@ export default function App(){
     const ctx={date:new Date(),title:active.title||''};
     const resolved=applyTemplateToNote(template,ctx);
     try{
-      await saveEntryWithRules({...active,notes:(active.notes||'')+'\n\n'+resolved.body});
+      const withUsage=addTemplateUsageToEntry(active,template);
+      await saveEntryWithRules({...withUsage,notes:(active.notes||'')+'\n\n'+resolved.body});
       toast(`Inserted template "${template.name}"`);
     }catch(err){reportError(err,'Template insert failed')}
   },[detailId,entries,saveEntryWithRules,toast,reportError]);
@@ -869,7 +871,9 @@ export default function App(){
               onCreate={handleCreateTemplate}
               onApplyToActive={handleInsertTemplate}
               onSave={handleSaveTemplate}
-              activeEntryId={detailId}/>
+              activeEntryId={detailId}
+              entries={entries}
+              onOpenEntry={setDetailId}/>
           </div>
         ):currentCanvasId?(
           <CanvasExplorer

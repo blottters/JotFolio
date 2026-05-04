@@ -10,6 +10,25 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.16] — 2026-05-04
+
+### Added
+- Template Library now shows real incoming references for the selected template when entries were created/updated from that template or explicitly link to it.
+- Template Library now shows outgoing wiki links from the template body, separated into resolved entries and unresolved targets.
+- Applying a template now records the template path in entry frontmatter extras so future backlinks are knowable without guessing.
+
+### Changed
+- Obsolete Dependabot PRs for older Electron/Vite/Vitest targets were closed after newer dependency versions already landed on `master`.
+- Release closure now requires every leftover concern to be classified as fixed, accepted for alpha, blocked externally, or moved to a named follow-up.
+- Release publishing now uses the built-in GitHub token with explicit `contents: write` permission instead of requiring a PAT-style release secret.
+
+### Fixed
+- The Template Library right rail no longer stops at static help/details when real relationship data is available.
+- Electron Builder 26 packaging no longer fails on stale `mac.notarize` and Windows signing-hash config fields.
+
+### Security
+- Code-signing docs now describe the current external credential requirements and Authenticode verification command instead of stale placeholder instructions.
+
 ## [0.5.0-alpha.15] — 2026-05-04
 
 ### Added
@@ -270,7 +289,7 @@ CI/CD + distribution + SRE (Phase 6). First shippable desktop build.
 
 ### Added — Distribution
 - `src-electron/updater.js` — `electron-updater` integration. Polls latest.yml / latest-mac.yml / latest-linux.yml from GitHub Releases every 6 hours. Background download, install on quit. Update status events pushed to renderer.
-- `package.json` build.publish → GitHub (`blottters/jotfolio`). Mac hardened runtime + notarize stub. Windows sha256 signing. Linux AppImage + deb.
+- `package.json` build.publish → GitHub (`blottters/jotfolio`). Mac hardened runtime, Windows NSIS, Linux AppImage + deb.
 - `build/entitlements.mac.plist` — required for hardened runtime + JIT + library validation override
 - `docs/build/code-signing.md` — full playbook for Apple Developer ID, Windows OV/EV/Azure Trusted Signing, cost summary, cert revocation
 - `docs/build/release-process.md` — prerequisites, cut-a-release steps, pre-release channels, rollback, release-notes template
@@ -292,7 +311,7 @@ CI/CD + distribution + SRE (Phase 6). First shippable desktop build.
 - Sentry account + DSN + auth token → paste into `.env.local` + GitHub Secrets (see `docs/build/release-process.md`)
 - Apple Developer enrollment + cert + app-specific password → GitHub Secrets (see `docs/build/code-signing.md`)
 - Windows signing cert (OV for v0, upgrade to Azure Trusted Signing when ready)
-- Replace `TEAMID_REPLACE_ME` in `package.json` with your Apple Team ID
+- Configure Apple notarization credentials in the release environment before publishing signed macOS artifacts
 
 ### Accepted risks recorded at the time
 - CSP `connect-src *` until 0.5.0 (per-plugin allowlist composition)

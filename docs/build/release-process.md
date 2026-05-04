@@ -15,8 +15,8 @@ Tagged release → GitHub Actions builds all 3 platforms in parallel → signed 
 1. Ensure the branch you are releasing from is green: `npm test`, `npm run build`, and `npm run a11y`.
 2. Bump version in `source/package.json` and `source/package-lock.json` following SemVer (`CHANGELOG.md` has bump rules).
 3. Update `docs/CHANGELOG.md` — new `[x.y.z] — YYYY-MM-DD` section with `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security` subsections as applicable.
-4. Commit: `git commit -am "release: 0.5.0-alpha.15"`.
-5. Tag: `git tag v0.5.0-alpha.15`.
+4. Commit: `git commit -am "release: 0.5.0-alpha.16"`.
+5. Tag: `git tag v0.5.0-alpha.16`.
 6. Push: `git push && git push --tags`.
 7. GitHub Actions picks up the tag, runs `source/.github/workflows/release.yml`, builds signed installers for macOS + Windows + Linux.
 8. When done, a GitHub Release has the generated assets attached. Confirm the notes match `docs/CHANGELOG.md`, then publish or edit as needed.
@@ -61,7 +61,7 @@ Paste in the GitHub Release body:
 
 ## Full changelog
 
-https://github.com/blottters/jotfolio/blob/v0.5.0-alpha.15/docs/CHANGELOG.md#050-alpha15---2026-05-04
+https://github.com/blottters/jotfolio/blob/v0.5.0-alpha.16/docs/CHANGELOG.md#050-alpha16---2026-05-04
 
 ## Checksums
 

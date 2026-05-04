@@ -10,6 +10,39 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.15] — 2026-05-04
+
+### Added
+- Template Library now has an Obsidian-style three-pane workspace: searchable template list, full inline markdown editor, and a right rail for template variables/details.
+- Templates can now be edited and saved directly from the Template Library instead of showing a preview-only pane.
+- Sidebar folders now render as a collapsible nested tree with clearer folder affordances and total child counts.
+
+### Changed
+- Selecting a parent folder now includes entries in nested child folders, matching normal folder-browsing expectations.
+- Template Library now fills the main workspace instead of sitting inside a padded card area.
+
+## [0.5.0-alpha.14] — 2026-05-04
+
+### Changed
+- Upgraded production markdown/watch dependencies: `marked` to `18.0.3` and `chokidar` to `5.0.0`.
+- Electron vault watching now lazy-loads both CommonJS and ESM-only `chokidar`, preserving packaged watcher compatibility after the dependency upgrade.
+
+### Security
+- Started the post-alpha.13 dependency-alert remediation line for production runtime dependencies.
+
+## [0.5.0-alpha.13] — 2026-05-04
+
+### Added
+- Journal creation now has a full markdown writing toolbar with heading, text-style, list, task, link, image, table, quote, code, wiki-link, divider, and callout insert actions.
+- Journal creation now includes a collapsible sanitized markdown preview so users can verify the rendered result while keeping the editor compact when preview is hidden.
+
+### Changed
+- New Note creation is now framed as quick capture with a lighter jot-down field, making Notes distinct from dated long-form Journals.
+- The Journal new-entry modal widens to give the full editor toolbar and writing body room to breathe.
+
+### Fixed
+- The Journal editor footer helper text no longer sits behind the sticky Save/Cancel action row.
+
 ## [0.5.0-alpha.12] — 2026-05-03
 
 ### Added

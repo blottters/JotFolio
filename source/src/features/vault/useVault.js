@@ -23,6 +23,7 @@ const LEGACY_KEY = 'mgn-e';
 
 export function useVault() {
   const [entries, setEntries] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [vaultInfo, setVaultInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,7 +44,12 @@ export function useVault() {
       const files = await vault.list();
       const loaded = [];
       const badFiles = [];
+      const explicitFolders = [];
       for (const f of files) {
+        if (f.type === 'folder') {
+          if (f.path) explicitFolders.push(f.path);
+          continue;
+        }
         // `.jotfolio/` is app-internal storage (plugin manifests, settings,
         // recovery snapshots, sync.log, etc). It is NOT user-authored notes
         // and must not be parsed as entries. Skip the whole subtree.
@@ -72,6 +78,7 @@ export function useVault() {
       for (const b of badFiles) { if (b.path) inUse.add(b.path); }
       pathsInUseRef.current = inUse;
       setEntries(derived);
+      setFolders(explicitFolders);
       setIssues(badFiles);
     } catch (err) {
       setError(VaultError.is(err) ? err : new VaultError('io-error', err?.message || String(err)));
@@ -225,6 +232,7 @@ export function useVault() {
 
   return {
     entries,
+    folders,
     vaultInfo,
     loading,
     error,

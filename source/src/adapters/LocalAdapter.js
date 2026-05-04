@@ -34,16 +34,17 @@ function splitPath(p) {
 function loadStore() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { files: {}, mtimes: {} };
+    if (!raw) return { files: {}, mtimes: {}, folders: {} };
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error('Vault store root is not an object');
     }
     if ((parsed.files != null && (typeof parsed.files !== 'object' || Array.isArray(parsed.files)))
-      || (parsed.mtimes != null && (typeof parsed.mtimes !== 'object' || Array.isArray(parsed.mtimes)))) {
+      || (parsed.mtimes != null && (typeof parsed.mtimes !== 'object' || Array.isArray(parsed.mtimes)))
+      || (parsed.folders != null && (typeof parsed.folders !== 'object' || Array.isArray(parsed.folders)))) {
       throw new Error('Vault store shape is invalid');
     }
-    return { files: parsed.files || {}, mtimes: parsed.mtimes || {} };
+    return { files: parsed.files || {}, mtimes: parsed.mtimes || {}, folders: parsed.folders || {} };
   } catch (err) {
     throw new VaultError('corrupt-vault', KEY, err);
   }
@@ -74,8 +75,19 @@ export class LocalAdapter extends VaultAdapter {
   }
 
   async list() {
-    const { files, mtimes } = loadStore();
-    return Object.entries(files).map(([path, content]) => {
+    const { files, mtimes, folders } = loadStore();
+    const folderEntries = Object.entries(folders).map(([path, mtime]) => {
+      const { folder, name } = splitPath(path);
+      return {
+        path,
+        name,
+        folder,
+        size: 0,
+        mtime: mtime || 0,
+        type: 'folder',
+      };
+    });
+    const fileEntries = Object.entries(files).map(([path, content]) => {
       const { folder, name } = splitPath(path);
       return {
         path,
@@ -85,6 +97,7 @@ export class LocalAdapter extends VaultAdapter {
         mtime: mtimes[path] || 0,
       };
     });
+    return [...folderEntries, ...fileEntries];
   }
 
   async read(path) {
@@ -108,9 +121,12 @@ export class LocalAdapter extends VaultAdapter {
   }
 
   async mkdir(path) {
-    // Folders in LocalAdapter are implicit — existence is inferred from files.
-    // Noop but reject traversal.
-    normalizePath(path);
+    const p = normalizePath(path);
+    const store = loadStore();
+    const isCreate = !(p in store.folders);
+    store.folders[p] = now();
+    saveStore(store);
+    if (isCreate) this._emit({ type: 'create', path: p, itemType: 'folder' });
   }
 
   async move(from, to) {

@@ -10,6 +10,16 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.13] — 2026-05-04
+
+### Added
+- Journal creation now has a full markdown writing toolbar with heading, text-style, list, task, link, image, table, quote, code, wiki-link, divider, and callout insert actions.
+- Journal creation now includes a collapsible sanitized markdown preview so users can verify the rendered result while keeping the editor compact when preview is hidden.
+
+### Changed
+- New Note creation is now framed as quick capture with a lighter jot-down field, making Notes distinct from dated long-form Journals.
+- The Journal new-entry modal widens to give the full editor toolbar and writing body room to breathe.
+
 ## [0.5.0-alpha.12] — 2026-05-03
 
 ### Added

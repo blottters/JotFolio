@@ -1,19 +1,43 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useClickOutside, useSingleOpenDropdown } from './bus.js';
+import { createPortal } from "react-dom";
+import { useSingleOpenDropdown } from './bus.js';
 
 // Generic themed dropdown. Replaces native <select> for all status/sort pickers
 // so theme colors apply and options stay readable on any theme.
 export function Select({value,onChange,options,placeholder,ariaLabel,width}){
   const[open,setOpen]=useState(false);
   const[highlight,setHighlight]=useState(-1);
+  const[menuRect,setMenuRect]=useState(null);
   const rootRef=useRef(null);
   const btnRef=useRef(null);
   const listRef=useRef(null);
   const closeDropdown=useCallback(()=>setOpen(false),[]);
-  useClickOutside(rootRef,closeDropdown,open);
   useSingleOpenDropdown(open,closeDropdown);
+  const syncMenuRect=useCallback(()=>{
+    const rect=btnRef.current?.getBoundingClientRect?.();
+    if(!rect)return;
+    setMenuRect({top:rect.bottom+4,left:rect.left,width:rect.width});
+  },[]);
   const idx=options.findIndex(o=>(o.value??o)===value);
   useEffect(()=>{if(open)setHighlight(idx);else setHighlight(-1)},[open,idx]);
+  useEffect(()=>{
+    if(!open)return;
+    syncMenuRect();
+    const onDocMouseDown=e=>{
+      const target=e.target;
+      if(rootRef.current?.contains(target)||listRef.current?.contains(target))return;
+      closeDropdown();
+    };
+    const onViewportChange=()=>syncMenuRect();
+    document.addEventListener('mousedown',onDocMouseDown);
+    window.addEventListener('resize',onViewportChange);
+    window.addEventListener('scroll',onViewportChange,true);
+    return()=>{
+      document.removeEventListener('mousedown',onDocMouseDown);
+      window.removeEventListener('resize',onViewportChange);
+      window.removeEventListener('scroll',onViewportChange,true);
+    };
+  },[open,closeDropdown,syncMenuRect]);
   useEffect(()=>{if(!open||highlight<0||!listRef.current)return;listRef.current.children[highlight]?.scrollIntoView?.({block:'nearest'})},[highlight,open]);
   const pick=(v)=>{onChange(v);setOpen(false);requestAnimationFrame(()=>btnRef.current?.focus?.())};
   const onKey=(e)=>{
@@ -32,15 +56,15 @@ export function Select({value,onChange,options,placeholder,ariaLabel,width}){
         <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
         <span style={{fontSize:10,color:'var(--t3)',flexShrink:0}}>▼</span>
       </button>
-      {open&&<div ref={listRef} role="listbox"
-        style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,maxHeight:280,overflowY:'auto',background:'var(--bg)',border:'1px solid var(--br)',borderRadius:'var(--rd)',zIndex:10,boxShadow:'0 8px 24px rgba(0,0,0,0.45)'}}>
+      {open&&menuRect&&createPortal(<div ref={listRef} role="listbox"
+        style={{position:'fixed',top:menuRect.top,left:menuRect.left,width:menuRect.width,maxHeight:280,overflowY:'auto',background:'var(--bg)',border:'1px solid var(--br)',borderRadius:'var(--rd)',zIndex:1000,boxShadow:'0 8px 24px rgba(0,0,0,0.45)'}}>
         {options.map((o,i)=>{const v=o.value??o;const lbl=o.label??o;const isHi=i===highlight;return(
           <button key={String(v)+i} type="button" role="option" aria-selected={v===value} onClick={()=>pick(v)} onMouseEnter={()=>setHighlight(i)}
             style={{width:'100%',display:'flex',alignItems:'center',padding:'8px 10px',background:isHi?'var(--b2)':'transparent',border:'none',borderLeft:`3px solid ${v===value?'var(--ac)':'transparent'}`,color:'var(--tx)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,textAlign:'left'}}>
             {lbl}
           </button>
         )})}
-      </div>}
+      </div>,document.body)}
     </div>
   );
 }

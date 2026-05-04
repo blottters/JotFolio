@@ -73,13 +73,24 @@ function wrapIpc(fn) {
   };
 }
 
-// ─── Watcher (lazy require chokidar; optional dep) ───────────────
-function startWatcher() {
+// ─── Watcher (lazy load chokidar; optional dep) ───────────────
+async function loadChokidar() {
+  try {
+    return require('chokidar');
+  } catch (err) {
+    if (err?.code !== 'ERR_REQUIRE_ESM') throw err;
+    const mod = await import('chokidar');
+    return mod.default ?? mod;
+  }
+}
+async function startWatcher() {
   stopWatcher();
   if (!vaultRoot) return;
+  const root = vaultRoot;
   try {
-    const chokidar = require('chokidar');
-    watcher = chokidar.watch(vaultRoot, {
+    const chokidar = await loadChokidar();
+    if (!vaultRoot || vaultRoot !== root) return;
+    watcher = chokidar.watch(root, {
       ignored: ['**/node_modules/**', '**/.git/**', '**/.jotfolio/recovery/**'],
       ignoreInitial: true,
       persistent: true,
@@ -87,7 +98,7 @@ function startWatcher() {
     });
     const emit = (type) => (absPath) => {
       if (!mainWindow || !vaultRoot) return;
-      const rel = path.relative(vaultRoot, absPath).replaceAll(path.sep, '/');
+      const rel = path.relative(root, absPath).replaceAll(path.sep, '/');
       mainWindow.webContents.send('vault:watch:event', { type, path: rel });
     };
     watcher.on('add', emit('create'));
@@ -137,7 +148,34 @@ ipcMain.handle('vault:list', wrapIpc(async () => {
     catch (err) { throw new VaultErr('io-error', err.message); }
     for (const e of entries) {
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) { await walk(abs); continue; }
+      if (e.isDirectory()) {
+        try {
+          const stat = await fs.stat(abs);
+          const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');
+          const folder = path.dirname(rel);
+          results.push({
+            path: rel,
+            name: e.name,
+            folder: folder === '.' ? '' : folder,
+            size: 0,
+            mtime: stat.mtimeMs,
+            type: 'folder',
+          });
+        } catch (err) {
+          const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');
+          results.push({
+            path: rel,
+            name: e.name,
+            folder: path.dirname(rel),
+            size: 0,
+            mtime: 0,
+            type: 'folder',
+            error: { code: 'io-error', message: err.message },
+          });
+        }
+        await walk(abs);
+        continue;
+      }
       try {
         const stat = await fs.stat(abs);
         const rel = path.relative(vaultRoot, abs).replaceAll(path.sep, '/');

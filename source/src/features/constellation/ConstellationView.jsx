@@ -16,6 +16,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   const[tagFilter,setTagFilter]=useState('');
   const[titleQuery,setTitleQuery]=useState('');
   const[showUnresolved,setShowUnresolved]=useState(true);
+  const[memoryOnly,setMemoryOnly]=useState(false);
   const[infoOpen,setInfoOpen]=useState(null); // null | 'ghosts' | 'messy' | 'clusters' | 'affinity'
   const[hover,setHover]=useState(null);
   // Stack of focal ids. Top = current view. Empty = full web.
@@ -156,7 +157,11 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     });
   },[pool,showUnresolved]);
 
-  const renderNodes=useMemo(()=>[...nodes,...unresolvedPseudoNodes],[nodes,unresolvedPseudoNodes]);
+  const renderNodes=useMemo(()=>{
+    const combined=[...nodes,...unresolvedPseudoNodes];
+    if(!memoryOnly)return combined;
+    return combined.filter(n=>n.type==='wiki'||n.type==='review');
+  },[nodes,unresolvedPseudoNodes,memoryOnly]);
   const nodeById=useMemo(()=>{const m={};renderNodes.forEach(n=>m[n.id]=n);return m},[renderNodes]);
   const nodeToComp=useMemo(()=>{const m={};renderNodes.forEach(n=>{m[n.id]=n.comp});return m},[renderNodes]);
 
@@ -575,6 +580,14 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             <Select ariaLabel="Filter graph by type" value={filter} onChange={setFilter}
               options={[{value:'all',label:'All types'},...visibleEntryTypes.map(t=>({value:t,label:LABEL[t]}))]}/>
           </div>
+          <button type="button"
+            onClick={()=>setMemoryOnly(prev=>!prev)}
+            aria-pressed={memoryOnly}
+            aria-label="Show only memory entries"
+            title={memoryOnly?'Show all entries':'Show only memory entries'}
+            style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:memoryOnly?'var(--ac)':'transparent',color:memoryOnly?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>
+            Memory only
+          </button>
         </div>
       </div>
       {renderNodes.length>0&&(
@@ -641,10 +654,20 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                 const degR=6+Math.min(14,(n.links?.length||0)*2.2);
                 const r=Math.max(5,degR-(n.depth||0)*1.6);
                 const depthOp=Math.max(0.5,1-(n.depth||0)*0.18);
-                const fill=n._unresolved?'var(--bg)':(TYPE_HUE[n.type]||'var(--ac)');
+                // Memory entries (wiki/review) get distinct stroke + review = hollow.
+                const isMemory=n.type==='wiki'||n.type==='review';
+                const isReviewMemory=n.type==='review';
+                const isStaleMemory=isMemory&&n.freshness==='stale';
+                const fill=n._unresolved
+                  ?'var(--bg)'
+                  :(isReviewMemory?'transparent':(TYPE_HUE[n.type]||'var(--ac)'));
                 const active=hover===n.id||focal===n.id;
-                const op=nodeOpacity(n)*depthOp;
+                const memoryStaleOp=isStaleMemory?0.6:1;
+                const op=nodeOpacity(n)*depthOp*memoryStaleOp;
                 const p=positions[n.id]||{x:n.x,y:n.y};
+                const memoryConfidencePct=isMemory&&typeof n.confidence==='number'
+                  ?Math.round(n.confidence*100)
+                  :null;
                 const handleUnresolvedClick=()=>{
                   if(!n._unresolved)return;
                   if(onCreateFromMissing)onCreateFromMissing(n.title);
@@ -671,14 +694,19 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                       style={{cursor:n._unresolved?'pointer':(compDragRef.current?.nodeId===n.id?'grabbing':'pointer'),touchAction:'none'}} opacity={n._unresolved?0.7:op}>
                       {n.starred&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#e0a600" strokeWidth={1.4} opacity={0.6}/>}
                       <circle cx={0} cy={0} r={r} fill={fill}
-                        stroke={n._unresolved?'var(--t3)':(active?'var(--tx)':'var(--bg)')}
-                        strokeWidth={active?2.5:2}
+                        stroke={n._unresolved?'var(--t3)':(isMemory?'var(--ac)':(active?'var(--tx)':'var(--bg)'))}
+                        strokeWidth={isMemory?2:(active?2.5:2)}
                         strokeDasharray={n._unresolved?'3 3':undefined}/>
                       {(labelVisible(n)||n._unresolved)&&<text x={0} y={r+12} textAnchor="middle"
                         fill={n._unresolved?'var(--t3)':'var(--tx)'} fontSize="10"
                         fontFamily="var(--fn)" fontStyle={n._unresolved?'italic':'normal'} pointerEvents="none"
                         style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
                         {(n.title||'').slice(0,22)}{(n.title||'').length>22?'…':''}
+                      </text>}
+                      {memoryConfidencePct!==null&&<text x={0} y={r+(labelVisible(n)?24:12)} textAnchor="middle"
+                        fill="var(--t3)" fontSize="9" fontFamily="var(--fn)" pointerEvents="none"
+                        style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
+                        {memoryConfidencePct}%
                       </text>}
                     </g>
                   </g>

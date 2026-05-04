@@ -48,6 +48,13 @@ import { useKeywordRules } from './lib/keywordRules/useKeywordRules.js';
 import { TRASH_DIR, moveToTrash, originalPathFromTrashPath, restoreFromTrash } from './lib/vaultTrash.js';
 import { buildFolderTree, fileNameFromPath, folderContainsPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
 import { importAttachment } from './lib/vaultAttachments.js';
+import { confirmMemory } from './lib/memory/confirmMemory.js';
+import { splitMemory } from './lib/memory/splitMemory.js';
+import { graduateTied } from './lib/memory/graduateTied.js';
+import { compile, loadManifest } from './lib/compile/index.js';
+import { buildVaultIndex } from './lib/index/vaultIndex.js';
+import { MemoryDetailPanel } from './features/constellation/MemoryDetailPanel.jsx';
+import { SplitMemoryModal } from './features/constellation/SplitMemoryModal.jsx';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -103,6 +110,8 @@ export default function App(){
   const[addInitialType,setAddInitialType]=useState('note');
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[detailId,setDetailId]=useState(null);
+  const[splitMemoryTarget,setSplitMemoryTarget]=useState(null);
+  const[focalMemory,setFocalMemory]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
   const[settingsOpen,setSettingsOpen]=useState(false);
   const[folderDialogOpen,setFolderDialogOpen]=useState(false);
@@ -1027,6 +1036,54 @@ export default function App(){
     }catch(err){toast('Import failed: '+(err.message||'invalid file'),'error')}
   };
 
+  // ── Memory actions (Karpathy Phase 5) ─────────────────────────────────────
+  // Confirm wiki/review entries, split memories into smaller children,
+  // and trace claims back to source notes via constellation focal mode.
+  async function handleConfirmMemory(entryId){
+    const entry=entries.find(e=>e.id===entryId);
+    if(!entry)return;
+    try{
+      const{updatedEntry,graduatedToWiki}=confirmMemory(entry,{now:()=>new Date().toISOString()});
+      await saveEntryWithRules(updatedEntry);
+      toast(graduatedToWiki?`${entry.title} graduated to wiki`:`${entry.title} confirmed`);
+      try{
+        const manifest=await loadManifest(vaultAdapter).catch(()=>null);
+        if(manifest){
+          const{eligible}=graduateTied(updatedEntry,entries,manifest);
+          if(eligible.length>0)toast(`${eligible.length} tied memories now eligible for confirmation`);
+        }
+      }catch{}
+    }catch(err){reportError(err,'Confirm memory failed')}
+  }
+  function handleSplitMemory(entryId){
+    const entry=entries.find(e=>e.id===entryId);
+    if(!entry)return;
+    setSplitMemoryTarget(entry);
+  }
+  async function handleSplitSubmit(splits){
+    if(!splitMemoryTarget)return;
+    try{
+      const idx=buildVaultIndex(entries);
+      const{children,supersedingOriginal}=splitMemory({
+        original:splitMemoryTarget,
+        splits,
+        index:idx,
+        compileOpts:{compiler:'deterministic-stub',now:()=>new Date().toISOString()},
+        compile,
+      });
+      for(const child of children){
+        await saveEntryWithRules({id:uid(),...child.entry});
+      }
+      await saveEntryWithRules(supersedingOriginal);
+      setSplitMemoryTarget(null);
+      toast(`Split into ${children.length} memories`);
+    }catch(err){reportError(err,'Split memory failed')}
+  }
+  function handleTraceToSources(entryId){
+    setSection('graph');
+    setFocalMemory(entryId);
+  }
+
   return(
     <div className="mgn-app" style={{display:'flex',height:'100%',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',overflow:'hidden',position:'relative'}}>
       <Ribbon
@@ -1163,7 +1220,21 @@ export default function App(){
         </>)}
       </div>
 
-      {detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {detail&&(detail.type==='wiki'||detail.type==='review')?(
+        <MemoryDetailPanel
+          entry={detail}
+          vaultIndex={buildVaultIndex(entries)}
+          onConfirm={handleConfirmMemory}
+          onSplit={handleSplitMemory}
+          onTraceToSources={handleTraceToSources}/>
+      ):detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {splitMemoryTarget&&(
+        <SplitMemoryModal
+          original={splitMemoryTarget}
+          originalSources={(splitMemoryTarget.provenance||[]).map(id=>entries.find(e=>e.id===id)).filter(Boolean)}
+          onClose={()=>setSplitMemoryTarget(null)}
+          onSubmit={handleSplitSubmit}/>
+      )}
       {folderDialogOpen&&<FolderCreateDialog
         value={folderDraft}
         onChange={setFolderDraft}

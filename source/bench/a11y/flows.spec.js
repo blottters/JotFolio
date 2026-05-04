@@ -61,8 +61,8 @@ test.describe('JotFolio WCAG AA flows', () => {
 
   test('add entry modal', async ({ page }) => {
     await seedApp(page);
-    await page.keyboard.press('n');
-    await page.waitForSelector('h3:has-text("New Entry")');
+    await page.getByLabel('New entry (N)').click();
+    await page.waitForSelector('[role="dialog"]');
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
       .analyze();

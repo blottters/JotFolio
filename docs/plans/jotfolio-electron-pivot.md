@@ -4,7 +4,7 @@ _Created 2026-04-23. Last updated 2026-05-03 to separate historical roadmap mate
 
 ---
 
-## STATUS — INITIAL PIVOT COMPLETE; CURRENT REPO HAS MOVED TO v0.5.0-alpha.14
+## STATUS — INITIAL PIVOT COMPLETE; CURRENT REPO HAS MOVED TO v0.5.0-alpha.15
 
 | Phase | Status | Shipped In | Notes |
 |---|---|---|---|
@@ -20,9 +20,9 @@ _Created 2026-04-23. Last updated 2026-05-03 to separate historical roadmap mate
 | 7 — Performance + a11y scaffold | ✅ Done | v0.4.1 | 14 benchmarks (all targets met), committed baseline, bench.yml CI, Playwright a11y spec, known gaps documented |
 
 **Historical milestone:** the original 7-phase pivot closed at **v0.4.1** on 2026-04-24.
-**Current local source line:** subsequent work moved the repo to **v0.5.0-alpha.14** (see `docs/CHANGELOG.md`).
-**Current verified tests:** 436/436 green (`npm test` run locally on 2026-05-04 for alpha.14).
-**Current verified desktop state:** `0.5.0-alpha.14` built locally with `npm run electron:build -- --win --publish never` and produced `JotFolio-Setup-0.5.0-alpha.14.exe`. `0.5.0-alpha.13` was installed on Windows; alpha.14 has not been installed or published yet.
+**Current local source line:** subsequent work moved the repo to **v0.5.0-alpha.15** (see `docs/CHANGELOG.md`).
+**Current verified tests:** 437/437 green (`npm test` run locally on 2026-05-04 for alpha.15).
+**Current verified desktop state:** `0.5.0-alpha.15` built locally with `npm run electron:build -- --win --publish never` and produced `JotFolio-Setup-0.5.0-alpha.15.exe`. `0.5.0-alpha.14` was installed on Windows; alpha.15 has not been installed or published yet.
 **Current perf truth:** baseline still exists, but the latest local bench run failed regression thresholds on 2026-05-02; do not describe perf as green until those deltas are investigated.
 **Process pattern evolved:** each phase started with specialist-authored plan at `docs/phase-plans/` (or inline for phases before convention was adopted), executed inline by Claude Code. Subagent dispatch for plan authorship worked; dispatch for execution consistently truncated — pattern abandoned mid-session.
 
@@ -262,9 +262,9 @@ Each phase exit requires, at minimum:
 
 ---
 
-## v0.5.0 Backlog (current open work after alpha.14)
+## v0.5.0 Backlog (current open work after alpha.15)
 
-Historical accepted risks from phases 0–7 are preserved below, but this list has been pruned to the work that is still actually open after the alpha.14 local source line.
+Historical accepted risks from phases 0–7 are preserved below, but this list has been pruned to the work that is still actually open after the alpha.15 local source line.
 
 ### Security (carried from Phase 5)
 - **Symlink realpath check** in `src-electron/main.js:resolveSafe`. Reject files whose `fs.realpath(abs)` escapes vault root.

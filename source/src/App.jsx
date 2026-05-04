@@ -7,7 +7,7 @@ import { DEFAULT_FEATURE_FLAGS, filterEntriesForUI, normalizeFeatureFlags } from
 import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
 import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
-import { MANUAL_LINKS_FIELD } from './lib/frontmatter.js';
+import { MANUAL_LINKS_FIELD, serialize as serializeFrontmatter } from './lib/frontmatter.js';
 import { exportVaultBundle, exportEntriesMD, importVaultBundle } from './lib/exports.js';
 import { getConstellationDemoEntries } from './lib/demoEntries.js';
 import { useSystemDark } from './lib/hooks.js';
@@ -44,7 +44,7 @@ import { wordCountPlugin } from './lib/plugin/builtinPlugins/wordCount.js';
 import { PluginPanelSlot, createPanelStore } from './features/plugins/PluginPanelSlot.jsx';
 import { useKeywordRules } from './lib/keywordRules/useKeywordRules.js';
 import { moveToTrash } from './lib/vaultTrash.js';
-import { buildFolderTree, fileNameFromPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
+import { buildFolderTree, fileNameFromPath, folderContainsPath, folderFromPath, joinVaultPath, normalizeVaultFolder } from './lib/vaultPaths.js';
 import { importAttachment } from './lib/vaultAttachments.js';
 
 // ── App ────────────────────────────────────────────────────────────────────
@@ -592,6 +592,15 @@ export default function App(){
       toast(`Template created: ${slug}`);
     }catch(err){reportError(err,'Template create failed')}
   },[toast,reportError]);
+  const handleSaveTemplate=useCallback(async(template,body)=>{
+    if(!template?.path){toast('No template file selected','error');return}
+    try{
+      await vaultAdapter.write(template.path,serializeFrontmatter({frontmatter:template.frontmatter||{},body:body||''}));
+      const list=await loadTemplates(vaultAdapter);
+      setTemplates(list);
+      toast(`Template saved: ${template.name}`);
+    }catch(err){reportError(err,'Template save failed')}
+  },[toast,reportError]);
 
   // Register builtin commands once the dependent callbacks are stable.
   // The disposer cleans up if the App ever unmounts (test environments).
@@ -747,7 +756,7 @@ export default function App(){
     if(section==='starred')r=r.filter(e=>e.starred);
     else if(section.startsWith('folder:')){
       const folder=section.slice(7);
-      r=r.filter(e=>folderFromPath(e._path||'')===folder);
+      r=r.filter(e=>folderContainsPath(folder,e._path||''));
     }else if(section!=='all')r=r.filter(e=>e.type===section);
     if(deferredQuery)r=r.filter(e=>matchesQuery(e,parsedQuery));
     if(filterStatus)r=r.filter(e=>e.status===filterStatus);
@@ -854,12 +863,12 @@ export default function App(){
 
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
         {section==='templates'?(
-          <div style={{flex:1,overflowY:'auto',padding:24}}>
+          <div style={{flex:1,overflow:'hidden'}}>
             <TemplatesPanel
               templates={templates}
               onCreate={handleCreateTemplate}
               onApplyToActive={handleInsertTemplate}
-              onEdit={t=>{setSection('all');toast(`Open ${t.path} in editor (path open n/a yet)`,'info')}}
+              onSave={handleSaveTemplate}
               activeEntryId={detailId}/>
           </div>
         ):currentCanvasId?(

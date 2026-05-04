@@ -30,9 +30,15 @@ Repo → Settings → Secrets and variables → Actions:
 - `APPLE_APP_SPECIFIC_PASSWORD` — the app-specific password from step 2
 - `APPLE_TEAM_ID` — the 10-char team ID
 
-### Fill in Team ID in `package.json`
+### Enable notarization in release builds
 
-Replace `TEAMID_REPLACE_ME` in `package.json` build.mac.notarize.teamId with your actual team ID.
+Current local builds keep `build.mac.notarize` set to `false` so package tests can run without Apple credentials. For signed CI releases, enable notarization through the release environment using Apple credentials:
+
+- `APPLE_API_KEY`, `APPLE_API_KEY_ID`, and `APPLE_API_ISSUER`; or
+- `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID`; or
+- `APPLE_KEYCHAIN` and `APPLE_KEYCHAIN_PROFILE`.
+
+Do not commit Apple private keys or passwords to the repo.
 
 ### What happens in CI
 
@@ -82,7 +88,7 @@ Notarization typically takes 2–10 minutes. CI logs show the wait.
 
 ### Azure Trusted Signing (recommended once approved)
 
-Replace `package.json` build.win with:
+Use `package.json` `build.win.signtoolOptions` or a release-only electron-builder config with:
 ```json
 "win": {
   "target": ["nsis"],
@@ -107,6 +113,14 @@ Not required. AppImage + `.deb` ship unsigned. Users verify via SHA256 checksum 
 Mac: `codesign --verify --deep --strict --verbose=2 JotFolio.app`
 Mac notarization: `spctl --assess -vv JotFolio.app` → expect "accepted, source=Notarized Developer ID"
 Windows: right-click `.exe` → Properties → Digital Signatures tab → should list your cert with "OK"
+
+PowerShell verification:
+
+```powershell
+Get-AuthenticodeSignature .\JotFolio-Setup-x.y.z.exe
+```
+
+Expected Windows status for a trusted release: `Valid`.
 
 ---
 

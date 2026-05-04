@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo, useId } from 'react';
+import { getTemplateIncoming, getTemplateOutgoing } from '../../lib/templates/templateBacklinks.js';
+import { ICON } from '../../lib/types.js';
 
 // TemplatesPanel manages Markdown files in templates/. It is intentionally
 // vault-adapter agnostic: the parent owns all reads/writes.
@@ -8,6 +10,8 @@ export function TemplatesPanel({
   onApplyToActive,
   onSave,
   activeEntryId,
+  entries = [],
+  onOpenEntry,
 }) {
   const list = Array.isArray(templates) ? templates : [];
   const [selectedId, setSelectedId] = useState(list[0]?.id || null);
@@ -50,6 +54,14 @@ export function TemplatesPanel({
   const frontmatterKeys = selected?.frontmatter && typeof selected.frontmatter === 'object'
     ? Object.keys(selected.frontmatter)
     : [];
+  const incoming = useMemo(
+    () => selected ? getTemplateIncoming(entries, selected) : [],
+    [entries, selected],
+  );
+  const outgoing = useMemo(
+    () => selected ? getTemplateOutgoing(entries, selected, draftBody) : { resolved: [], unresolved: [] },
+    [entries, selected, draftBody],
+  );
 
   const submitDraft = () => {
     const name = draftName.trim();
@@ -234,6 +246,55 @@ export function TemplatesPanel({
               {variables.map(v => <code key={v} style={codePill}>{v}</code>)}
             </div>
           </SideSection>
+          <SideSection title={`Backlinks${incoming.length ? ` (${incoming.length})` : ''}`}>
+            {incoming.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {incoming.map(({ entry, reasons }) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => onOpenEntry?.(entry.id)}
+                    style={entryButtonStyle}
+                  >
+                    <span aria-hidden="true" style={{ flexShrink: 0 }}>{ICON[entry.type] || '•'}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={entryTitleStyle}>{entry.title || 'Untitled'}</span>
+                      <span style={entryMetaStyle}>{reasons.map(formatReason).join(' + ')}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={helpText}>
+                No incoming references yet. Apply this template to an entry, or link to it with <code style={inlineCode}>[[{selected?.name || 'template-name'}]]</code>.
+              </div>
+            )}
+          </SideSection>
+          <SideSection title={`Outgoing links${outgoing.resolved.length || outgoing.unresolved.length ? ` (${outgoing.resolved.length + outgoing.unresolved.length})` : ''}`}>
+            {outgoing.resolved.length || outgoing.unresolved.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {outgoing.resolved.map(({ entry }) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => onOpenEntry?.(entry.id)}
+                    style={entryButtonStyle}
+                  >
+                    <span aria-hidden="true" style={{ flexShrink: 0 }}>{ICON[entry.type] || '•'}</span>
+                    <span style={entryTitleStyle}>{entry.title || 'Untitled'}</span>
+                  </button>
+                ))}
+                {outgoing.unresolved.map(link => (
+                  <div key={link.target} style={missingLinkStyle}>
+                    <span aria-hidden="true">?</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.target}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={helpText}>No wiki links in this template body.</div>
+            )}
+          </SideSection>
           <SideSection title="Selected file">
             {selected ? (
               <div style={{ ...helpText, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -250,6 +311,12 @@ export function TemplatesPanel({
       </div>
     </div>
   );
+}
+
+function formatReason(reason) {
+  if (reason === 'applied') return 'applied template';
+  if (reason === 'linked') return 'linked to template';
+  return reason;
 }
 
 function EmptyTemplateState() {
@@ -337,4 +404,52 @@ const codePill = {
   color: 'var(--tx)',
   fontFamily: '"JetBrains Mono","Courier New",monospace',
   fontSize: 11,
+};
+
+const inlineCode = {
+  fontFamily: '"JetBrains Mono","Courier New",monospace',
+  fontSize: 11,
+  color: 'var(--tx)',
+};
+
+const entryButtonStyle = {
+  width: '100%',
+  padding: '7px 9px',
+  border: '1px solid var(--br)',
+  borderRadius: 'var(--rd)',
+  background: 'var(--bg)',
+  color: 'var(--tx)',
+  cursor: 'pointer',
+  fontFamily: 'var(--fn)',
+  fontSize: 12,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 7,
+  textAlign: 'left',
+};
+
+const entryTitleStyle = {
+  display: 'block',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontWeight: 700,
+};
+
+const entryMetaStyle = {
+  display: 'block',
+  marginTop: 2,
+  color: 'var(--t3)',
+  fontSize: 10,
+};
+
+const missingLinkStyle = {
+  padding: '7px 9px',
+  border: '1px dashed var(--t3)',
+  borderRadius: 'var(--rd)',
+  color: 'var(--t2)',
+  fontSize: 12,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 7,
 };

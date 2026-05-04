@@ -10,7 +10,7 @@ than a closed database.
 
 ## Current Status
 
-JotFolio is in alpha. The current source line is `0.5.0-alpha.15`.
+JotFolio is in alpha. The current source line is `0.5.0-alpha.16`.
 
 This repository is under active development. Public documentation is intentionally
 minimal while the product model, release process, and desktop distribution are

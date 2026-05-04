@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current source version: **0.5.0-alpha.15** (2026-05-04)*
+*Current source version: **0.5.0-alpha.16** (2026-05-04)*
 
 ---
 
@@ -292,6 +292,29 @@ Verification:
 
 ---
 
+## 0.5.0-alpha.16 — Template backlinks and closure cleanup (2026-05-04)
+
+Focused on eliminating the remaining vague cleanup items after the previous release.
+
+- Template Library now shows real backlinks for entries that used the selected template or explicitly link to it.
+- Template Library now shows outgoing wiki links from the selected template body, including unresolved targets.
+- Applying a template records the template path in the entry's persisted metadata so later backlink displays are based on actual usage.
+- Obsolete Electron/Vite/Vitest Dependabot PRs were closed because `master` already carried newer versions.
+- Release closure rules now require follow-up concerns to be fixed, accepted, externally blocked, or moved to a named issue instead of staying vague.
+- GitHub Release publishing now uses the built-in GitHub token with explicit release permission instead of a PAT-style secret.
+- Electron Builder 26 packaging now works with the current config.
+- Code-signing docs now point to real Apple/Windows credential setup and Authenticode verification instead of stale placeholders.
+
+Verification:
+- `npm ci` completed locally on 2026-05-04 with 0 vulnerabilities.
+- `npm test` passed locally on 2026-05-04: 441/441 tests.
+- `npm run build` passed locally on 2026-05-04.
+- `npm run a11y -- --workers=1` passed locally on 2026-05-04: 5/5 Playwright + axe flows.
+- Browser smoke verified Template Library backlinks and outgoing links against production preview.
+- `npm run electron:build -- --win --publish never` built local Windows artifacts, including `JotFolio-Setup-0.5.0-alpha.16.exe`.
+
+---
+
 ## Current cleanup pass (2026-04-24)
 
 - Removed the "Picture This" mockup gallery view — pure visual theatre, no wiring, no longer needed now that the Constellation has matured
@@ -311,4 +334,4 @@ See `docs/plans/jotfolio-electron-pivot.md` for the full backlog. Short version:
 - **UX:** folder tree sidebar, real git sync, full file-management flows, richer recovery/error actions
 - **A11y:** finish the documented manual verification work across screen readers, high contrast, and zoom
 - **Platforms:** Edge/Chrome web build, mobile via Capacitor
-- **Ops (user-side):** Apple Developer notarization data, Windows signing cert, `TEAMID_REPLACE_ME` replaced, bench regressions investigated before the next performance claim
+- **Ops (user-side):** Apple Developer notarization credentials, Windows signing cert or signing service, bench regressions investigated before the next performance claim

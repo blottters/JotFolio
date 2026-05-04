@@ -248,10 +248,6 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
                   />
                 )}
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:5,fontSize:11,color:'var(--t3)'}}>
-                <span>Markdown journal saved as plain text in your vault.</span>
-                <span style={{marginLeft:'auto'}}>Ctrl/⌘+Enter saves</span>
-              </div>
             </div>
           ):(
             <div><label htmlFor={ids.notes} style={ls}>Notes</label><textarea id={ids.notes} style={{...is,height:90,resize:'vertical'}} value={form.notes} onChange={update('notes')} placeholder="Thoughts, summary, highlights…"/></div>
@@ -278,7 +274,13 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
             </div>
           </div>
         )}
-        <div style={{position:'sticky',bottom:0,background:'var(--bg)',padding:'12px 0 0',marginTop:12,borderTop:'1px solid var(--br)'}}>
+        <div style={{position:'sticky',bottom:0,background:'var(--bg)',padding:'10px 0 0',marginTop:14,borderTop:'1px solid var(--br)',boxShadow:'0 -10px 18px var(--bg)'}}>
+          {type==='journal'&&(
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,fontSize:11,color:'var(--t3)',lineHeight:1.4}}>
+              <span>Markdown journal saved as plain text in your vault.</span>
+              <span style={{marginLeft:'auto',whiteSpace:'nowrap'}}>Ctrl/⌘+Enter saves</span>
+            </div>
+          )}
           <div style={{display:'flex',gap:8}}>
             <button onClick={tryClose} style={{flex:1,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13}}>Cancel</button>
             <button onClick={save} style={{flex:2,padding:10,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Save Entry</button>

@@ -168,10 +168,13 @@ function FolderTreeSection({folders,files,activeFilePath,section,onSelectFolder,
         {!closed&&node.files?.map(file=>{
           const fileActive=file.path===activeFilePath;
           return(
-            <Pressable key={file.path} onPress={()=>onOpenFile&&onOpenFile(file)} ariaLabel={`Open ${file.label}`} ariaPressed={fileActive} title={file.path}
-              style={{marginLeft:31+(node.depth*13),padding:'4px 7px',cursor:'pointer',borderRadius:'var(--rd)',fontSize:12,color:fileActive?'var(--ac)':'var(--t2)',background:fileActive?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden',marginBottom:1}}>
-              <span style={{flexShrink:0,opacity:.75}}>{file.icon}</span>
-              <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:fileActive?750:500}}>{file.label}</span>
+            <div key={file.path}
+              style={{marginLeft:31+(node.depth*13),padding:'0 7px',borderRadius:'var(--rd)',fontSize:12,color:fileActive?'var(--ac)':'var(--t2)',background:fileActive?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden',marginBottom:1}}>
+              <Pressable onPress={()=>onOpenFile&&onOpenFile(file)} ariaLabel={`Open ${file.label}`} ariaPressed={fileActive} title={file.path}
+                style={{minWidth:0,flex:1,padding:'4px 0',cursor:'pointer',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
+                <span style={{flexShrink:0,opacity:.75}}>{file.icon}</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:fileActive?750:500}}>{file.label}</span>
+              </Pressable>
               {onDeleteFile&&(
                 <button
                   type="button"
@@ -183,7 +186,7 @@ function FolderTreeSection({folders,files,activeFilePath,section,onSelectFolder,
                   ×
                 </button>
               )}
-            </Pressable>
+            </div>
           );
         })}
       </div>

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { TYPES, ICON, LABEL } from '../../lib/types.js';
+import { TYPES, KNOWLEDGE_TYPES, ICON, LABEL } from '../../lib/types.js';
 import { Pressable } from '../primitives/Pressable.jsx';
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,folders=[],onSelectFolder,onNewFolder,bases=[],onSelectBase,onNewBase,onDeleteBase,canvases=[],onSelectCanvas,onNewCanvas,onDeleteCanvas,pluginPanelsSlot}){
+export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,folders=[],folderFiles=[],activeFolderFilePath='',onSelectFolder,onNewFolder,onOpenFolderFile,onDeleteFolderFile,onDeleteFolder,bases=[],onSelectBase,onNewBase,onDeleteBase,canvases=[],onSelectCanvas,onNewCanvas,onDeleteCanvas,pluginPanelsSlot,flags={}}){
+  const knowledgeFlagMap={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
+  const visibleKnowledgeTypes=KNOWLEDGE_TYPES.filter(t=>flags[knowledgeFlagMap[t]]===true);
   return(
     <aside className="mgn-sb" style={{width,background:'var(--sb)',borderRight:'1px solid var(--br)',display:'flex',flexDirection:'column',flexShrink:0,transition:'width 0.2s',overflow:'hidden',zIndex:10}}>
       <Pressable onPress={onToggle} ariaLabel={open?'Collapse sidebar':'Expand sidebar'}
@@ -26,11 +28,20 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
         <NavItem icon="✦" label="Constellation" active={section==='graph'} open={open} onClick={()=>setSection('graph')}/>
         {open?<NavHeader>Media</NavHeader>:<div style={{height:1,background:'var(--br)',margin:'8px 6px'}}/>}
         {TYPES.map(t=><NavItem key={t} icon={ICON[t]} label={LABEL[t]} count={counts[t]} active={section===t} open={open} onClick={()=>setSection(t)}/>)}
+        {visibleKnowledgeTypes.length>0&&<>
+          {open?<NavHeader>Knowledge</NavHeader>:<div style={{height:1,background:'var(--br)',margin:'8px 6px'}}/>}
+          {visibleKnowledgeTypes.map(t=><NavItem key={t} icon={ICON[t]} label={LABEL[t]} count={counts[t]} active={section===t} open={open} onClick={()=>setSection(t)}/>)}
+        </>}
         {open&&<>
           <FolderTreeSection
             folders={folders}
+            files={folderFiles}
+            activeFilePath={activeFolderFilePath}
             section={section}
             onSelectFolder={onSelectFolder}
+            onOpenFile={onOpenFolderFile}
+            onDeleteFile={onDeleteFolderFile}
+            onDeleteFolder={onDeleteFolder}
             onNewFolder={onNewFolder}/>
         </>}
         {open&&allTags.length>0&&<>
@@ -113,8 +124,8 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
   );
 }
 function NavHeader({children}){return<div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:'var(--t3)',padding:'10px 4px 4px',textTransform:'uppercase'}}>{children}</div>}
-function FolderTreeSection({folders,section,onSelectFolder,onNewFolder}){
-  const tree=useMemo(()=>buildTree(folders),[folders]);
+function FolderTreeSection({folders,files,activeFilePath,section,onSelectFolder,onOpenFile,onDeleteFile,onDeleteFolder,onNewFolder}){
+  const tree=useMemo(()=>buildTree(folders,files),[folders,files]);
   const [collapsed,setCollapsed]=useState(()=>new Set());
   const toggle=(path)=>setCollapsed(prev=>{
     const next=new Set(prev);
@@ -122,7 +133,7 @@ function FolderTreeSection({folders,section,onSelectFolder,onNewFolder}){
     return next;
   });
   const renderNode=(node)=> {
-    const active=section===`folder:${node.path}`;
+    const active=section===`folder:${node.path}`||(section==='templates'&&node.path==='templates');
     const hasChildren=node.children.length>0;
     const closed=collapsed.has(node.path);
     return(
@@ -141,8 +152,43 @@ function FolderTreeSection({folders,section,onSelectFolder,onNewFolder}){
             <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:active?750:500}}>{node.name}</span>
             {node.total>0&&<span style={{fontSize:10,opacity:.55,flexShrink:0,marginLeft:4,border:'1px solid var(--br)',borderRadius:99,padding:'0 5px'}}>{node.total}</span>}
           </Pressable>
+          {onDeleteFolder&&(
+            <button
+              type="button"
+              aria-label={`Delete folder ${node.path}`}
+              title="Delete folder"
+              onMouseDown={e=>e.stopPropagation()}
+              onClick={e=>{e.stopPropagation();onDeleteFolder(node.path)}}
+              style={{flexShrink:0,width:18,height:18,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid transparent',borderRadius:'var(--rd)',background:'transparent',color:'var(--t3)',cursor:'pointer',fontSize:13,lineHeight:1,fontFamily:'var(--fn)'}}>
+              ×
+            </button>
+          )}
         </div>
         {hasChildren&&!closed&&node.children.map(renderNode)}
+        {!closed&&node.files?.map(file=>{
+          const fileActive=file.path===activeFilePath;
+          return(
+            <div key={file.path}
+              style={{marginLeft:31+(node.depth*13),padding:'0 7px',borderRadius:'var(--rd)',fontSize:12,color:fileActive?'var(--ac)':'var(--t2)',background:fileActive?'var(--b2)':'transparent',display:'flex',alignItems:'center',gap:6,overflow:'hidden',marginBottom:1}}>
+              <Pressable onPress={()=>onOpenFile&&onOpenFile(file)} ariaLabel={`Open file ${file.label}`} ariaPressed={fileActive} title={file.path}
+                style={{minWidth:0,flex:1,padding:'4px 0',cursor:'pointer',display:'flex',alignItems:'center',gap:6,overflow:'hidden'}}>
+                <span style={{flexShrink:0,opacity:.75}}>{file.icon}</span>
+                <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:fileActive?750:500}}>{file.label}</span>
+              </Pressable>
+              {onDeleteFile&&(
+                <button
+                  type="button"
+                  aria-label={`Delete ${file.label}`}
+                  title="Delete"
+                  onMouseDown={e=>e.stopPropagation()}
+                  onClick={e=>{e.stopPropagation();onDeleteFile(file)}}
+                  style={{flexShrink:0,width:18,height:18,display:'inline-flex',alignItems:'center',justifyContent:'center',border:'1px solid transparent',borderRadius:'var(--rd)',background:'transparent',color:'var(--t3)',cursor:'pointer',fontSize:13,lineHeight:1,fontFamily:'var(--fn)'}}>
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -165,11 +211,36 @@ function FolderTreeSection({folders,section,onSelectFolder,onNewFolder}){
     </>
   );
 }
-function buildTree(folders=[]){
+function buildTree(folders=[],files=[]){
   const byPath=new Map();
+  const ensureFolder=(path)=>{
+    if(!path)return null;
+    const parts=path.split('/').filter(Boolean);
+    let node=null;
+    for(let i=1;i<=parts.length;i+=1){
+      const current=parts.slice(0,i).join('/');
+      if(!byPath.has(current)){
+        byPath.set(current,{path:current,name:parts[i-1],depth:i-1,count:0,children:[],files:[],total:0});
+      }
+      node=byPath.get(current);
+    }
+    return node;
+  };
   for(const f of folders){
     if(!f?.path)continue;
-    byPath.set(f.path,{...f,children:[],total:f.count||0});
+    const node=ensureFolder(f.path);
+    if(node){
+      node.name=f.name||node.name;
+      node.depth=f.depth??node.depth;
+      node.count=f.count||0;
+      node.total=f.count||0;
+    }
+  }
+  for(const file of files||[]){
+    if(!file?.path)continue;
+    const parentPath=file.path.includes('/')?file.path.slice(0,file.path.lastIndexOf('/')):'';
+    const parent=ensureFolder(parentPath);
+    if(parent)parent.files.push(file);
   }
   const roots=[];
   for(const node of [...byPath.values()].sort((a,b)=>a.path.localeCompare(b.path))){
@@ -179,6 +250,7 @@ function buildTree(folders=[]){
   }
   const sum=(node)=>{
     node.children.sort((a,b)=>a.name.localeCompare(b.name));
+    node.files.sort((a,b)=>a.label.localeCompare(b.label));
     node.total=(node.count||0)+node.children.reduce((acc,child)=>acc+sum(child),0);
     return node.total;
   };

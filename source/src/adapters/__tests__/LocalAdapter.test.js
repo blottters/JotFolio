@@ -102,6 +102,21 @@ describe('LocalAdapter', () => {
     await expect(v.read('notes/a.md')).rejects.toMatchObject({ code: 'not-found' });
   });
 
+  it('rmdir removes empty folder shells but refuses folders with files', async () => {
+    const v = new LocalAdapter();
+    await v.mkdir('notes/projects');
+    await v.mkdir('notes/projects/archive');
+    await v.write('notes/projects/a.md', 'a');
+
+    await expect(v.rmdir('notes/projects')).rejects.toMatchObject({ code: 'not-empty' });
+
+    await v.remove('notes/projects/a.md');
+    await v.rmdir('notes/projects');
+    const files = await v.list();
+    expect(files.some(f => f.path === 'notes/projects')).toBe(false);
+    expect(files.some(f => f.path === 'notes/projects/archive')).toBe(false);
+  });
+
   it('rejects path traversal', async () => {
     const v = new LocalAdapter();
     await expect(v.write('../etc/passwd', 'nope')).rejects.toMatchObject({ code: 'path-traversal' });

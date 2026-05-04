@@ -154,6 +154,20 @@ export class LocalAdapter extends VaultAdapter {
     this._emit({ type: 'delete', path: p });
   }
 
+  async rmdir(path) {
+    const p = normalizePath(path);
+    const store = loadStore();
+    const hasFiles = Object.keys(store.files).some(filePath => filePath.startsWith(`${p}/`));
+    if (hasFiles) throw new VaultError('not-empty', p);
+    const targets = Object.keys(store.folders)
+      .filter(folderPath => folderPath === p || folderPath.startsWith(`${p}/`))
+      .sort((a, b) => b.length - a.length);
+    if (targets.length === 0) throw new VaultError('not-found', p);
+    for (const target of targets) delete store.folders[target];
+    saveStore(store);
+    for (const target of targets) this._emit({ type: 'delete', path: target, itemType: 'folder' });
+  }
+
   watch(cb) {
     this._listeners.add(cb);
     return () => this._listeners.delete(cb);

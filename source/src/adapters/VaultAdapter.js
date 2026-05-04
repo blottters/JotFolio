@@ -36,6 +36,7 @@
  *   async mkdir(path: string): Promise<void>
  *   async move(from: string, to: string): Promise<void>
  *   async remove(path: string): Promise<void>
+ *   async rmdir(path: string): Promise<void>       // empty folders only
  *   watch(cb: (e: WatchEvent) => void): () => void   // returns unsubscribe
  *   async readBinary(path: string): Promise<Uint8Array>
  *   async writeBinary(path: string, data: Uint8Array): Promise<void>
@@ -64,6 +65,8 @@ export class VaultAdapter {
   async move(_from, _to) { throw new VaultError('not-available', 'move not implemented'); }
   /** @param {string} _path @returns {Promise<void>} */
   async remove(_path) { throw new VaultError('not-available', 'remove not implemented'); }
+  /** @param {string} _path @returns {Promise<void>} */
+  async rmdir(_path) { throw new VaultError('not-available', 'rmdir not implemented'); }
   /** @param {(e: WatchEvent) => void} _cb @returns {() => void} */
   watch(_cb) { return () => {}; }
   /** @param {string} _path @returns {Promise<Uint8Array>} */

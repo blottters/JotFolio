@@ -1,6 +1,6 @@
 import { useState, useRef, useId, useEffect, useMemo } from "react";
 import { marked } from 'marked';
-import { TYPES, ICON, LABEL, STATUSES, NO_URL_TYPES, today, displayStatus } from '../../lib/types.js';
+import { ALL_ENTRY_TYPES, ICON, LABEL, STATUSES, NO_URL_TYPES, today, displayStatus } from '../../lib/types.js';
 import { isSafeUrl, normalizeTags, pickEntryFields, withAlpha } from '../../lib/storage.js';
 import { countWords } from '../../lib/plugin/builtinPlugins/wordCountStats.js';
 import { useEscapeKey, useAutoFocus } from '../../lib/hooks.js';
@@ -13,7 +13,9 @@ import { Select } from '../dropdowns/Select.jsx';
 // FIX: initialType prop pre-selects the type; existingUrls enables inline dup warning
 // FIX: ids.journalDate and ids.consumedDate are two distinct IDs — no collision
 // FIX: window.confirm replaced with inline amber banner + "Save anyway" button
-export function AddModal({initialType='video',quickCapture=false,existingUrls,allTags,onImportFile,onClose,onAdd}){
+export function AddModal({initialType='video',quickCapture=false,existingUrls,allTags,onImportFile,onClose,onAdd,flags={}}){
+  const knowledgeFlagMap={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
+  const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!knowledgeFlagMap[t]||flags[knowledgeFlagMap[t]]===true);
   const[type,setType]=useState(initialType);
   const[form,setForm]=useState({
     title:'',url:'',notes:'',tags:'',
@@ -68,6 +70,9 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
   const ls={fontSize:12,fontWeight:700,color:'var(--t3)',marginBottom:3,display:'block'};
   const isQuickNote=type==='note';
   const isJournalEditor=type==='journal';
+  const isRawCapture=type==='raw';
+  const isWikiEntry=type==='wiki';
+  const isReviewEntry=type==='review';
   const noteWordCount=countWords(form.notes);
   const noteCharCount=String(form.notes||'').length;
   const journalPreviewHtml=useMemo(()=>{
@@ -131,12 +136,18 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
     ['Divider','Divider',()=>insertMarkdown('\n---\n','','')],
     ['Callout','Callout',()=>insertMarkdown('> [!note]\n> ','','Callout text')],
   ];
-  const modalTitle=quickCapture?'Quick Note':isQuickNote?'New Quick Note':isJournalEditor?'New Journal Entry':'New Entry';
+  const modalTitle=quickCapture?'Quick Note':isQuickNote?'New Quick Note':isJournalEditor?'New Journal Entry':`New ${LABEL[type]||'Entry'}`;
   const dropCopy=isQuickNote
     ? 'Notes are for quick capture. Keep it fast: title, tags, jot, save.'
     : isJournalEditor
       ? 'Journal entries are date-first and writing-heavy. Use the full editor for the daily body.'
-      : 'Drop an http(s) URL or file here. Files are copied into attachments/ and linked in notes.';
+      : isRawCapture
+        ? 'Inbox captures are for unprocessed source material. Save rough input now; process it later.'
+        : isWikiEntry
+          ? 'Wiki entries are durable knowledge notes meant to connect through [[wiki links]].'
+          : isReviewEntry
+            ? 'Review entries track things that need a decision, acceptance, or rejection.'
+            : 'Drop an http(s) URL or file here. Files are copied into attachments/ and linked in notes.';
   // FIX: two separate IDs — journalDate (top, journal only) and consumedDate (bottom, non-journal)
   const ids={title:useId(),url:useId(),channel:useId(),duration:useId(),guest:useId(),episode:useId(),highlight:useId(),status:useId(),tags:useId(),notes:useId(),journalDate:useId(),consumedDate:useId()};
   // Quick-capture: Cmd/Ctrl+Enter saves; Esc closes (handled by useEscapeKey).
@@ -147,24 +158,25 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
     <div role="dialog" aria-modal="true" aria-labelledby="add-modal-title" onClick={e=>{if(e.target===e.currentTarget)tryClose()}}
       style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div onDrop={onDrop} onDragOver={e=>e.preventDefault()} onKeyDown={onFormKeyDown}
-        style={{background:'var(--bg)',border:'2px solid var(--br)',borderRadius:'var(--rd)',width:isJournalEditor?'min(820px,95vw)':'min(560px,95vw)',maxHeight:'90vh',overflowY:'auto',padding:24,boxSizing:'border-box'}}>
-        <div style={{display:'flex',alignItems:'center',marginBottom:18}}>
+        style={{background:'var(--bg)',border:'2px solid var(--br)',borderRadius:'var(--rd)',width:isJournalEditor?'min(820px,95vw)':'min(560px,95vw)',maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxSizing:'border-box'}}>
+        <div style={{display:'flex',alignItems:'center',padding:'20px 24px 14px',borderBottom:'1px solid var(--br)',flexShrink:0}}>
           <h3 id="add-modal-title" style={{margin:0,fontSize:16,fontWeight:700}}>{modalTitle}</h3>
           {quickCapture&&<span style={{marginLeft:10,fontSize:10,color:'var(--t3)',letterSpacing:.5}}>Ctrl/⌘+Enter to save</span>}
           {dirty&&<span aria-live="polite" style={{marginLeft:10,fontSize:10,fontWeight:700,color:'var(--t3)',letterSpacing:.5,textTransform:'uppercase'}}>• unsaved</span>}
           <IconButton onClick={tryClose} label="Close" style={{marginLeft:'auto',fontSize:22}}>×</IconButton>
         </div>
-        {!quickCapture&&(<div role="radiogroup" aria-label="Entry type" style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:6,marginBottom:14}}>
-          {TYPES.map(t=>(
-            <button key={t} role="radio" aria-checked={type===t}
-              onClick={()=>changeType(t)}
-              style={{padding:'7px 4px',border:`2px solid ${type===t?'var(--ac)':'var(--br)'}`,borderRadius:'var(--rd)',background:type===t?'var(--ac)':'transparent',color:type===t?'var(--act)':'var(--t2)',cursor:'pointer',fontSize:12,fontFamily:'var(--fn)',fontWeight:type===t?700:400}}>
-              {ICON[t]} {LABEL[t]}
-            </button>
-          ))}
-        </div>)}
-        {!quickCapture&&<div style={{padding:10,background:'var(--b2)',border:'2px dashed var(--br)',borderRadius:'var(--rd)',textAlign:'center',fontSize:12,color:'var(--t3)',marginBottom:14}}>{dropCopy}</div>}
-        <div style={{display:'flex',flexDirection:'column',gap:11}}>
+        <div style={{overflowY:'auto',padding:'14px 24px 18px',minHeight:0,flex:1}}>
+          {!quickCapture&&(<div role="radiogroup" aria-label="Entry type" style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(6,visibleEntryTypes.length)||1},1fr)`,gap:6,marginBottom:14}}>
+            {visibleEntryTypes.map(t=>(
+              <button key={t} role="radio" aria-checked={type===t}
+                onClick={()=>changeType(t)}
+                style={{padding:'7px 4px',border:`2px solid ${type===t?'var(--ac)':'var(--br)'}`,borderRadius:'var(--rd)',background:type===t?'var(--ac)':'transparent',color:type===t?'var(--act)':'var(--t2)',cursor:'pointer',fontSize:12,fontFamily:'var(--fn)',fontWeight:type===t?700:400}}>
+                {ICON[t]} {LABEL[t]}
+              </button>
+            ))}
+          </div>)}
+          {!quickCapture&&<div style={{padding:10,background:'var(--b2)',border:'2px dashed var(--br)',borderRadius:'var(--rd)',textAlign:'center',fontSize:12,color:'var(--t3)',marginBottom:14}}>{dropCopy}</div>}
+          <div style={{display:'flex',flexDirection:'column',gap:11}}>
           {type==='journal'&&(
             <div>
               <label htmlFor={ids.journalDate} style={{...ls,color:'var(--ac)'}}>Journal Date</label>
@@ -238,7 +250,7 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
                   ))}
                 </div>
                 <textarea ref={notesRef} id={ids.notes}
-                  style={{...is,height:240,minHeight:180,resize:'vertical',border:'none',borderRadius:0,background:'transparent',lineHeight:1.65,fontFamily:'var(--fn)'}}
+                  style={{...is,height:200,minHeight:150,maxHeight:280,resize:'vertical',border:'none',borderRadius:0,background:'transparent',lineHeight:1.65,fontFamily:'var(--fn)'}}
                   value={form.notes} onChange={update('notes')}
                   placeholder="Write the dated journal entry. Markdown works here: headings, lists, links, quotes, code, and [[wiki links]]."/>
                 {previewOpen&&(
@@ -258,9 +270,10 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
               <input id={ids.consumedDate} type="date" style={is} value={form.entry_date} max={today()} onChange={update('entry_date')}/>
             </div>
           )}
+          </div>
         </div>
         {confirmDiscard&&(
-          <div role="alert" style={{marginTop:12,padding:'10px 14px',background:withAlpha('#ef4444',0.08),border:'1px solid #ef4444',borderRadius:'var(--rd)',fontSize:12,color:'var(--tx)',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+          <div role="alert" style={{margin:'0 24px 10px',padding:'10px 14px',background:withAlpha('#ef4444',0.08),border:'1px solid #ef4444',borderRadius:'var(--rd)',fontSize:12,color:'var(--tx)',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',flexShrink:0}}>
             <span style={{flex:1}}>Discard this entry? Your changes will be lost.</span>
             <div style={{display:'flex',gap:6,flexShrink:0}}>
               <button type="button" onClick={()=>setConfirmDiscard(false)}
@@ -274,7 +287,7 @@ export function AddModal({initialType='video',quickCapture=false,existingUrls,al
             </div>
           </div>
         )}
-        <div style={{position:'sticky',bottom:0,background:'var(--bg)',padding:'10px 0 0',marginTop:14,borderTop:'1px solid var(--br)',boxShadow:'0 -10px 18px var(--bg)'}}>
+        <div style={{background:'var(--bg)',padding:'10px 24px 20px',borderTop:'1px solid var(--br)',boxShadow:'0 -10px 18px rgba(0,0,0,0.18)',flexShrink:0}}>
           {type==='journal'&&(
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,fontSize:11,color:'var(--t3)',lineHeight:1.4}}>
               <span>Markdown journal saved as plain text in your vault.</span>

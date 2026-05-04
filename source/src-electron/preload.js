@@ -22,6 +22,7 @@ const vault = {
   async mkdir(p) { return ipcRenderer.invoke('vault:mkdir', p); },
   async move(from, to) { return ipcRenderer.invoke('vault:move', from, to); },
   async remove(p) { return ipcRenderer.invoke('vault:remove', p); },
+  async rmdir(p) { return ipcRenderer.invoke('vault:rmdir', p); },
   async readBinary(p) { return ipcRenderer.invoke('vault:readBinary', p); },
   async writeBinary(p, data) { return ipcRenderer.invoke('vault:writeBinary', p, data); },
   watch(cb) {

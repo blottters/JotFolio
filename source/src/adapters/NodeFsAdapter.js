@@ -68,6 +68,11 @@ export class NodeFsAdapter extends VaultAdapter {
     catch (err) { throw wrap(err); }
   }
 
+  async rmdir(path) {
+    try { return await bridge().rmdir(path); }
+    catch (err) { throw wrap(err); }
+  }
+
   watch(cb) {
     this._listeners.add(cb);
     // Lazily register single IPC subscription; fan out to all listeners locally.

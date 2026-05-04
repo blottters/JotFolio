@@ -447,7 +447,17 @@ export default function App(){
       // Legacy migration: old victoryColors → new customColors
       if(sp?.victoryColors&&!sp?.customColors)setCustomColors({victory:sp.victoryColors});
       if(typeof sp?.sidebarOpen==='boolean')setSidebarOpen(sp.sidebarOpen);
-      if(sp?.prefs){const p={...DEFAULT_PREFS,...sp.prefs,featureFlags:normalizeFeatureFlags(sp.prefs?.featureFlags)};setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);}
+      if(sp?.prefs){
+        let p={...DEFAULT_PREFS,...sp.prefs,featureFlags:normalizeFeatureFlags(sp.prefs?.featureFlags)};
+        // alpha.17 one-time migration: reset Codex-era saved-true flag flips
+        // for raw_inbox/wiki_mode/review_queue. Phase 4 compile pipeline ships
+        // dark in alpha.18; surfaces stay hidden until then. Marker pref
+        // guarantees this runs at most once per install.
+        if(sp.prefs.featureFlagsResetAlpha17!==true){
+          p={...p,featureFlags:{...p.featureFlags,raw_inbox:false,wiki_mode:false,review_queue:false},featureFlagsResetAlpha17:true};
+        }
+        setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);
+      }
       setPrefsLoaded(true);
     }).catch(err=>{
       if(!mounted)return;

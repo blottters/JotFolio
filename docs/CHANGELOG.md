@@ -28,6 +28,8 @@ Bump rules:
 
 ### Internal
 - Surgical revert of Codex-era feature-flag default flip (`wiki_mode`/`raw_inbox`/`review_queue`) back to `false`. Knowledge UI plumbing kept and made truly flag-gated for Phase 4/5 ship.
+- One-time prefs migration on app load resets any saved-true `wiki_mode`/`raw_inbox`/`review_queue` state from earlier Codex test builds back to `false`. Marker pref `featureFlagsResetAlpha17` ensures the migration runs at most once per install.
+- Karpathy LLM Wiki Phase 4 compilation pipeline shipped as importable library (`source/src/lib/compile/`). 53 new tests. No UI surface uses it yet — Phase 5 wires the trigger in alpha.19. `compile()` is pure, deterministic, takes a seed + vault index, returns a `CompileResult` with hash, sources, confidence, warnings, and emitted target (`wiki` vs `review`). Manifest tracking, supersedes chains, stale detection, and djb2-based hashing all included.
 
 ## [0.5.0-alpha.16] — 2026-05-04
 

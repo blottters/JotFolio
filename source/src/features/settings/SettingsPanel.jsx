@@ -383,10 +383,10 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
               <button key={val} onClick={()=>setPrefs(p=>({...p,constellationStyle:val}))} style={segBtn((prefs.constellationStyle||'star')===val)}>{label}</button>
             ))}
           </div>
-          <span style={sH}>Type Color Saturation</span>
-          <div style={{display:'flex',gap:4}}>
-            {[['full','Full'],['muted','Muted'],['mono','Mono']].map(([val,label])=>(
-              <button key={val} onClick={()=>setPrefs(p=>({...p,typeSaturation:val}))} style={segBtn((prefs.typeSaturation||'full')===val)}>{label}</button>
+          <span style={sH}>Type Color Theme</span>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            {[['bone','Bone & stone'],['sepia','Sepia'],['cool','Cool neutral'],['mono','Monochrome']].map(([val,label])=>(
+              <button key={val} onClick={()=>setPrefs(p=>({...p,typeSaturation:val}))} style={segBtn((prefs.typeSaturation||'bone')===val||(val==='bone'&&prefs.typeSaturation==='full')||(val==='sepia'&&prefs.typeSaturation==='muted'))}>{label}</button>
             ))}
           </div>
           <span style={sH}>Constellation Background</span>

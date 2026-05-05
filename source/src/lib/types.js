@@ -52,24 +52,30 @@ export const today = () => new Date().toISOString().slice(0,10);
 
 // ── Type-color tokens — Constellation redesign palette ────────────────────
 //
-// Six desaturated tokens harmonizing with Victory dark (#151415 bg, F1EADE
-// cream). Each has full / muted / mono saturation levels so the user can
-// tune how prominent type-color signal is. Replaces the old saturated
-// rainbow that lived in ConstellationView.jsx as TYPE_HUE.
+// Six type tokens × 4 neutral palette themes (bone / sepia / cool / mono).
+// Replaces the old saturated rainbow that lived as TYPE_HUE in
+// ConstellationView.jsx. All four themes harmonize with Victory dark
+// (#151415 bg, F1EADE cream).
+//
+//   bone   — Bone & stone. Earth tones. Most differentiated. Default.
+//   sepia  — Sepia gradient. Single warm hue, stepped lightness.
+//   cool   — Cool neutrals. Greys with bluish undertones.
+//   mono   — Monochrome cream. Type-color signal nearly gone, relies on
+//            icon + position.
 //
 // Knowledge types (raw/wiki/review) keep their own palette — see
-// MEMORY_TOKENS below — because they ship behind feature flags and
-// follow a different visual language (memory-graph nodes).
+// MEMORY_TOKENS below — because they ship behind feature flags and follow
+// a different visual language (memory-graph nodes).
 //
 // Stepped lightness across types so color-blind viewers can tell them apart
 // even at the smallest dot size.
 export const TYPE_TOKENS = Object.freeze({
-  note:    { name: 'Notes',    full: '#d8c8a8', muted: '#a89a82', mono: '#F1EADE' }, // warm parchment
-  article: { name: 'Articles', full: '#9ab4b0', muted: '#7d918e', mono: '#c8bfb0' }, // dusty teal
-  podcast: { name: 'Podcasts', full: '#c89a7a', muted: '#a07d62', mono: '#a89a82' }, // burnished copper
-  video:   { name: 'Videos',   full: '#a08e9c', muted: '#807083', mono: '#8a8275' }, // smoked plum
-  journal: { name: 'Journals', full: '#b8a878', muted: '#8e8260', mono: '#d9c9a8' }, // ochre
-  link:    { name: 'Links',    full: '#7c8e9a', muted: '#637380', mono: '#8a8275' }, // slate
+  note:    { name: 'Notes',    bone: '#D9CDB4', sepia: '#E8DEC8', cool: '#CFC9BD', mono: '#F1EADE' },
+  article: { name: 'Articles', bone: '#A89A82', sepia: '#C9B79A', cool: '#9DA3A0', mono: '#D9D0BD' },
+  podcast: { name: 'Podcasts', bone: '#B89478', sepia: '#A8916F', cool: '#A4978B', mono: '#C0B59E' },
+  video:   { name: 'Videos',   bone: '#8C7A6B', sepia: '#85714F', cool: '#7C8284', mono: '#A89C82' },
+  journal: { name: 'Journals', bone: '#C2B187', sepia: '#D4BD92', cool: '#B8B0A0', mono: '#E0D6BF' },
+  link:    { name: 'Links',    bone: '#766962', sepia: '#5C4D38', cool: '#5F6262', mono: '#8E8472' },
 });
 
 export const MEMORY_TOKENS = Object.freeze({
@@ -78,22 +84,39 @@ export const MEMORY_TOKENS = Object.freeze({
   review: '#ec4899', // review — pink (existing)
 });
 
-export const TYPE_SATURATION_LEVELS = ['full', 'muted', 'mono'];
+export const TYPE_THEME_LEVELS = ['bone', 'sepia', 'cool', 'mono'];
+
+// Back-compat alias. Old name; some imports still reference it.
+export const TYPE_SATURATION_LEVELS = TYPE_THEME_LEVELS;
+
+// Map of legacy alpha.19 saturation values → new alpha.20 theme keys, for
+// the prefs migration below.
+const LEGACY_SATURATION_REMAP = { full: 'bone', muted: 'sepia', mono: 'mono' };
 
 /**
- * Resolve a type's color at a given saturation level.
+ * Migrate a saved alpha.19 saturation value (full/muted/mono) to the new
+ * alpha.20 theme value (bone/sepia/cool/mono). New theme keys pass through.
+ */
+export function migrateTypeSatToTheme(value) {
+  if (TYPE_THEME_LEVELS.includes(value)) return value;
+  if (value in LEGACY_SATURATION_REMAP) return LEGACY_SATURATION_REMAP[value];
+  return 'bone';
+}
+
+/**
+ * Resolve a type's color under a given palette theme.
  * @param {string} type - one of TYPES keys (note/article/etc.) or knowledge type
- * @param {'full'|'muted'|'mono'} saturation - default 'full'
+ * @param {'bone'|'sepia'|'cool'|'mono'|'full'|'muted'} theme - default 'bone'
+ *   (legacy 'full'/'muted' values auto-migrate)
  * @returns {string} hex color
  */
-export function applyTypeSat(type, saturation = 'full') {
+export function applyTypeSat(type, theme = 'bone') {
+  const t = migrateTypeSatToTheme(theme);
   const token = TYPE_TOKENS[type];
   if (token) {
-    if (saturation === 'mono') return token.mono;
-    if (saturation === 'muted') return token.muted;
-    return token.full;
+    return token[t] || token.bone;
   }
-  // knowledge types pass through unchanged (saturation tweak doesn't affect them)
+  // knowledge types pass through unchanged (theme tweak doesn't affect them)
   if (type in MEMORY_TOKENS) return MEMORY_TOKENS[type];
   return '#F1EADE'; // fallback to accent cream for unknown types
 }

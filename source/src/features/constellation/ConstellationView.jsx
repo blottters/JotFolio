@@ -456,8 +456,12 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     return 0.12;
   };
   const nodeOpacity=(n)=>{
-    if(hoverSet&&!hoverSet.has(n.id))return 0.4;
-    if(focalSet&&!focalSet.has(n.id))return 0.18;
+    // Non-focused nodes still need to read as nodes — raised the floors
+    // so the canvas never looks "washed out" in focal/hover mode.
+    // Was 0.4 / 0.18 — now 0.7 / 0.55. Stars stay solid; focus is
+    // signaled via stroke + label, not opacity.
+    if(hoverSet&&!hoverSet.has(n.id))return 0.7;
+    if(focalSet&&!focalSet.has(n.id))return 0.55;
     return 1;
   };
   const labelVisible=(n)=>{

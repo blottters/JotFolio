@@ -7,27 +7,45 @@ import {
 } from './featureFlags.js';
 
 describe('featureFlags', () => {
-  it('normalizes missing flags to production-safe defaults', () => {
+  it('normalizes missing flags to alpha.18 defaults (knowledge types on)', () => {
     expect(normalizeFeatureFlags()).toEqual(DEFAULT_FEATURE_FLAGS);
-    expect(normalizeFeatureFlags({ wiki_mode: true })).toEqual({
+    expect(normalizeFeatureFlags({ context_packs: true })).toEqual({
       ...DEFAULT_FEATURE_FLAGS,
-      wiki_mode: true,
+      context_packs: true,
     });
   });
 
-  it('hides raw/wiki/review entries by default', () => {
+  it('respects explicit false for the alpha.18 knowledge flags', () => {
+    const off = normalizeFeatureFlags({
+      wiki_mode: false,
+      raw_inbox: false,
+      review_queue: false,
+    });
+    expect(off.wiki_mode).toBe(false);
+    expect(off.raw_inbox).toBe(false);
+    expect(off.review_queue).toBe(false);
+  });
+
+  it('shows raw/wiki/review entries by default', () => {
     const entries = [
       { id: 'a', type: 'note' },
       { id: 'b', type: 'raw' },
       { id: 'c', type: 'wiki' },
       { id: 'd', type: 'review' },
     ];
-    expect(filterEntriesForUI(entries)).toEqual([{ id: 'a', type: 'note' }]);
+    expect(filterEntriesForUI(entries)).toEqual(entries);
   });
 
-  it('shows gated entry kinds only when their feature flag is enabled', () => {
-    expect(shouldShowEntryType('raw', { raw_inbox: true })).toBe(true);
-    expect(shouldShowEntryType('wiki', { wiki_mode: true })).toBe(true);
-    expect(shouldShowEntryType('review', { review_queue: true })).toBe(true);
+  it('hides gated entry kinds when their flag is explicitly false', () => {
+    expect(shouldShowEntryType('raw', { raw_inbox: false })).toBe(false);
+    expect(shouldShowEntryType('wiki', { wiki_mode: false })).toBe(false);
+    expect(shouldShowEntryType('review', { review_queue: false })).toBe(false);
+  });
+
+  it('keeps still-dark phases (context_packs, memory_graph_nodes) strict opt-in', () => {
+    const flags = normalizeFeatureFlags({});
+    expect(flags.context_packs).toBe(false);
+    expect(flags.memory_graph_nodes).toBe(false);
+    expect(normalizeFeatureFlags({ context_packs: true }).context_packs).toBe(true);
   });
 });

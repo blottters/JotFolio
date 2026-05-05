@@ -87,7 +87,7 @@ function comparableForm(form,entry){
 }
 
 // ── Detail Panel ──────────────────────────────────────────────────────────
-export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing,onRevealFile,onMoveFile,onRenameFile}){
+export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing,onRevealFile,onMoveFile,onRenameFile,onCompile}){
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState(()=>formFromEntry(entry));
   const[recording,setRecording]=useState(false);
@@ -186,6 +186,11 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
               style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:hasPrev?'var(--t2)':'var(--t3)',cursor:hasPrev?'pointer':'not-allowed',opacity:hasPrev?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>‹</button>
             <button onClick={()=>requestDiscard('next')} disabled={!hasNext} aria-label="Next entry"
               style={{padding:'4px 8px',fontSize:14,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:hasNext?'var(--t2)':'var(--t3)',cursor:hasNext?'pointer':'not-allowed',opacity:hasNext?1:.4,fontFamily:'var(--fn)',flexShrink:0,lineHeight:1}}>›</button>
+            {entry.type==='raw'&&onCompile&&(
+              <button onClick={onCompile} aria-label="Compile this raw entry into a wiki or review memory"
+                title="Compile to memory"
+                style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--ac)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0,fontWeight:700}}>Compile</button>
+            )}
             <button onClick={()=>setConfirmDelete(true)} aria-label="Delete entry"
               style={{padding:'4px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Delete</button>
             <button ref={editButtonRef} onClick={()=>editing?cancelEdit():setEditing(true)} aria-label={editing?'Cancel editing':'Edit entry'} aria-pressed={editing}

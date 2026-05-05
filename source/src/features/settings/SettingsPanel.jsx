@@ -377,6 +377,24 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
               <button key={val} onClick={()=>setPrefs(p=>({...p,sidebarWidth:val}))} style={segBtn(prefs.sidebarWidth===val)}>{label}</button>
             ))}
           </div>
+          <span style={sH}>Constellation Style</span>
+          <div style={{display:'flex',gap:4}}>
+            {[['star','Star chart'],['board','Detective board'],['editorial','Editorial']].map(([val,label])=>(
+              <button key={val} onClick={()=>setPrefs(p=>({...p,constellationStyle:val}))} style={segBtn((prefs.constellationStyle||'star')===val)}>{label}</button>
+            ))}
+          </div>
+          <span style={sH}>Type Color Saturation</span>
+          <div style={{display:'flex',gap:4}}>
+            {[['full','Full'],['muted','Muted'],['mono','Mono']].map(([val,label])=>(
+              <button key={val} onClick={()=>setPrefs(p=>({...p,typeSaturation:val}))} style={segBtn((prefs.typeSaturation||'full')===val)}>{label}</button>
+            ))}
+          </div>
+          <span style={sH}>Constellation Background</span>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            {[['solid','Solid'],['vignette','Vignette'],['grid','Grid'],['constellation','Star field']].map(([val,label])=>(
+              <button key={val} onClick={()=>setPrefs(p=>({...p,constellationBg:val}))} style={segBtn((prefs.constellationBg||'solid')===val)}>{label}</button>
+            ))}
+          </div>
           </>}
           <div style={{marginTop:18,paddingTop:12,borderTop:'1px solid var(--br)',textAlign:'center'}}>
             <button onClick={toggleAdvanced} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'none',color:'var(--t3)',cursor:'pointer',fontFamily:'var(--fn)',textDecoration:'underline'}}>

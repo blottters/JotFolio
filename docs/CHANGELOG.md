@@ -10,6 +10,23 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.19] — 2026-05-05
+
+### Added
+- **Three Constellation visual styles** — Star chart (default, current behavior), Detective board (dark index-card nodes with title + meta + type-color edge strip), Editorial (sparse dots + tier-sized Fraunces labels by link count). Switchable in Settings → Appearance → Constellation Style.
+- **Type color saturation** — Full / Muted / Mono. Six new desaturated type tokens (`note` / `article` / `podcast` / `video` / `journal` / `link`) replacing the old saturated rainbow. Switchable in Settings → Appearance → Type Color Saturation.
+- **Constellation backgrounds** — Solid (default) / Vignette (radial dark fade focuses center) / Grid (hairline tablet) / Star field (sparse decorative dots). Switchable in Settings → Appearance → Constellation Background.
+- **Designed empty / locked / no-matches state cards** — `ConstellationStateOverlay` replaces text-only states with a ✦ glyph + Fraunces heading + sub-copy + action button. Locked state shows entry count and "+ Add another"; no-matches state shows "Reset filters".
+- New library exports: `TYPE_TOKENS`, `MEMORY_TOKENS`, `TYPE_SATURATION_LEVELS`, `applyTypeSat(type, saturation)` in `lib/types.js`. Pure renderer components `StarNode` / `BoardNode` / `EditorialNode` + `NODE_VARIANTS` in `features/constellation/nodeRenderers.jsx` (currently unused at runtime — integration uses inline branching for performance + drag/bob compatibility, the pure renderers ship as a tested foundation for alpha.20+ refactor).
+
+### Changed
+- `ConstellationView.jsx` swaps `TYPE_HUE` (saturated rainbow) for `applyTypeSat()` everywhere — node fill, legend swatch.
+- Locked-state header replaces ad-hoc `GraphLockOverlay` with the new `ConstellationStateOverlay`.
+
+### Internal
+- 33 new tests across 5 files (8 type tokens, 16 node renderers, 9 state overlay). Cumulative 620 / 620 pass.
+- `nodeRenderers.jsx` currently shipped as tested-but-unused — preserves the design's pure-component intent for a future drop-in refactor when the inline branching outgrows itself.
+
 ## [0.5.0-alpha.18] — 2026-05-04
 
 ### Added

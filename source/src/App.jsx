@@ -81,7 +81,7 @@ export default function App(){
   const isBrowserVault=typeof window!=='undefined'&&!window.electron?.vault;
   const[darkMode,setDarkMode]=useState('system');
   const[customColors,setCustomColors]=useState({});
-  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,defaultLayoutMode:'messy',constellationStyle:'star',typeSaturation:'full',constellationBg:'solid',featureFlags:DEFAULT_FEATURE_FLAGS};
+  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,defaultLayoutMode:'messy',constellationStyle:'star',typeSaturation:'bone',constellationBg:'solid',featureFlags:DEFAULT_FEATURE_FLAGS};
   const[prefs,setPrefs]=useState(DEFAULT_PREFS);
   const[toasts,setToasts]=useState([]);
   const toast=useCallback((msg,type='success')=>{

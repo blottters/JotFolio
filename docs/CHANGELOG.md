@@ -10,6 +10,24 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.20] — 2026-05-05
+
+### Changed
+- **Type Color Theme** replaces "Type Color Saturation" in Settings → Appearance. Four neutral palettes:
+  - **Bone & stone** (default) — earth tones, most differentiated.
+  - **Sepia** — single warm hue stepped by lightness.
+  - **Cool neutral** — greys with bluish undertones.
+  - **Monochrome** — cream tones, type-color signal nearly gone.
+- All four palettes are intentional neutrals — no saturated rainbow anywhere.
+- `applyTypeSat(type, theme)` accepts new theme keys (`bone` / `sepia` / `cool` / `mono`) plus legacy keys (`full` / `muted`) which auto-migrate via `migrateTypeSatToTheme()`.
+- `TYPE_THEME_LEVELS` exported from `lib/types.js`. `TYPE_SATURATION_LEVELS` retained as a back-compat alias.
+
+### Fixed
+- **Constellation nodes no longer fade to transparent in focal mode.** `nodeOpacity` floors raised: focal-non-neighbor 0.18 → 0.55, hover-non-neighbor 0.4 → 0.7. Stars stay solid; focus is signaled via stroke + label, not opacity.
+
+### Internal
+- 8 new tests for theme keys + legacy migration. Cumulative 628 / 628 pass.
+
 ## [0.5.0-alpha.19] — 2026-05-05
 
 ### Added

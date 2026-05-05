@@ -55,6 +55,7 @@ import { compile, loadManifest } from './lib/compile/index.js';
 import { buildVaultIndex } from './lib/index/vaultIndex.js';
 import { MemoryDetailPanel } from './features/constellation/MemoryDetailPanel.jsx';
 import { SplitMemoryModal } from './features/constellation/SplitMemoryModal.jsx';
+import { CompilePreviewModal } from './features/constellation/CompilePreviewModal.jsx';
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
@@ -457,12 +458,13 @@ export default function App(){
       if(typeof sp?.sidebarOpen==='boolean')setSidebarOpen(sp.sidebarOpen);
       if(sp?.prefs){
         let p={...DEFAULT_PREFS,...sp.prefs,featureFlags:normalizeFeatureFlags(sp.prefs?.featureFlags)};
-        // alpha.17 one-time migration: reset Codex-era saved-true flag flips
-        // for raw_inbox/wiki_mode/review_queue. Phase 4 compile pipeline ships
-        // dark in alpha.18; surfaces stay hidden until then. Marker pref
-        // guarantees this runs at most once per install.
-        if(sp.prefs.featureFlagsResetAlpha17!==true){
-          p={...p,featureFlags:{...p.featureFlags,raw_inbox:false,wiki_mode:false,review_queue:false},featureFlagsResetAlpha17:true};
+        // alpha.18 migration: knowledge types graduated from dark to default-on
+        // because the compile button now exists. If a user was force-disabled
+        // by the alpha.17 migration (featureFlagsResetAlpha17:true) AND has
+        // not been processed by alpha.18 yet, flip the three knowledge flags
+        // back on. Marker featureFlagsResetAlpha18 guarantees one-time run.
+        if(sp.prefs.featureFlagsResetAlpha18!==true){
+          p={...p,featureFlags:{...p.featureFlags,raw_inbox:true,wiki_mode:true,review_queue:true},featureFlagsResetAlpha18:true};
         }
         setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);
       }
@@ -1094,6 +1096,26 @@ export default function App(){
     // just navigates to the graph; user can click the memory node.
     void entryId;
   }
+  // alpha.18 Compile flow: raw entry → compile() → preview modal → save.
+  const[compilePreview,setCompilePreview]=useState(null); // { result, sourceEntries } | null
+  function handleCompileRaw(rawEntryId){
+    try{
+      const seed=entries.find(e=>e.id===rawEntryId);
+      if(!seed){toast('Entry not found','error');return;}
+      if(seed.type!=='raw'){toast('Compile is only available on raw inbox entries','error');return;}
+      const idx=buildVaultIndex(entries);
+      const result=compile(seed,idx,{compiler:'deterministic-stub',now:()=>new Date().toISOString()});
+      const sourceEntries=result.sources.map(s=>entries.find(e=>e.id===s.id)).filter(Boolean);
+      setCompilePreview({result,sourceEntries});
+    }catch(err){reportError(err,'Compile failed');}
+  }
+  async function handleAcceptCompile(compiledEntry){
+    try{
+      await saveEntryWithRules({id:uid(),...compiledEntry});
+      setCompilePreview(null);
+      toast(compiledEntry.type==='wiki'?'Saved as wiki entry':'Saved as review entry');
+    }catch(err){reportError(err,'Save compiled entry failed');}
+  }
 
   return(
     <div className="mgn-app" style={{display:'flex',height:'100%',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',overflow:'hidden',position:'relative'}}>
@@ -1238,7 +1260,14 @@ export default function App(){
           onConfirm={handleConfirmMemory}
           onSplit={handleSplitMemory}
           onTraceToSources={handleTraceToSources}/>
-      ):detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      ):detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onCompile={()=>handleCompileRaw(detail.id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
+      {compilePreview&&(
+        <CompilePreviewModal
+          result={compilePreview.result}
+          sourceEntries={compilePreview.sourceEntries}
+          onClose={()=>setCompilePreview(null)}
+          onAccept={handleAcceptCompile}/>
+      )}
       {splitMemoryTarget&&(
         <SplitMemoryModal
           original={splitMemoryTarget}

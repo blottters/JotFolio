@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { ALL_ENTRY_TYPES, LABEL } from '../../lib/types.js';
-import { GraphLockOverlay } from '../../onboarding/nudges.jsx';
+import { ALL_ENTRY_TYPES, LABEL, applyTypeSat } from '../../lib/types.js';
+import { ConstellationStateOverlay } from './ConstellationStateOverlay.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from './layout.js';
 
@@ -8,15 +8,23 @@ import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from 
 // Polar layout — nodes on circles, no physics sim (keeps bundle tiny, no hover
 // jitter). Node size encodes link-count. Node color encodes type. Starred
 // entries get a halo. Click node = open detail.
-export const TYPE_HUE={video:'#ef4444',podcast:'#a855f7',article:'#3b82f6',journal:'#10b981',link:'#f59e0b',note:'#14b8a6',raw:'#f97316',wiki:'#8b5cf6',review:'#ec4899'};
+//
+// Visual variants (via `style` prop): 'star' (default — luminous dots),
+// 'board' (index-card with title + meta), 'editorial' (sparse dots + tier-
+// sized labels by link count). Color saturation tunable via `saturation`
+// prop ('full' / 'muted' / 'mono'). Background variant via `bg` prop.
 const KNOWLEDGE_FLAG_MAP={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
-export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,flags={}}){
+export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,flags={},style='star',saturation='full',bg='solid'}){
   const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!KNOWLEDGE_FLAG_MAP[t]||flags[KNOWLEDGE_FLAG_MAP[t]]===true);
   const[filter,setFilter]=useState('all');
   const[tagFilter,setTagFilter]=useState('');
   const[titleQuery,setTitleQuery]=useState('');
   const[showUnresolved,setShowUnresolved]=useState(true);
   const[memoryOnly,setMemoryOnly]=useState(false);
+  const hasFilters=filter!=='all'||!!tagFilter||!!titleQuery.trim()||!showUnresolved||memoryOnly;
+  const resetFilters=useCallback(()=>{
+    setFilter('all');setTagFilter('');setTitleQuery('');setShowUnresolved(true);setMemoryOnly(false);
+  },[]);
   const[infoOpen,setInfoOpen]=useState(null); // null | 'ghosts' | 'messy' | 'clusters' | 'affinity'
   const[hover,setHover]=useState(null);
   // Stack of focal ids. Top = current view. Empty = full web.
@@ -497,12 +505,14 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   // Lock graph until 3 entries — all hooks above run so Rules-of-Hooks holds
   if(entries.length<3){
     return(
-      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'var(--bg)'}}>
+      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'var(--bg)',position:'relative'}}>
         <div style={{padding:'10px 20px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:10,flexShrink:0,background:'var(--b2)'}}>
           <button onClick={onBack} style={{padding:'6px 10px',fontSize:12,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>← Back</button>
           <span style={{fontWeight:700,fontSize:17,letterSpacing:-0.3}}>✦ Constellation</span>
         </div>
-        <GraphLockOverlay count={entries.length} onAdd={()=>{onBack();onAdd&&onAdd()}}/>
+        <div style={{flex:1,position:'relative'}}>
+          <ConstellationStateOverlay state="locked" count={entries.length} onAdd={()=>{onBack();onAdd&&onAdd()}}/>
+        </div>
       </div>
     );
   }
@@ -618,12 +628,13 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
         </details>
       )}
       <div style={{flex:1,position:'relative',overflow:'hidden'}}>
+        <ConstellationBackground kind={bg}/>
         {nodes.length===0?(
-          <div style={{textAlign:'center',padding:'120px 20px',color:'var(--t3)'}}>
-            <div style={{fontSize:48,marginBottom:12}} aria-hidden="true">✦</div>
-            <div style={{fontSize:15,fontWeight:700,color:'var(--t2)',marginBottom:4}}>No entries to map yet</div>
-            <div style={{fontSize:12}}>Add entries and link them to see the constellation.</div>
-          </div>
+          <ConstellationStateOverlay
+            state={hasFilters?'no-matches':'empty'}
+            count={entries.length}
+            onAdd={onAdd}
+            onReset={resetFilters}/>
         ):(
           <svg ref={svgRef} viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet"
             style={{width:'100%',height:'100%',display:'block',cursor:isDragging?'grabbing':'grab',userSelect:'none',touchAction:'none'}}
@@ -658,9 +669,10 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                 const isMemory=n.type==='wiki'||n.type==='review';
                 const isReviewMemory=n.type==='review';
                 const isStaleMemory=isMemory&&n.freshness==='stale';
+                const typeColor=applyTypeSat(n.type,saturation);
                 const fill=n._unresolved
                   ?'var(--bg)'
-                  :(isReviewMemory?'transparent':(TYPE_HUE[n.type]||'var(--ac)'));
+                  :(isReviewMemory?'transparent':typeColor);
                 const active=hover===n.id||focal===n.id;
                 const memoryStaleOp=isStaleMemory?0.6:1;
                 const op=nodeOpacity(n)*depthOp*memoryStaleOp;
@@ -692,22 +704,112 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                       tabIndex={0}
                       aria-label={`${describeGraphNode(n)}. Press Enter to ${n._unresolved?'create this ghost note':'focus this node'}. Press O to open.`}
                       style={{cursor:n._unresolved?'pointer':(compDragRef.current?.nodeId===n.id?'grabbing':'pointer'),touchAction:'none'}} opacity={n._unresolved?0.7:op}>
-                      {n.starred&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#e0a600" strokeWidth={1.4} opacity={0.6}/>}
-                      <circle cx={0} cy={0} r={r} fill={fill}
-                        stroke={n._unresolved?'var(--t3)':(isMemory?'var(--ac)':(active?'var(--tx)':'var(--bg)'))}
-                        strokeWidth={isMemory?2:(active?2.5:2)}
-                        strokeDasharray={n._unresolved?'3 3':undefined}/>
-                      {(labelVisible(n)||n._unresolved)&&<text x={0} y={r+12} textAnchor="middle"
-                        fill={n._unresolved?'var(--t3)':'var(--tx)'} fontSize="10"
-                        fontFamily="var(--fn)" fontStyle={n._unresolved?'italic':'normal'} pointerEvents="none"
-                        style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
-                        {(n.title||'').slice(0,22)}{(n.title||'').length>22?'…':''}
-                      </text>}
-                      {memoryConfidencePct!==null&&<text x={0} y={r+(labelVisible(n)?24:12)} textAnchor="middle"
-                        fill="var(--t3)" fontSize="9" fontFamily="var(--fn)" pointerEvents="none"
-                        style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
-                        {memoryConfidencePct}%
-                      </text>}
+                      {n.starred&&style!=='board'&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#e0a600" strokeWidth={1.4} opacity={0.6}/>}
+                      {style==='board'?(()=>{
+                        // Detective board variant: dark index card, type-color strip on the
+                        // left, cream title + muted meta line. Memory entries keep their
+                        // accent stroke + confidence badge so the card doesn't lose its tells.
+                        const cardW=Math.max(120,r*8);
+                        const cardH=Math.max(40,r*3);
+                        const linkCount=n.links?.length||0;
+                        const isHub=linkCount>=4;
+                        const titleStr=(n.title||'').length>22?(n.title||'').slice(0,21)+'…':(n.title||'');
+                        return(
+                          <g>
+                            <rect x={-cardW/2} y={-cardH/2} width={cardW} height={cardH}
+                              fill={n._unresolved?'transparent':'#1c1b1a'}
+                              stroke={isMemory?'var(--ac)':typeColor}
+                              strokeWidth={active||isMemory?1.5:1}
+                              strokeDasharray={n._unresolved?'3 3':undefined}/>
+                            {!n._unresolved&&(
+                              <rect x={-cardW/2} y={-cardH/2} width={3} height={cardH} fill={typeColor}/>
+                            )}
+                            {n.starred&&(
+                              <rect x={-cardW/2-2} y={-cardH/2-2} width={cardW+4} height={cardH+4}
+                                fill="none" stroke="#e0a600" strokeWidth={0.75} opacity={0.7}/>
+                            )}
+                            <text x={-cardW/2+10} y={-cardH/2+18}
+                              fill={n._unresolved?'rgba(241,234,222,0.45)':'#F1EADE'}
+                              fontSize="12"
+                              fontWeight={isHub?600:500}
+                              fontFamily="var(--fn)"
+                              fontStyle={n._unresolved?'italic':'normal'}
+                              pointerEvents="none">{titleStr}</text>
+                            <text x={-cardW/2+10} y={-cardH/2+34}
+                              fill="rgba(241,234,222,0.5)"
+                              fontSize="10" letterSpacing="0.06em"
+                              fontFamily="var(--fn)" pointerEvents="none">
+                              {n.type}{linkCount>0?` · ${linkCount}`:''}
+                              {memoryConfidencePct!==null?` · ${memoryConfidencePct}%`:''}
+                            </text>
+                          </g>
+                        );
+                      })():style==='editorial'?(()=>{
+                        // Editorial variant: sparse dot + tier-sized Fraunces label by link
+                        // count. Hubs (>=4 links) render large display text to the right; mid
+                        // tiers render below in muted serif; leaves disappear into dots
+                        // unless hovered/focal/starred.
+                        const linkCount=n.links?.length||0;
+                        const tier=linkCount>=4?0:linkCount>=2?1:2;
+                        const fontSize=[20,13,11][tier];
+                        const fontWeight=[400,500,400][tier];
+                        const dotR=n.starred?5:linkCount>=4?4:2.5;
+                        const editorialShow=labelVisible(n)||tier===0||active||n._unresolved;
+                        return(
+                          <g>
+                            {n._unresolved?(
+                              <circle cx={0} cy={0} r={dotR} fill="none" stroke={typeColor} strokeWidth={0.75} strokeDasharray="1.5 2"/>
+                            ):(
+                              <circle cx={0} cy={0} r={dotR} fill={isReviewMemory?'transparent':typeColor}
+                                stroke={isMemory?'var(--ac)':(active?'var(--tx)':'transparent')}
+                                strokeWidth={isMemory?1.5:(active?1:0)}/>
+                            )}
+                            {active&&!n._unresolved&&(
+                              <circle cx={0} cy={0} r={dotR+4} fill="none" stroke="var(--ac)" strokeWidth={0.5}/>
+                            )}
+                            {editorialShow&&n.title&&(
+                              <text
+                                x={tier===0?dotR+10:0}
+                                y={tier===0?6:dotR+fontSize+2}
+                                textAnchor={tier===0?'start':'middle'}
+                                fill={n._unresolved?'var(--t3)':(tier===0?'var(--tx)':'var(--t2)')}
+                                fontSize={fontSize}
+                                fontWeight={fontWeight}
+                                fontFamily="var(--fn)"
+                                fontStyle={n._unresolved?'italic':'normal'}
+                                letterSpacing={tier===0?'-0.005em':0}
+                                pointerEvents="none"
+                                style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
+                                {n.title}
+                              </text>
+                            )}
+                            {memoryConfidencePct!==null&&(
+                              <text x={0} y={dotR+fontSize+14} textAnchor="middle"
+                                fill="var(--t3)" fontSize="9" fontFamily="var(--fn)" pointerEvents="none"
+                                style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
+                                {memoryConfidencePct}%
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })():(<>
+                        {/* Star chart variant — current default. Luminous dot + label. */}
+                        <circle cx={0} cy={0} r={r} fill={fill}
+                          stroke={n._unresolved?'var(--t3)':(isMemory?'var(--ac)':(active?'var(--tx)':'var(--bg)'))}
+                          strokeWidth={isMemory?2:(active?2.5:2)}
+                          strokeDasharray={n._unresolved?'3 3':undefined}/>
+                        {(labelVisible(n)||n._unresolved)&&<text x={0} y={r+12} textAnchor="middle"
+                          fill={n._unresolved?'var(--t3)':'var(--tx)'} fontSize="10"
+                          fontFamily="var(--fn)" fontStyle={n._unresolved?'italic':'normal'} pointerEvents="none"
+                          style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
+                          {(n.title||'').slice(0,22)}{(n.title||'').length>22?'…':''}
+                        </text>}
+                        {memoryConfidencePct!==null&&<text x={0} y={r+(labelVisible(n)?24:12)} textAnchor="middle"
+                          fill="var(--t3)" fontSize="9" fontFamily="var(--fn)" pointerEvents="none"
+                          style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
+                          {memoryConfidencePct}%
+                        </text>}
+                      </>)}
                     </g>
                   </g>
                 );
@@ -724,7 +826,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             </div>
             {visibleEntryTypes.map(t=>(
               <div key={t} style={{display:'flex',alignItems:'center',gap:7,color:'var(--t2)'}}>
-                <span style={{width:10,height:10,borderRadius:'50%',background:TYPE_HUE[t]}}/>
+                <span style={{width:10,height:10,borderRadius:'50%',background:applyTypeSat(t,saturation)}}/>
                 <span>{LABEL[t]}</span>
               </div>
             ))}
@@ -779,4 +881,54 @@ function InfoButton({open,onToggle,title,body}){
       )}
     </div>
   );
+}
+
+// ── Background variants ─────────────────────────────────────────────────────
+// 'solid'    — bare app background (default).
+// 'vignette' — radial fade darkens the edges, focuses center.
+// 'grid'     — hairline grid, "thinking tablet" feel.
+// 'constellation' — sparse decorative star dots, "night sky" atmosphere.
+// All four sit BELOW the SVG canvas with pointer-events disabled so they
+// never block pan/zoom interaction.
+function ConstellationBackground({kind='solid'}){
+  if(kind==='solid')return null;
+  if(kind==='vignette'){
+    return(
+      <div aria-hidden="true" style={{
+        position:'absolute',inset:0,pointerEvents:'none',
+        background:'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.45) 100%)'
+      }}/>
+    );
+  }
+  if(kind==='grid'){
+    return(
+      <svg aria-hidden="true" style={{position:'absolute',inset:0,pointerEvents:'none',opacity:0.5}}
+        width="100%" height="100%">
+        <defs>
+          <pattern id="jf-graph-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--br)" strokeWidth="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#jf-graph-grid)"/>
+      </svg>
+    );
+  }
+  if(kind==='constellation'){
+    const seeds=[];
+    for(let i=0;i<80;i++){
+      const x=(i*53)%1600;
+      const y=(i*97+17)%1000;
+      const r=i%5===0?0.9:0.4;
+      seeds.push({x,y,r,o:0.12+(((i*7)%30)/100)*0.4});
+    }
+    return(
+      <svg aria-hidden="true" style={{position:'absolute',inset:0,pointerEvents:'none'}}
+        viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+        {seeds.map((s,i)=>(
+          <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="var(--ac)" opacity={s.o}/>
+        ))}
+      </svg>
+    );
+  }
+  return null;
 }

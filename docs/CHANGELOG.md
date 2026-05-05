@@ -10,6 +10,24 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.18] — 2026-05-04
+
+### Added
+- **Compile to memory** action on raw entry detail panels. Triggers Phase 4 `compile()` over the entry's cluster, opens a preview modal showing the generated body, sources synthesized, warnings, and decision rationale (confidence, hash, compiler). User accepts → new wiki or review entry persisted; cancels → no change.
+- `CompilePreviewModal.jsx` — diff preview with severity-coded warnings, blocking-warning detection (canonical-collision-handauthored disables save), monospace body block, source-evidence list with type chips.
+- Knowledge types (`raw_inbox`, `wiki_mode`, `review_queue`) graduated from dark to default-on. Sidebar Inbox / Wiki / Review sections, AddModal entry-type buttons, and Constellation memory-node legend now visible by default.
+
+### Changed
+- `DEFAULT_FEATURE_FLAGS` flips three knowledge flags to `true`. Two still-dark phases (`context_packs`, `memory_graph_nodes`) remain strict opt-in.
+- `normalizeFeatureFlags` now respects explicit `false` saves on the three graduated flags (user opt-out preserved) while treating missing/null/true as on.
+- Alpha.18 one-time migration (`featureFlagsResetAlpha18` marker pref) re-enables the three knowledge flags for installs that were force-disabled by the alpha.17 migration.
+
+### Fixed
+- N/A — see alpha.17 for the most recent fix batch.
+
+### Internal
+- 13 new tests for `CompilePreviewModal`. Cumulative test count rises to ~585.
+
 ## [0.5.0-alpha.17] — 2026-05-04
 
 ### Added

@@ -64,7 +64,7 @@
 
 **Goal:** Single source of truth for "where does JotFolio live right now."
 
-- [ ] **Step 1:** Run audit script — write results to `docs/superpowers/path-audit-2026-04-29.md`:
+- [ ] **Step 1:** Run audit script — write results to `docs/_archive/audits/path-audit-2026-04-29.md`:
 
 ```powershell
 # In PowerShell

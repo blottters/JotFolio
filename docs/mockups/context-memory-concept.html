@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JotFolio Concept Mockups - Context Packs and Memory Graph Nodes</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --bg: #07101d;
+      --panel: #0d1828;
+      --panel-2: #121f31;
+      --panel-3: #17263a;
+      --line: #2b405a;
+      --line-2: #3b5574;
+      --text: #f4f7fb;
+      --muted: #9eb2cc;
+      --soft: #6f8199;
+      --accent: #72e1c8;
+      --blue: #7db7ff;
+      --orange: #f7b267;
+      --pink: #f78acb;
+      --green: #9bea9b;
+      --danger: #ff7b7b;
+      --shadow: rgba(0, 0, 0, .35);
+      font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(114, 225, 200, .12), transparent 32rem),
+        radial-gradient(circle at 80% 16%, rgba(125, 183, 255, .12), transparent 26rem),
+        var(--bg);
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 22px;
+    }
+
+    .hero {
+      max-width: 1420px;
+      margin: 0 auto 18px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3vw, 38px);
+      line-height: 1.04;
+      letter-spacing: -.035em;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 760px;
+      line-height: 1.55;
+    }
+
+    .badge {
+      border: 1px solid var(--line-2);
+      background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03));
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 11px;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      box-shadow: 0 10px 28px var(--shadow);
+    }
+
+    .grid {
+      max-width: 1420px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .mock {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(13, 24, 40, .92);
+      box-shadow: 0 22px 60px var(--shadow);
+    }
+
+    .mock-titlebar {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5, 12, 23, .72);
+    }
+
+    .mark {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background:
+        linear-gradient(135deg, #78f3cb 0 35%, transparent 35%),
+        linear-gradient(225deg, #8ab7ff 0 45%, transparent 45%),
+        linear-gradient(315deg, #f7b267 0 42%, #b78cff 42%);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .18);
+    }
+
+    .mock-titlebar strong {
+      font-size: 13px;
+    }
+
+    .mock-titlebar span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mock-body {
+      min-height: 640px;
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr) 300px;
+    }
+
+    .rail {
+      border-right: 1px solid var(--line);
+      background: rgba(9, 18, 31, .86);
+      padding: 14px 10px;
+    }
+
+    .rail h2 {
+      margin: 8px 8px 10px;
+      color: var(--soft);
+      font-size: 10px;
+      letter-spacing: .17em;
+      text-transform: uppercase;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 7px 9px;
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .nav-item.active {
+      background: var(--panel-3);
+      color: var(--text);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--line-2);
+      flex: 0 0 auto;
+    }
+
+    .dot.accent { background: var(--accent); }
+    .dot.blue { background: var(--blue); }
+    .dot.orange { background: var(--orange); }
+    .dot.pink { background: var(--pink); }
+
+    .main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background:
+        linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
+        rgba(7, 16, 29, .55);
+      background-size: 28px 28px;
+    }
+
+    .toolbar {
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(10, 20, 34, .88);
+    }
+
+    .toolbar h2 {
+      margin: 0;
+      font-size: 19px;
+      letter-spacing: -.025em;
+    }
+
+    .toolbar .meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    button,
+    .button {
+      border: 1px solid var(--line-2);
+      border-radius: 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 11px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    button {
+      transition: transform .14s ease, border-color .14s ease, background .14s ease, opacity .14s ease;
+    }
+
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+    }
+
+    button:disabled {
+      opacity: .65;
+      cursor: default;
+    }
+
+    button.active {
+      border-color: var(--accent);
+      background: rgba(114, 225, 200, .16);
+      color: var(--accent);
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #04100d;
+      border-color: var(--accent);
+    }
+
+    .ghost {
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .content {
+      padding: 16px;
+      min-height: 0;
+      flex: 1;
+      display: grid;
+      gap: 14px;
+    }
+
+    .pack-layout {
+      grid-template-columns: 290px minmax(0, 1fr);
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(18, 31, 49, .88);
+      overflow: hidden;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .025);
+    }
+
+    .card-head strong {
+      font-size: 13px;
+    }
+
+    .card-head span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .card-body {
+      padding: 12px;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, .07);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .035);
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    .mini-row strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 12px;
+    }
+
+    .mini-row small,
+    .muted {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .check {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      display: grid;
+      place-items: center;
+      background: rgba(114, 225, 200, .18);
+      border: 1px solid rgba(114, 225, 200, .55);
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .pill {
+      border: 1px solid var(--line-2);
+      border-radius: 99px;
+      padding: 3px 7px;
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .pill.good {
+      color: var(--green);
+      border-color: rgba(155, 234, 155, .5);
+      background: rgba(155, 234, 155, .08);
+    }
+
+    .editor {
+      min-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(5, 11, 22, .78);
+    }
+
+    .editor-top {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .035);
+    }
+
+    .editor-top .input {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: var(--text);
+      background: rgba(255, 255, 255, .04);
+      font-size: 12px;
+    }
+
+    .context-preview {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      min-height: 310px;
+    }
+
+    .prompt {
+      padding: 16px;
+      font-family: "Cascadia Code", "JetBrains Mono", monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #cfe4ff;
+      white-space: pre-wrap;
+    }
+
+    .token-panel {
+      border-left: 1px solid var(--line);
+      padding: 14px;
+      background: rgba(18, 31, 49, .76);
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .08);
+      margin: 8px 0 12px;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      width: 68%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--blue));
+    }
+
+    .side {
+      border-left: 1px solid var(--line);
+      background: rgba(9, 18, 31, .86);
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .side-section {
+      border-bottom: 1px solid var(--line);
+      padding: 0 0 14px;
+      margin-bottom: 14px;
+    }
+
+    .side-section h3 {
+      margin: 0 0 9px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .graph-layout {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 0;
+    }
+
+    .graph-stage {
+      position: relative;
+      min-height: 530px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 46% 46%, rgba(114, 225, 200, .16), transparent 18rem),
+        radial-gradient(circle at 65% 58%, rgba(247, 138, 203, .13), transparent 14rem);
+    }
+
+    .edge {
+      position: absolute;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(114, 225, 200, .2), rgba(114, 225, 200, .72), rgba(125, 183, 255, .2));
+      transform-origin: left center;
+      border-radius: 2px;
+    }
+
+    .node {
+      position: absolute;
+      width: 122px;
+      min-height: 82px;
+      padding: 10px;
+      border: 1px solid var(--line-2);
+      border-radius: 16px;
+      background: rgba(18, 31, 49, .95);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, .34);
+      font-size: 11px;
+      transition: left .3s ease, top .3s ease, opacity .2s ease, transform .2s ease, border-color .2s ease;
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+
+    .node.memory {
+      width: 160px;
+      min-height: 110px;
+      border-color: rgba(114, 225, 200, .9);
+      box-shadow: 0 0 0 4px rgba(114, 225, 200, .08), 0 24px 48px rgba(0, 0, 0, .42);
+    }
+
+    .node.confirmed {
+      border-color: rgba(155, 234, 155, .95);
+      box-shadow: 0 0 0 4px rgba(155, 234, 155, .1), 0 24px 48px rgba(0, 0, 0, .42);
+    }
+
+    .node.ghost-node {
+      border-style: dashed;
+      background: rgba(18, 31, 49, .62);
+      color: var(--muted);
+    }
+
+    .edge {
+      transition: opacity .2s ease;
+    }
+
+    .ghost-hidden .ghost-node,
+    .ghost-hidden .ghost-edge,
+    .memory-only .node:not(.memory),
+    .memory-only .edge:not(.memory-edge) {
+      opacity: .08;
+      pointer-events: none;
+    }
+
+    .node .node-type {
+      display: inline-block;
+      margin-top: 7px;
+      border-radius: 99px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 2px 6px;
+      font-size: 9px;
+    }
+
+    .graph-tools {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 4;
+    }
+
+    .graph-tools .search {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(7, 16, 29, .82);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .memory-card {
+      border: 1px solid rgba(114, 225, 200, .42);
+      background: rgba(114, 225, 200, .07);
+      border-radius: 13px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .activity {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 9px 10px;
+      margin-top: 10px;
+      background: rgba(255, 255, 255, .035);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 99;
+      transform: translateX(-50%) translateY(18px);
+      opacity: 0;
+      border: 1px solid var(--line-2);
+      border-radius: 999px;
+      background: rgba(9, 18, 31, .94);
+      color: var(--text);
+      padding: 9px 14px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, .36);
+      font-size: 12px;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .memory-card strong {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+
+    .fact {
+      display: flex;
+      gap: 8px;
+      margin: 9px 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .fact:before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 99px;
+      background: var(--accent);
+      margin-top: 5px;
+      flex: 0 0 auto;
+    }
+
+    .note {
+      border-left: 3px solid var(--accent);
+      padding-left: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1050px) {
+      .mock-body {
+        grid-template-columns: 190px minmax(0, 1fr);
+      }
+
+      .side {
+        grid-column: 1 / -1;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .pack-layout,
+      .context-preview {
+        grid-template-columns: 1fr;
+      }
+
+      .token-panel {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>JotFolio concept mockups</h1>
+        <p class="sub">These show what the missing placeholders could look like in the middle of real work. They are concept screens only, not implemented product behavior.</p>
+      </div>
+      <div class="badge">Concept only - not shipped</div>
+    </section>
+
+    <section class="grid">
+      <article class="mock">
+        <div class="mock-titlebar">
+          <div class="mark" aria-hidden="true"></div>
+          <strong>JotFolio</strong>
+          <span>Context Packs shown from Settings / AI / Data workflow</span>
+        </div>
+        <div class="mock-body">
+          <aside class="rail">
+            <h2>Sidebar</h2>
+            <div class="nav-item"><span class="dot"></span>All Entries</div>
+            <div class="nav-item"><span class="dot"></span>Folders</div>
+            <div class="nav-item active"><span class="dot accent"></span>Context Packs</div>
+            <div class="nav-item"><span class="dot blue"></span>Keyword Library</div>
+            <div class="nav-item"><span class="dot"></span>Templates</div>
+            <div class="nav-item"><span class="dot"></span>AI</div>
+            <h2>Saved Packs</h2>
+            <div class="nav-item active"><span class="dot accent"></span>JotFolio release reviewer</div>
+            <div class="nav-item"><span class="dot orange"></span>Podcast research brief</div>
+            <div class="nav-item"><span class="dot pink"></span>Bug triage packet</div>
+          </aside>
+
+          <section class="main">
+            <div class="toolbar">
+              <div>
+                <h2>Context Pack: JotFolio release reviewer</h2>
+                <div class="meta">Building a reusable AI/review packet from vault items, rules, and selected instructions.</div>
+              </div>
+              <div class="spacer"></div>
+              <button class="ghost" id="save-pack">Save draft</button>
+              <button class="primary" id="send-pack">Send to AI</button>
+            </div>
+            <div class="content pack-layout">
+              <div class="card">
+                <div class="card-head">
+                  <strong>Included context</strong>
+                  <span>12 items selected</span>
+                </div>
+                <div class="card-body list">
+                  <div class="mini-row">
+                    <div class="check">x</div>
+                    <div><strong>Phase 4 roadmap</strong><small>journal - #roadmap</small></div>
+                    <span class="pill good">required</span>
+                  </div>
+                  <div class="mini-row">
+                    <div class="check">x</div>
+                    <div><strong>Alpha 16 release notes</strong><small>wiki - version truth</small></div>
+                    <span class="pill">summary</span>
+                  </div>
+                  <div class="mini-row">
+                    <div class="check">x</div>
+                    <div><strong>Templates folder</strong><small>3 templates - include body</small></div>
+                    <span class="pill">files</span>
+                  </div>
+                  <div class="mini-row">
+                    <div class="check">x</div>
+                    <div><strong>Keyword Library rules</strong><small>automation behavior</small></div>
+                    <span class="pill">rules</span>
+                  </div>
+                  <div class="mini-row">
+                    <div class="check">x</div>
+                    <div><strong>Open issues tagged polish</strong><small>5 cards - titles only</small></div>
+                    <span class="pill">trimmed</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="editor">
+                <div class="editor-top">
+                  <div class="input">Purpose: review release readiness without leaking unrelated vault content</div>
+                  <button id="preview-pack">Preview</button>
+                  <button id="copy-pack">Copy pack</button>
+                </div>
+                <div class="context-preview">
+                  <div class="prompt">SYSTEM
+You are reviewing JotFolio as a local-first knowledge app. Use only the included context.
+
+PACK INCLUDES
+- 4 required notes
+- 3 template files
+- 2 saved smart views
+- 3 keyword automation rules
+
+USER GOAL
+Find contradictions, unfinished features, and trust blockers before release.
+
+CONSTRAINTS
+- Do not invent features.
+- Cite the entry title or file path.
+- Separate verified facts from assumptions.
+
+CURRENT WORK
+Summarizing selected items... 68 percent complete.</div>
+                  <aside class="token-panel">
+                    <strong>Pack health</strong>
+                    <div class="bar"><span></span></div>
+                    <div class="fact">Estimated 18.4k tokens. Under the 24k pack limit.</div>
+                    <div class="fact">2 files marked source of truth.</div>
+                    <div class="fact">1 conflict found: release notes mention an older feature name.</div>
+                    <div class="note" id="pack-note">This is where Context Packs would earn their place: controlled, auditable bundles instead of copy-pasting random notes into AI.</div>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="side">
+            <div class="side-section">
+              <h3>Pack rules</h3>
+              <div class="fact">Include linked notes one hop away.</div>
+              <div class="fact">Exclude Trash and private drafts.</div>
+              <div class="fact">Compress long entries into summaries.</div>
+            </div>
+            <div class="side-section">
+              <h3>Destination</h3>
+              <div class="mini-row">
+                <span class="dot accent"></span>
+                <div><strong>AI review prompt</strong><small>OpenRouter / custom model</small></div>
+                <span class="pill good">ready</span>
+              </div>
+            </div>
+            <div class="side-section">
+              <h3>Why this belongs here</h3>
+              <p class="muted">Best home: Settings / AI / Data because the job is packaging context safely for export, review, or model use.</p>
+            </div>
+          </aside>
+        </div>
+      </article>
+
+      <article class="mock">
+        <div class="mock-titlebar">
+          <div class="mark" aria-hidden="true"></div>
+          <strong>JotFolio</strong>
+          <span>Memory Graph Nodes shown from Constellation workflow</span>
+        </div>
+        <div class="mock-body">
+          <aside class="rail">
+            <h2>Sidebar</h2>
+            <div class="nav-item"><span class="dot"></span>All Entries</div>
+            <div class="nav-item active"><span class="dot accent"></span>Constellation</div>
+            <div class="nav-item"><span class="dot"></span>Wiki</div>
+            <div class="nav-item"><span class="dot"></span>Review</div>
+            <h2>Graph Filters</h2>
+            <div class="nav-item active"><span class="dot accent"></span>Memory nodes</div>
+            <div class="nav-item"><span class="dot blue"></span>Notes</div>
+            <div class="nav-item"><span class="dot orange"></span>Sources</div>
+            <div class="nav-item"><span class="dot pink"></span>Decisions</div>
+          </aside>
+
+          <section class="main">
+            <div class="toolbar">
+              <div>
+                <h2>Constellation: Release readiness cluster</h2>
+                <div class="meta">This is a Constellation graph, not Canvas. Canvas is for manually arranging cards; Constellation is for relationship and memory nodes.</div>
+              </div>
+              <div class="spacer"></div>
+              <button class="ghost" id="toggle-ghosts" aria-pressed="false">Hide ghosts</button>
+              <button class="primary" id="add-memory">Add memory</button>
+            </div>
+            <div class="content graph-layout">
+              <div class="graph-stage" id="graph-stage">
+                <div class="graph-tools">
+                  <input class="search" id="graph-search" value="release readiness" aria-label="Search graph" />
+                  <button id="layout-affinity" class="active">Affinity</button>
+                  <button id="layout-cluster">Cluster</button>
+                  <button id="memory-only" aria-pressed="false">Memory only</button>
+                </div>
+
+                <div class="edge memory-edge" style="left: 405px; top: 260px; width: 160px; transform: rotate(-22deg);"></div>
+                <div class="edge memory-edge" style="left: 405px; top: 260px; width: 210px; transform: rotate(18deg);"></div>
+                <div class="edge memory-edge" style="left: 405px; top: 260px; width: 170px; transform: rotate(72deg);"></div>
+                <div class="edge" style="left: 545px; top: 195px; width: 180px; transform: rotate(62deg);"></div>
+                <div class="edge" style="left: 560px; top: 330px; width: 190px; transform: rotate(-38deg);"></div>
+                <div class="edge ghost-edge" style="left: 770px; top: 180px; width: 170px; transform: rotate(18deg);"></div>
+
+                <div class="node memory" data-node="release" style="left: 320px; top: 202px;">
+                  <strong>Release readiness</strong>
+                  Durable memory synthesized from 8 notes.
+                  <span class="node-type" id="release-confidence">memory node - confidence 82%</span>
+                </div>
+                <div class="node" data-node="version" style="left: 555px; top: 130px;">
+                  <strong>Version truth</strong>
+                  Alpha labels and release docs.
+                  <span class="node-type">wiki</span>
+                </div>
+                <div class="node" data-node="installer" style="left: 605px; top: 292px;">
+                  <strong>Installer trust</strong>
+                  Signing, updater, release feed.
+                  <span class="node-type">review</span>
+                </div>
+                <div class="node" data-node="vault" style="left: 360px; top: 405px;">
+                  <strong>Vault safety</strong>
+                  Trash, snapshots, recovery.
+                  <span class="node-type">journal</span>
+                </div>
+                <div class="node" data-node="hidden" style="left: 755px; top: 248px;">
+                  <strong>Hidden features</strong>
+                  Flags and unfinished surfaces.
+                  <span class="node-type">raw inbox</span>
+                </div>
+                <div class="node" data-node="checklist" style="left: 730px; top: 88px;">
+                  <strong>Release checklist</strong>
+                  Build, smoke, package, publish.
+                  <span class="node-type">template</span>
+                </div>
+                <div class="node ghost-node" data-node="ghost" style="left: 925px; top: 178px;">
+                  <strong>Unresolved update note</strong>
+                  Mentioned but not created yet.
+                  <span class="node-type">ghost</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="side">
+            <div class="memory-card">
+              <strong>Selected memory: Release readiness</strong>
+              <div class="muted" id="memory-status">Status: needs review - last confirmed 2026-05-04</div>
+            </div>
+            <div class="side-section">
+              <h3>Facts held by this node</h3>
+              <div class="fact">Installer must be built from the same version shown in Settings.</div>
+              <div class="fact">Docs must not claim placeholder features are shipped.</div>
+              <div class="fact">Trash is a safety layer, not a visible folder branch.</div>
+            </div>
+            <div class="side-section">
+              <h3>Source evidence</h3>
+              <div class="mini-row">
+                <span class="dot blue"></span>
+                <div><strong>Alpha 16 notes</strong><small>linked 4 times</small></div>
+                <span class="pill">source</span>
+              </div>
+              <div class="mini-row">
+                <span class="dot orange"></span>
+                <div><strong>Release checklist</strong><small>template</small></div>
+                <span class="pill">source</span>
+              </div>
+            </div>
+            <div class="side-section">
+              <h3>Middle of the job</h3>
+              <p class="muted">The user is reviewing whether this synthesized memory is still true. They can accept it, split it, merge it, or trace every claim back to source notes.</p>
+            </div>
+            <button class="primary" id="confirm-memory" style="width: 100%;">Confirm memory</button>
+            <button class="ghost" id="split-memory" style="width: 100%; margin-top: 8px;">Split into smaller memories</button>
+            <div class="activity" id="memory-activity">Ready: choose a graph control to change this Constellation mockup.</div>
+          </aside>
+        </div>
+      </article>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
+    const toast = $('#toast');
+    let toastTimer = null;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    function setActivity(message) {
+      $('#memory-activity').textContent = message;
+      showToast(message);
+    }
+
+    $('#save-pack')?.addEventListener('click', () => {
+      $('#pack-note').textContent = 'Draft saved. This pack would now be available from the saved Context Packs list.';
+      showToast('Context Pack draft saved');
+    });
+
+    $('#send-pack')?.addEventListener('click', () => {
+      $('#pack-note').textContent = 'Pack sent to AI review queue. In a real feature, this would open the configured provider with the scoped context attached.';
+      showToast('Pack queued for AI review');
+    });
+
+    $('#preview-pack')?.addEventListener('click', () => {
+      $('#pack-note').textContent = 'Preview mode: showing the exact instructions and source summary that would be sent or copied.';
+      showToast('Preview refreshed');
+    });
+
+    $('#copy-pack')?.addEventListener('click', async () => {
+      const text = 'JotFolio context pack: Release reviewer - selected notes, templates, rules, and constraints.';
+      try {
+        await navigator.clipboard?.writeText(text);
+        showToast('Context Pack copied');
+      } catch {
+        showToast('Copy simulated in mockup');
+      }
+    });
+
+    const stage = $('#graph-stage');
+    const nodePositions = {
+      affinity: {
+        release: [320, 202],
+        version: [555, 130],
+        installer: [605, 292],
+        vault: [360, 405],
+        hidden: [755, 248],
+        checklist: [730, 88],
+        ghost: [925, 178],
+        added: [210, 330],
+        installerMemory: [560, 420],
+        vaultMemory: [220, 430],
+      },
+      cluster: {
+        release: [430, 210],
+        version: [210, 120],
+        installer: [660, 145],
+        vault: [250, 365],
+        hidden: [710, 350],
+        checklist: [455, 430],
+        ghost: [895, 250],
+        added: [110, 245],
+        installerMemory: [625, 365],
+        vaultMemory: [300, 455],
+      },
+    };
+
+    function applyLayout(name) {
+      $$('#layout-affinity, #layout-cluster').forEach(btn => btn.classList.remove('active'));
+      $(`#layout-${name}`)?.classList.add('active');
+      const positions = nodePositions[name];
+      $$('.node').forEach(node => {
+        const key = node.dataset.node;
+        if (!positions[key]) return;
+        const [left, top] = positions[key];
+        node.style.left = `${left}px`;
+        node.style.top = `${top}px`;
+      });
+      setActivity(`${name === 'affinity' ? 'Affinity' : 'Cluster'} layout applied to the Constellation graph.`);
+    }
+
+    $('#layout-affinity')?.addEventListener('click', () => applyLayout('affinity'));
+    $('#layout-cluster')?.addEventListener('click', () => applyLayout('cluster'));
+
+    $('#toggle-ghosts')?.addEventListener('click', (event) => {
+      const hidden = stage.classList.toggle('ghost-hidden');
+      event.currentTarget.textContent = hidden ? 'Show ghosts' : 'Hide ghosts';
+      event.currentTarget.setAttribute('aria-pressed', String(hidden));
+      setActivity(hidden ? 'Ghost nodes hidden.' : 'Ghost nodes shown.');
+    });
+
+    $('#memory-only')?.addEventListener('click', (event) => {
+      const active = stage.classList.toggle('memory-only');
+      event.currentTarget.textContent = active ? 'Show all' : 'Memory only';
+      event.currentTarget.classList.toggle('active', active);
+      event.currentTarget.setAttribute('aria-pressed', String(active));
+      setActivity(active ? 'Showing memory nodes only.' : 'Showing all Constellation nodes.');
+    });
+
+    $('#add-memory')?.addEventListener('click', () => {
+      if ($('[data-node="added"]')) {
+        setActivity('A new memory node is already staged.');
+        return;
+      }
+      const node = document.createElement('div');
+      node.className = 'node memory';
+      node.dataset.node = 'added';
+      node.style.left = '210px';
+      node.style.top = '330px';
+      node.innerHTML = '<strong>Release docs risk</strong>New memory drafted from 3 source notes.<span class="node-type">memory node - draft</span>';
+      stage.appendChild(node);
+
+      const edge = document.createElement('div');
+      edge.className = 'edge memory-edge';
+      edge.style.cssText = 'left: 330px; top: 352px; width: 140px; transform: rotate(-32deg);';
+      stage.appendChild(edge);
+      setActivity('Draft memory node added to the Constellation graph.');
+    });
+
+    $('#confirm-memory')?.addEventListener('click', (event) => {
+      $('[data-node="release"]')?.classList.add('confirmed');
+      $('#release-confidence').textContent = 'memory node - confirmed';
+      $('#memory-status').textContent = 'Status: confirmed - verified against 8 source notes';
+      event.currentTarget.textContent = 'Memory confirmed';
+      event.currentTarget.disabled = true;
+      setActivity('Release readiness memory confirmed.');
+    });
+
+    $('#split-memory')?.addEventListener('click', () => {
+      if ($('[data-node="installerMemory"]')) {
+        setActivity('This memory has already been split into smaller memories.');
+        return;
+      }
+      const installer = document.createElement('div');
+      installer.className = 'node memory';
+      installer.dataset.node = 'installerMemory';
+      installer.style.left = '560px';
+      installer.style.top = '420px';
+      installer.innerHTML = '<strong>Installer trust memory</strong>Signing, updater, and release-feed claims.<span class="node-type">memory node - split</span>';
+      const vault = document.createElement('div');
+      vault.className = 'node memory';
+      vault.dataset.node = 'vaultMemory';
+      vault.style.left = '220px';
+      vault.style.top = '430px';
+      vault.innerHTML = '<strong>Vault safety memory</strong>Trash, recovery, and source-of-truth rules.<span class="node-type">memory node - split</span>';
+      stage.append(installer, vault);
+
+      const edgeA = document.createElement('div');
+      edgeA.className = 'edge memory-edge';
+      edgeA.style.cssText = 'left: 440px; top: 285px; width: 185px; transform: rotate(47deg);';
+      const edgeB = document.createElement('div');
+      edgeB.className = 'edge memory-edge';
+      edgeB.style.cssText = 'left: 355px; top: 292px; width: 165px; transform: rotate(111deg);';
+      stage.append(edgeA, edgeB);
+      setActivity('Release readiness split into Installer trust and Vault safety memories.');
+    });
+
+    $('#graph-search')?.addEventListener('input', (event) => {
+      const q = event.target.value.trim().toLowerCase();
+      $$('.node').forEach(node => {
+        const text = node.textContent.toLowerCase();
+        node.style.transform = q && !text.includes(q) ? 'scale(.94)' : 'scale(1)';
+        node.style.opacity = q && !text.includes(q) ? '.28' : '';
+      });
+      if (q) $('#memory-activity').textContent = `Search filter active: "${q}"`;
+    });
+  </script>
+</body>
+</html>

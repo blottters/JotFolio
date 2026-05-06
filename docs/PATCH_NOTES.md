@@ -2,7 +2,7 @@
 
 Human-readable release history. For the full technical changelog, see `CHANGELOG.md`.
 
-*Current source version: **0.5.0-alpha.20** (2026-05-05)*
+*Current source version: **0.5.0-alpha.21** (2026-05-06)*
 
 ---
 

@@ -37,7 +37,8 @@ Use the left column. Don't substitute.
 | Active design specs (per release) | [`docs/superpowers/specs/`](./docs/superpowers/specs/) |
 | Architecture decisions (ADRs) | [`docs/adr/`](./docs/adr/) |
 | Wireframes | [`docs/design/wireframes/`](./docs/design/wireframes/) |
-| Phase plans | [`docs/phase-plans/`](./docs/phase-plans/) + [`docs/plans/`](./docs/plans/) |
+| Archived plans + phase plans | [`docs/specs/archive/`](./docs/specs/archive/) |
+| Archived handoffs + audits | [`docs/_archive/`](./docs/_archive/) |
 | Performance baselines | [`docs/perf/`](./docs/perf/) |
 | Security model | [`docs/security/`](./docs/security/) |
 | Build / release process | [`docs/build/`](./docs/build/) |

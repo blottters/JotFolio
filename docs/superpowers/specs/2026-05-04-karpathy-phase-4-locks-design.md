@@ -3,7 +3,7 @@
 **Date:** 2026-05-04
 **Status:** ready to build
 **Owner:** Gavin
-**Depends on:** `docs/karpathy-llm-wiki-handoff.md`, `docs/plans/jotfolio-karpathy-phase-4.md`
+**Depends on:** `docs/karpathy-llm-wiki-handoff.md`, `docs/specs/archive/jotfolio-karpathy-phase-4.md`
 **Blocks:** Phase 5 UI (Wiki/Review/Inbox surfaces, Memory Graph Nodes), alpha.18
 
 ## Problem
@@ -155,4 +155,4 @@ alpha.18. Phase 4 lands behind existing `wiki_mode` flag (importable lib code, n
 
 ## Next action
 
-Implement Step 1 (`hash.js`) in a separate session. Reference this spec + `docs/plans/jotfolio-karpathy-phase-4.md` for full context. Don't skip the per-module gate before moving to next step.
+Implement Step 1 (`hash.js`) in a separate session. Reference this spec + `docs/specs/archive/jotfolio-karpathy-phase-4.md` for full context. Don't skip the per-module gate before moving to next step.

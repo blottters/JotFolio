@@ -50,3 +50,13 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# Local dev cruft (alpha.22 cleanup)
+.archive/
+.outputs/
+.snapshots/
+.claude/
+/mockups/
+/index.html
+/main.js
+/package.json

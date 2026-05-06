@@ -454,3 +454,20 @@ Initial snapshot.
 - No backend
 - BYOK AI abstraction (`aiComplete()`) across 7 providers
 - PKCE OAuth helper (OpenRouter)
+
+---
+
+## Pre-0.1.0 — Birth as a Claude.ai artifact
+
+JotFolio started inside a normal Claude.ai web-chat conversation as an artifact — a single-file React app with inline styles, `window.storage` persistence, and a BYOK AI router. No vault, no Electron, no plugin system. Just a prototype that proved the "unified media library + constellation graph" concept.
+
+---
+
+## 2026-04-24 — repo structure cleanup pass
+
+- Removed the "Picture This" mockup gallery view — pure visual theatre, no wiring, no longer needed now that the Constellation has matured.
+- Archived older JotFolio copies (v0.1.0, v0.2.0, dev-branch Cosmograph fork) into `~/Desktop/JotFolio Archive/` with `ARCHIVED` suffixes.
+- Moved non-runtime docs (`CHANGELOG.md`, ADRs, wireframes, security docs, build docs, perf docs, phase plans, session extracts) out of `source/` and into top-level `docs/`.
+- `source/` now contains only what's needed to actually run, build, test, or bench JotFolio.
+- Copied the roadmap plan from `~/.claude/plans/` into `docs/specs/archive/jotfolio-electron-pivot.md` so the repo is self-contained.
+- First Git commit on the current JotFolio tree — checkpoint before Codex handoff.

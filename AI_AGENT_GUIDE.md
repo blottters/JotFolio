@@ -56,11 +56,10 @@ Pattern: write a brief design spec under `docs/superpowers/specs/`, dispatch par
 7. Visual smoke via Claude Preview if observable in browser.
 8. Bump version in `source/package.json` + `source/package-lock.json`.
 9. Add `## [<version>] — <date>` section to `docs/CHANGELOG.md`.
-10. Update `docs/PATCH_NOTES.md` current-version line.
-11. Commit, tag `v<version>`, push tag (CI builds installer), push commits to `release/<version>` branch.
-12. Open PR, wait CI green, resolve any review threads, admin-merge squash.
-13. Mark GitHub Release as prerelease (`gh release edit <tag> --prerelease`).
-14. Verify auto-update lands on installed binary (~15 min poll).
+10. Commit, tag `v<version>`, push tag (CI builds installer), push commits to `release/<version>` branch.
+11. Open PR, wait CI green, resolve any review threads, admin-merge squash.
+12. Mark GitHub Release as prerelease (`gh release edit <tag> --prerelease`).
+13. Verify auto-update lands on installed binary (~15 min poll).
 
 ## Constraints to keep in mind
 

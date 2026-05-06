@@ -12,6 +12,35 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.22] — 2026-05-06
+
+### Removed
+- `docs/PATCH_NOTES.md` (21KB) — duplicated `CHANGELOG.md`. Two unique narrative sections (origin-as-Claude.ai-artifact + the 2026-04-24 cleanup pass) ported into `CHANGELOG-archive.md`. Remaining content was already in CHANGELOG / archive.
+- Phantom root files `index.html`, `main.js`, `package.json` — vestigial shadow files from the pre-`source/` project layout. Real artifacts live under `source/`. Already untracked; deleted from disk and added to `.gitignore` to prevent re-creation.
+- Local dev cruft directories `.archive/`, `.outputs/`, `.snapshots/` — already-untracked stale residue. Deleted from disk; added to `.gitignore`.
+- Root `mockups/` directory — its single file (`context-memory-concept.html`) merged into `docs/mockups/`. Eliminates the "two mockup folders" ambiguity.
+
+### Changed
+- **Plans folder consolidation.** Three overlapping "plans" folders merged into one canonical archive:
+  - `docs/plans/` (2 files) → `docs/specs/archive/`
+  - `docs/phase-plans/` (1 file) → `docs/specs/archive/`
+  - `docs/superpowers/plans/` (5 files) → `docs/specs/archive/`
+  - Active per-release design specs continue to live at `docs/superpowers/specs/`. Source dirs deleted after move. Inbound references updated.
+- **Stale handoffs + audits archived.** Six pre-alpha.14 docs relocated:
+  - `docs/superpowers/handoff-CC-2026-04-30.md` → `docs/_archive/handoffs/`
+  - `docs/superpowers/handoff-codex-2026-04-30.md` → `docs/_archive/handoffs/`
+  - `docs/superpowers/cli-skills-audit-2026-04-30.md` → `docs/_archive/audits/`
+  - `docs/superpowers/desktop-skills-audit-2026-04-30.md` → `docs/_archive/audits/`
+  - `docs/superpowers/skills-alignment-2026-04-30.md` → `docs/_archive/audits/`
+  - `docs/superpowers/path-audit-2026-04-29.md` → `docs/_archive/audits/`
+  - New `docs/_archive/README.md` explains the relocation rationale.
+- `CONTEXT.md` and `AI_AGENT_GUIDE.md` updated to point at the new locations.
+
+### Internal
+- No source code changes. Pure repo hygiene.
+- Six parallel subagents executed the cleanup (phantom slayer / plans consolidator / archive archivist / patch notes liquidator / mockup unifier / session extract triager).
+- 628/628 tests pass unchanged. Build clean.
+
 ## [0.5.0-alpha.21] — 2026-05-06
 
 ### Added

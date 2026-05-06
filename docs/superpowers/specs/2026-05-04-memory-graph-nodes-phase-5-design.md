@@ -3,8 +3,8 @@
 **Date:** 2026-05-04
 **Status:** spec, awaiting Phase 4 ship
 **Owner:** Gavin
-**Depends on:** Phase 4 compilation pipeline (`docs/plans/jotfolio-karpathy-phase-4.md`, `docs/superpowers/specs/2026-05-04-karpathy-phase-4-locks-design.md`)
-**Visual reference:** `mockups/context-memory-concept.html` (the "Memory Graph Nodes shown from Constellation workflow" mock built 2026-05-04 by Codex+Gavin)
+**Depends on:** Phase 4 compilation pipeline (`docs/specs/archive/jotfolio-karpathy-phase-4.md`, `docs/superpowers/specs/2026-05-04-karpathy-phase-4-locks-design.md`)
+**Visual reference:** `docs/mockups/context-memory-concept.html` (the "Memory Graph Nodes shown from Constellation workflow" mock built 2026-05-04 by Codex+Gavin)
 **Ship target:** alpha.19
 
 ## Problem

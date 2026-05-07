@@ -12,6 +12,25 @@ Bump rules:
 
 ---
 
+## [0.5.0-alpha.25] — 2026-05-07
+
+> Note: alpha.23 (onboarding) and alpha.24 (bundle code-split) deferred — they require Gavin's design input. alpha.25 ran first because its scope is fully mechanical.
+
+### Removed
+- `source/plugins/git-sync/` directory — the Git Sync stub. It logged sync intent to `.jotfolio/sync.log` but did no real Git operations. Already removed from `OFFICIAL_PLUGINS` in alpha.17; alpha.25 ripped the on-disk source. Charter rule: don't ship stubs as features.
+
+### Added
+- **Export vault as zip** action in Settings → Vault. One click bundles every entry, attachment, and template into a single deterministic zip download (filename pattern `jotfolio-vault-export-YYYY-MM-DD.zip`). Useful for backups, cross-machine moves, and one-shot snapshots.
+- New library `source/src/lib/vaultExportZip.js` — pure-JS PKZip STORE-method builder. Zero new npm dependencies. ~150 lines including a CRC-32 implementation, path-traversal safety guards, and the `exportVaultAsZip(vault)` renderer helper.
+- 9 new tests covering zip structure correctness, CRC-32 fixture (`'hello world'` → `0x0d4a1185`), empty vault, multi-file order, path-safety rejects (`..` / leading `/` / empty), and a 100-file smoke. Cumulative test count: 637.
+
+### Sync guidance copy
+
+Below the export button, a short paragraph: *"Want continuous sync across devices? JotFolio stays out of that game. Use Obsidian Sync, Syncthing, Dropbox, or iCloud Drive on your vault folder."* The product takes a position: real sync is not JotFolio's job. Pair the vault folder with whatever sync tool you already trust.
+
+### Internal
+- This release was shipped autonomously via a scheduled Cron task while Gavin was away. Three parallel subagents (git-sync gravedigger / zip wrangler / settings smith) executed the work. Audit trail at `docs/superpowers/specs/2026-05-07-alpha-25-autonomous-execution.md` plus `docs/superpowers/specs/2026-05-07-alpha-25-status.md`. First end-to-end unattended ship for the project.
+
 ## [0.5.0-alpha.22] — 2026-05-06
 
 ### Removed

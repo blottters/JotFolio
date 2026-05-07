@@ -18,6 +18,7 @@ import { UpdatesPanel } from './UpdatesPanel.jsx';
 import { version as APP_VERSION } from '../../../package.json';
 import { vault as vaultAdapter } from '../../adapters/index.js';
 import { TRASH_DIR, originalPathFromTrashPath, restoreFromTrash } from '../../lib/vaultTrash.js';
+import { exportVaultAsZip } from '../../lib/vaultExportZip.js';
 
 // ── Settings Panel ────────────────────────────────────────────────────────
 function TrashReview(){
@@ -111,12 +112,48 @@ function TrashReview(){
 
 function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading,error,issues,refresh}){
   const legacyCount=entries?.length||0;
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const handleExport = async () => {
+    setExporting(true); setExportError('');
+    try {
+      const blob = await exportVaultAsZip(vaultAdapter);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0,10);
+      a.download = `jotfolio-vault-export-${stamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      setExportError(err?.message || 'unknown error');
+    } finally {
+      setExporting(false);
+    }
+  };
   return (
     <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:8}}>
       <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.5}}>
         Your notes can live on your disk as <code>.md</code> files in a vault folder. This makes them readable by any markdown editor — Obsidian, VS Code, Ulysses, TextEdit — and portable if JotFolio ever disappears.
       </div>
       <VaultPicker mode="inline" vaultInfo={vaultInfo} onPick={pickVault} onMigrate={migrateFromLocalStorage} legacyCount={legacyCount}/>
+      <div style={{display:'flex',flexDirection:'column',gap:8,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:'var(--t3)',marginBottom:3,textTransform:'uppercase',letterSpacing:1.5}}>Export</div>
+            <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5}}>One zip with every entry, attachment, and template in your vault. Useful for backups, cross-machine moves, or one-shot snapshots.</div>
+          </div>
+          <button onClick={handleExport} disabled={exporting} style={{padding:'5px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:exporting?'var(--t3)':'var(--t2)',cursor:exporting?'default':'pointer',fontFamily:'var(--fn)'}}>
+            {exporting ? 'Exporting…' : 'Export vault as zip'}
+          </button>
+        </div>
+        {exportError && <div role="alert" style={{fontSize:11,color:'#ef4444'}}>Export failed: {exportError}</div>}
+        <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5,fontStyle:'italic'}}>
+          Want continuous sync across devices? JotFolio stays out of that game. Use Obsidian Sync, Syncthing, Dropbox, or iCloud Drive on your vault folder.
+        </div>
+      </div>
       <TrashReview/>
       {loading&&<div style={{fontSize:12,color:'var(--t3)'}}>Loading vault…</div>}
       {error&&<div role="alert" style={{fontSize:12,color:'#ef4444'}}>Vault error: {error.message}</div>}

@@ -1,0 +1,50 @@
+# Testing build config for JotFolio.
+# Installs side-by-side with the real JotFolio under a different appId/productName
+# so the real alpha.X release at %LOCALAPPDATA%\Programs\jotfolio is never touched.
+# Run via: npm run build:testing
+
+appId: com.jotfoliotesting.app
+productName: JotFolioTesting
+artifactName: ${productName}-Setup-${version}.${ext}
+
+directories:
+  output: dist-electron-testing
+
+files:
+  - dist/**/*
+  - src-electron/**/*
+
+# No publish target — local-only build, never auto-update from public channel.
+publish: null
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+
+win:
+  target:
+    - nsis
+  # No code signing for testing builds.
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: JotFolioTesting
+  # Custom install dir name so it lands in %LOCALAPPDATA%\Programs\jotfoliotesting
+  # instead of colliding with the real install at ...\jotfolio.
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Office

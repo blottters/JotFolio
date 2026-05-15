@@ -14,6 +14,15 @@ files:
   - dist/**/*
   - src-electron/**/*
 
+# Phase 2 MiniLM (alpha.25): the renderer dynamically fetches ONNX WASM and
+# model files at runtime via document.baseURI-relative URLs. They live under
+# `dist/` (copied from `public/` by vite), so the `dist/**/*` rule above
+# already bundles them. We unpack them out of asar so fetch() under
+# file:// can read them without electron's asar shim getting in the way.
+asarUnpack:
+  - dist/models/**
+  - dist/onnx-wasm/**
+
 # No publish target — local-only build, never auto-update from public channel.
 publish: null
 

@@ -100,7 +100,7 @@ function comparableForm(form,entry){
 }
 
 // ── Detail Panel ──────────────────────────────────────────────────────────
-export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing,onRevealFile,onMoveFile,onRenameFile,onCompile}){
+export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,onUpdate,onDelete,onToast,onNavigate,onLink,onUnlink,onOpenEntry,onCreateFromMissing,onRevealFile,onMoveFile,onRenameFile,onCompile,getSimilar,semanticReady=false}){
   const[editing,setEditing]=useState(false);
   const[form,setForm]=useState(()=>formFromEntry(entry));
   const[recording,setRecording]=useState(false);
@@ -133,6 +133,20 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
   const handleVoice=()=>{if(recording){recognitionRef.current?.stop?.();setRecording(false);return;}setVoiceError('');const rec=startVoiceRecognition(t=>{setForm(p=>({...p,notes:(p.notes||'')+'\n\n🎤 '+t}));setRecording(false)},err=>{setVoiceError(String(err));setRecording(false)});if(rec){recognitionRef.current=rec;setRecording(true)}};
   const copyUrl=()=>navigator.clipboard.writeText(entry.url).then(()=>onToast('URL copied','info')).catch(()=>onToast('Copy failed','error'));
   useEscapeKey(true,()=>requestDiscard('close'));
+
+  // Semantic similar notes (MiniLM Phase 2). Top-5 most-similar entries by
+  // cosine similarity over MiniLM embeddings. Empty when the index isn't
+  // ready or the host didn't pass getSimilar (e.g. flag off, browser preview
+  // adapter without persistence). minScore: 0.4 — lower than constellation
+  // (0.5) because the DetailPanel can show "warm" matches even if the visual
+  // graph stays uncluttered.
+  const similar=useMemo(()=>{
+    if(!semanticReady||typeof getSimilar!=='function')return[];
+    const idIndex=new Map(entries.map(e=>[e.id,e]));
+    return (getSimilar(entry.id,5,{minScore:0.4})||[])
+      .map(({id,score})=>{const e=idIndex.get(id);return e?{entry:e,score}:null})
+      .filter(Boolean);
+  },[entry.id,entries,getSimilar,semanticReady]);
 
   // FIX: deps use entry.id + stringified tags for value-based memoization, not entry object reference
   const related=useMemo(()=>{
@@ -355,6 +369,21 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
               </div>
             )}
             <PropertiesSection entry={entry} entries={entries} onUpdate={onUpdate}/>
+            {similar.length>0&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Similar notes ({similar.length})</div>
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {similar.map(({entry:r,score})=>(
+                    <button key={r.id} onClick={()=>onOpenEntry(r.id)}
+                      style={{padding:'8px 12px',background:'var(--b2)',border:'1px dashed var(--br)',borderRadius:'var(--rd)',fontSize:12,display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontFamily:'var(--fn)',textAlign:'left',color:'var(--tx)'}}>
+                      <span style={{flexShrink:0}}>{ICON[r.type]}</span>
+                      <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.title||'Untitled'}</span>
+                      <span title={`Cosine similarity ${score.toFixed(3)}`} style={{fontSize:10,color:'var(--t3)',flexShrink:0,fontFamily:'monospace'}}>{Math.round(score*100)}%</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {related.length>0&&(
               <div>
                 <div style={{fontSize:10,fontWeight:700,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.5,marginBottom:8}}>Related by tags</div>

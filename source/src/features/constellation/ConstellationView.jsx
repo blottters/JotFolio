@@ -23,7 +23,7 @@ import {
 const KNOWLEDGE_FLAG_MAP={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
 const LARGE_GRAPH_ANIMATION_LIMIT=120;
 
-export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,focusEntryId,flags={},style='star',saturation='signal',bg='atlas'}){
+export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,focusEntryId,flags={},style='star',saturation='signal',bg='atlas',getSimilar,semanticReady=false,semanticVersion=0}){
   const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!KNOWLEDGE_FLAG_MAP[t]||flags[KNOWLEDGE_FLAG_MAP[t]]===true);
   const prefersReducedMotion=usePrefersReducedMotion();
   const[filter,setFilter]=useState('all');
@@ -215,6 +215,36 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     });
     return out;
   },[nodes,unresolvedPseudoNodes,nodeById]);
+
+  // Semantic edges (MiniLM Phase 2). For each node, ask the semantic index
+  // for its top-3 most-similar entries that pass the 0.5 cosine threshold.
+  // Dedupe a↔b pairs so we don't draw two lines between the same nodes.
+  // Skip any pair already linked by a real wiki/manual edge (no need to
+  // dilute the strong signal with a weaker one).
+  // Gated behind flags.semanticEdges (default true). If the index isn't
+  // ready yet or the host didn't pass getSimilar, render nothing.
+  const semanticEnabled=flags?.semanticEdges!==false;
+  const semanticEdges=useMemo(()=>{
+    if(!semanticEnabled||!semanticReady||typeof getSimilar!=='function')return[];
+    const realPairs=new Set();
+    edges.forEach(({a,b})=>{realPairs.add([a.id,b.id].sort().join('|'))});
+    const seen=new Set();
+    const out=[];
+    for(const n of nodes){
+      const sims=getSimilar(n.id,3,{minScore:0.5})||[];
+      for(const{id:otherId,score}of sims){
+        const other=nodeById[otherId];
+        if(!other)continue;
+        const key=[n.id,other.id].sort().join('|');
+        if(seen.has(key)||realPairs.has(key))continue;
+        seen.add(key);
+        out.push({a:n,b:other,score});
+      }
+    }
+    return out;
+    // semanticVersion bumps when the index updates so memo refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[nodes,nodeById,edges,getSimilar,semanticReady,semanticEnabled,semanticVersion]);
 
   // Top-5 most-connected nodes always labeled; others only when relevant
   const topIds=useMemo(()=>new Set(nodes.slice(0,5).map(n=>n.id)),[nodes]);
@@ -706,6 +736,31 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             <title>Constellation relationship graph</title>
             <desc>Entries, backlinks, missing linked notes, and memory nodes arranged by the selected layout.</desc>
             <g data-constellation-pan-layer transform={transform} style={{transition:layerTransition}}>
+              {/* Semantic edges (MiniLM Phase 2) — render UNDER regular edges
+                  so wiki/manual links stay the dominant visual. Dashed,
+                  low-opacity gray. No bob animation — static endpoints,
+                  re-rendered on focal/hover change via React. */}
+              {semanticEdges.map(({a,b,score},i)=>{
+                const pa=positions[a.id]||{x:a.x,y:a.y};
+                const pb=positions[b.id]||{x:b.x,y:b.y};
+                const bothHover=hoverSet&&hoverSet.has(a.id)&&hoverSet.has(b.id);
+                const bothFocal=focalSet&&focalSet.has(a.id)&&focalSet.has(b.id);
+                const dim=!!(hoverSet||focalSet)&&!(bothHover||bothFocal);
+                // Score 0.5..1 maps to opacity 0.10..0.32 — quieter than
+                // hard links (which sit at ~0.4-0.85 in focal mode).
+                const base=0.10+Math.max(0,Math.min(1,(score-0.5)/0.5))*0.22;
+                const op=dim?base*0.25:(bothHover||bothFocal?base*2.4:base);
+                return(
+                  <line key={`sem-${a.id}|${b.id}-${i}`}
+                    x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
+                    stroke="#9ca3af"
+                    strokeWidth={1}
+                    strokeDasharray="3 4"
+                    opacity={op}
+                    pointerEvents="none"
+                    style={{transition:edgeTransition}}/>
+                );
+              })}
               {edges.map(({a,b,unresolved},i)=>{
                 // Initial endpoints = base positions only; the RAF loop adds
                 // bob deltas via setAttribute on each frame. Reading offsets

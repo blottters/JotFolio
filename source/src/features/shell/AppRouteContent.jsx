@@ -177,6 +177,7 @@ export function AppRouteContent({
   handleCompileRaw,
   bulkTrashSelected,
   clearSelection,
+  semantic,
 }){
   const lazy = (children, label) => (
     <Suspense fallback={<RouteLoading label={label} />}>
@@ -320,7 +321,10 @@ export function AppRouteContent({
       flags={prefs.featureFlags}
       style={prefs.constellationStyle||'star'}
       saturation={prefs.typeSaturation||'signal'}
-      bg={prefs.constellationBg||'atlas'}/>,
+      bg={prefs.constellationBg||'atlas'}
+      getSimilar={semantic?.getSimilar}
+      semanticReady={!!semantic?.ready}
+      semanticVersion={semantic?.snapshot?.version||0}/>,
     'Loading knowledge graph...'
   );
   return(

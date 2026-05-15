@@ -243,7 +243,7 @@ function EntryButton({ entry, onOpenEntry, meta }) {
         <span style={{ display: 'block', fontSize: 13, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title || 'Untitled'}</span>
         {metaParts.length > 0 ? (
           <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
-            {metaParts.map(part => <span key={part} style={pillStyle}>{part}</span>)}
+            {metaParts.map((part, index) => <span key={`${part}-${index}`} style={pillStyle}>{part}</span>)}
           </span>
         ) : meta && <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: 'var(--t3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>}
       </span>
@@ -281,7 +281,7 @@ function RailEntryRow({ entry, onOpenEntry, meta }) {
         <span style={{ display: 'block', fontSize: 13, fontWeight: 760, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title || 'Untitled'}</span>
         {metaParts.length > 0 ? (
           <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
-            {metaParts.map(part => <span key={part} style={pillStyle}>{part}</span>)}
+            {metaParts.map((part, index) => <span key={`${part}-${index}`} style={pillStyle}>{part}</span>)}
           </span>
         ) : meta && <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: 'var(--t3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta}</span>}
       </span>
@@ -1324,8 +1324,8 @@ function ModePanelList({ title, rows, onOpen }) {
   return (
     <section style={{ ...cardStyle, padding: 0, overflow: 'hidden', marginTop: 14, marginBottom: 22 }}>
       <div style={{ padding: 14, borderBottom: '1px solid var(--br)' }}><SectionHeader title={title} /></div>
-      {rows.map(([title, meta, color]) => (
-        <button key={title} type="button" onClick={onOpen} style={{ ...plainListButton(), minHeight: 50 }}>
+      {rows.map(([title, meta, color], index) => (
+        <button key={`${title}-${meta}-${index}`} type="button" onClick={onOpen} style={{ ...plainListButton(), minHeight: 50 }}>
           <span aria-hidden="true" style={{ width: 20, color }}>▣</span>
           <span style={{ minWidth: 0, flex: 1 }}>
             <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
@@ -3223,7 +3223,7 @@ function TaskEntryRow({ row, onOpenEntry, onUpdateEntry }) {
         <span style={{ display: 'block', fontSize: 13, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: done ? 'line-through' : 'none', opacity: done ? 0.65 : 1 }}>{entry.title || 'Untitled'}</span>
         {metaParts.length > 0 && (
           <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
-            {metaParts.map(part => <span key={part} style={pillStyle}>{part}</span>)}
+            {metaParts.map((part, index) => <span key={`${part}-${index}`} style={pillStyle}>{part}</span>)}
           </span>
         )}
       </span>
@@ -3860,7 +3860,7 @@ export function TagManagerView({ tags = [], onSelectTag }) {
   );
 }
 
-export function VaultStatusBar({ vaultInfo, entryCount = 0, trashCount = 0, issueCount = 0 }) {
+export function VaultStatusBar({ vaultInfo, entryCount = 0, trashCount = 0, issueCount = 0, semanticBuilding = false, semanticDone = 0, semanticTotal = 0, semanticReady = false }) {
   const root = vaultInfo?.path || vaultInfo?.root || vaultInfo?.name || 'Browser preview vault';
   const issueLabel = issueCount === 1 ? '1 issue needs review' : `${issueCount} issues need review`;
   return (
@@ -3869,6 +3869,17 @@ export function VaultStatusBar({ vaultInfo, entryCount = 0, trashCount = 0, issu
       <span style={{ color: 'var(--tx)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{root}</span>
       <span>{entryCount} entr{entryCount === 1 ? 'y' : 'ies'}</span>
       <span>{trashCount} trash</span>
+      {semanticBuilding && semanticTotal > 0 && (
+        <span aria-live="polite" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--t2)' }}>
+          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: '#60a5fa', boxShadow: '0 0 0 3px rgba(96,165,250,.14)' }} />
+          Indexing semantic — {semanticDone}/{semanticTotal}
+        </span>
+      )}
+      {!semanticBuilding && semanticReady && semanticTotal > 0 && (
+        <span title="Semantic index ready" style={{ color: 'var(--t3)' }}>
+          ✨ {semanticDone} semantic
+        </span>
+      )}
       <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <span aria-hidden="true" style={{ width: 9, height: 9, borderRadius: 99, background: issueCount > 0 ? '#f59e0b' : '#22c55e', boxShadow: `0 0 0 3px ${issueCount > 0 ? 'rgba(245,158,11,.12)' : 'rgba(34,197,94,.10)'}` }} />
         <span>{issueCount > 0 ? issueLabel : 'All systems operational'}</span>

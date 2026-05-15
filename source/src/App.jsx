@@ -11,6 +11,7 @@ import { MANUAL_LINKS_FIELD, serialize as serializeFrontmatter } from './lib/fro
 import { exportVaultBundle, exportEntriesMD, importVaultBundle } from './lib/exports.js';
 import { getConstellationDemoEntries } from './lib/demoEntries.js';
 import { useSystemDark } from './lib/hooks.js';
+import { useSemanticIndex } from './lib/hooks/useSemanticIndex.js';
 import { useOpenRouterCallback, useAppShortcuts } from './lib/appHooks.js';
 import { Toasts } from './features/primitives/Toasts.jsx';
 import { Sidebar } from './features/sidebar/Sidebar.jsx';
@@ -835,6 +836,30 @@ export default function App(){
   const visibleEntries=useMemo(()=>filterEntriesForUI(entries,prefs.featureFlags),[entries,prefs.featureFlags]);
   const activation=useActivation(visibleEntries.length);
 
+  // ── Semantic index (MiniLM Phase 2) ────────────────────────────────────
+  // Background build runs once on vault load. Cache lives at
+  // <vault>/.jotfolio/semantic-cache.json so relaunches don't re-embed
+  // unchanged entries. Per-entry re-embed fires after save (further down).
+  const semantic=useSemanticIndex(visibleEntries,vaultAdapter,{enabled:!vaultLoading&&prefs.featureFlags?.semanticEdges!==false});
+
+  // Embed an arbitrary text snippet and return the top-K most-similar entries
+  // from the existing semantic index. Used by AddModal "Suggest tags" — runs
+  // the MiniLM model over the draft (title+notes) and ranks neighbours.
+  const suggestSimilarFromText=useCallback(async(text,k=10)=>{
+    if(!semantic?.snapshot?.index)return[];
+    try{
+      // Lazy-import to keep AddModal's bundle small.
+      const{embedText}=await import('./lib/semantic/embed.js');
+      const{findTopK}=await import('./lib/semantic/similarity.js');
+      const vec=await embedText(text);
+      if(!vec)return[];
+      return findTopK(vec,semantic.snapshot.index,k);
+    }catch(err){
+      console.warn('[suggestSimilarFromText]',err);
+      return[];
+    }
+  },[semantic]);
+
   const addEntry=useCallback(async(entry)=>{
     const date=new Date().toISOString();
     const next={...entry,id:uid(),date,starred:false,links:[]};
@@ -1019,9 +1044,16 @@ export default function App(){
   const updateEntry=useCallback(async(id,patch)=>{
     const current=entries.find(e=>e.id===id);
     if(!current)return;
-    try{await saveEntryWithRules({...current,...patch})}
+    try{
+      const next={...current,...patch};
+      await saveEntryWithRules(next);
+      // Per-entry re-embed: keeps semantic index fresh without rebuilding the
+      // full 200+ entry index every save. Fire-and-forget — failures log
+      // internally and don't block the save.
+      if(semantic?.reembed)semantic.reembed(next).catch(()=>{});
+    }
     catch(err){reportError(err,'Entry update failed')}
-  },[entries,saveEntryWithRules,reportError]);
+  },[entries,saveEntryWithRules,reportError,semantic]);
 
   const linkEntries=useCallback(async(a,b)=>{
     if(!a||!b||a===b)return;
@@ -1450,6 +1482,7 @@ export default function App(){
               setPrefs={setPrefs}
               createFromMissing={createFromMissing}
               constellationFocusId={constellationFocusId}
+              semantic={semantic}
               filterStatus={filterStatus}
               setFilterStatus={setFilterStatus}
               sort={sort}
@@ -1488,7 +1521,11 @@ export default function App(){
           vaultInfo={vaultInfo}
           entryCount={visibleEntries.length}
           trashCount={trashItems.length}
-          issueCount={Array.isArray(vaultIssues)?vaultIssues.length:0}/>
+          issueCount={Array.isArray(vaultIssues)?vaultIssues.length:0}
+          semanticBuilding={semantic?.building}
+          semanticDone={semantic?.done}
+          semanticTotal={semantic?.total}
+          semanticReady={semantic?.ready}/>
         </div>
       </div>
 
@@ -1503,7 +1540,7 @@ export default function App(){
         </LazyOverlay>
       ):detail&&(
         <LazyOverlay label="Loading entry detail...">
-          <DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onCompile={()=>handleCompileRaw(detail.id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>
+          <DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onCompile={()=>handleCompileRaw(detail.id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}} getSimilar={semantic?.getSimilar} semanticReady={!!semantic?.ready}/>
         </LazyOverlay>
       )}
       {compilePreview&&(
@@ -1531,7 +1568,7 @@ export default function App(){
         onClose={()=>setFolderDialogOpen(false)}/>}
       {showAddModal&&(
         <LazyOverlay label="Loading capture...">
-          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={e=>{addEntry(e);closeAddModal()}} flags={prefs.featureFlags}/>
+          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={e=>{addEntry(e);closeAddModal()}} flags={prefs.featureFlags} entries={visibleEntries} suggestTagsFromText={semantic?.ready?suggestSimilarFromText:undefined}/>
         </LazyOverlay>
       )}
       {section==='welcome'&&loaded&&!isOnboarded()&&visibleEntries.length===0&&(

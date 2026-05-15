@@ -123,6 +123,8 @@ export function AddModal({
   onClose,
   onAdd,
   onCreateCanvas,
+  entries,
+  suggestTagsFromText,
 }) {
   const projectTarget = normalizeProjectContext(projectContext);
   const startingType = supportedType(initialType);
@@ -196,6 +198,69 @@ export function AddModal({
   const removeTag = tag => {
     setTags(previous => previous.filter(item => item !== tag));
     setDirty(true);
+  };
+
+  // MiniLM Phase 2: tag suggestions via semantic neighbours.
+  // 1. Embed (title + notes) of the draft via suggestTagsFromText
+  // 2. suggestTagsFromText returns top-10 most-similar existing entries
+  // 3. Count tag frequencies across those neighbours
+  // 4. Take the 5 most common tags NOT already on the draft
+  // Pure local: the embed runs in WASM, no network.
+  const [suggestedTags, setSuggestedTags] = useState([]);
+  const [suggestingTags, setSuggestingTags] = useState(false);
+  const [tagSuggestNotice, setTagSuggestNotice] = useState('');
+
+  const handleSuggestTags = async () => {
+    const draftText = `${form.title || ''}\n${form.notes || ''}`.trim();
+    if (!draftText) {
+      setTagSuggestNotice('Add a title or notes first so we can find similar entries.');
+      setSuggestedTags([]);
+      return;
+    }
+    if (typeof suggestTagsFromText !== 'function') {
+      setTagSuggestNotice('Semantic index not available.');
+      setSuggestedTags([]);
+      return;
+    }
+    setSuggestingTags(true);
+    setTagSuggestNotice('');
+    try {
+      const neighbours = await suggestTagsFromText(draftText, 10);
+      if (!Array.isArray(neighbours) || neighbours.length === 0) {
+        setTagSuggestNotice('No semantically similar notes found yet.');
+        setSuggestedTags([]);
+        return;
+      }
+      const idToEntry = new Map((entries || []).map(e => [e.id, e]));
+      const counts = new Map();
+      for (const { id } of neighbours) {
+        const neighbour = idToEntry.get(id);
+        if (!neighbour) continue;
+        for (const raw of (neighbour.tags || [])) {
+          const t = String(raw || '').trim().toLowerCase();
+          if (!t) continue;
+          if (tags.includes(t)) continue;
+          counts.set(t, (counts.get(t) || 0) + 1);
+        }
+      }
+      const ranked = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([tag]) => tag);
+      setSuggestedTags(ranked);
+      if (ranked.length === 0) setTagSuggestNotice('Similar notes have no new tags to add.');
+    } catch (err) {
+      console.warn('[AddModal] suggest tags failed', err);
+      setTagSuggestNotice('Could not run tag suggestions.');
+      setSuggestedTags([]);
+    } finally {
+      setSuggestingTags(false);
+    }
+  };
+
+  const applySuggestedTag = tag => {
+    addTag(tag);
+    setSuggestedTags(previous => previous.filter(item => item !== tag));
   };
 
   const applyTemplate = () => {
@@ -480,7 +545,55 @@ export function AddModal({
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(240px, 0.9fr)', gap: 14 }}>
               <div>
-                <label htmlFor="capture-tag-input" style={fieldLabelStyle()}>Tags</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <label htmlFor="capture-tag-input" style={{ ...fieldLabelStyle(), margin: 0 }}>Tags</label>
+                  {typeof suggestTagsFromText === 'function' && (
+                    <button
+                      type="button"
+                      onClick={handleSuggestTags}
+                      disabled={suggestingTags}
+                      style={{
+                        marginLeft: 'auto',
+                        padding: '3px 9px',
+                        fontSize: 11,
+                        border: '1px dashed rgba(118, 137, 160, 0.42)',
+                        borderRadius: 99,
+                        background: 'transparent',
+                        color: suggestingTags ? 'var(--t3)' : 'var(--ac)',
+                        cursor: suggestingTags ? 'wait' : 'pointer',
+                        fontFamily: 'var(--fn)',
+                      }}
+                    >
+                      {suggestingTags ? 'Thinking…' : '✨ Suggest tags'}
+                    </button>
+                  )}
+                </div>
+                {suggestedTags.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                    {suggestedTags.map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => applySuggestedTag(tag)}
+                        style={{
+                          padding: '3px 9px',
+                          fontSize: 11,
+                          border: '1px dashed rgba(96, 165, 250, 0.55)',
+                          borderRadius: 99,
+                          background: 'rgba(96, 165, 250, 0.10)',
+                          color: 'var(--tx)',
+                          cursor: 'pointer',
+                          fontFamily: 'var(--fn)',
+                        }}
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {tagSuggestNotice && (
+                  <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 6 }}>{tagSuggestNotice}</div>
+                )}
                 <div
                   style={{
                     minHeight: 44,

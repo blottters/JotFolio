@@ -303,8 +303,60 @@ function textMatch(value, query) {
   return String(value || '').toLowerCase().includes(q);
 }
 
-function entryDate(entry) {
+function entryDate(entry, prefer) {
+  if (prefer === 'modified') {
+    return entry?.modified?.slice?.(0, 10) || entry?.updated?.slice?.(0, 10) || entry?.entry_date || entry?.date?.slice?.(0, 10) || '';
+  }
   return entry?.entry_date || entry?.date?.slice?.(0, 10) || entry?.modified?.slice?.(0, 10) || '';
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isOverdue(row) {
+  // overdue = open task with due date earlier than today
+  if (!row?.entry || row.entry.completed) return false;
+  const due = row.entry.due ? String(row.entry.due).slice(0, 10) : '';
+  return Boolean(due) && due < todayISO();
+}
+
+function startOfWeekISO(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun
+  const diff = (day + 6) % 7; // Monday-start
+  d.setDate(d.getDate() - diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function withinThisWeek(target) {
+  // target can be a row (with .entry) or an entry
+  const entry = target?.entry || target;
+  const stamps = [entry?.modified, entry?.completed_at, entry?.date, entry?.entry_date, entry?.updated];
+  const stamp = stamps.find(Boolean);
+  if (!stamp) return false;
+  const day = String(stamp).slice(0, 10);
+  return day >= startOfWeekISO() && day <= todayISO();
+}
+
+function wordCount(text) {
+  if (!text) return 0;
+  return String(text).trim().split(/\s+/).filter(Boolean).length;
+}
+
+function formatRelativeTime(stamp) {
+  if (!stamp) return '';
+  const parsed = typeof stamp === 'number' ? new Date(stamp) : new Date(stamp);
+  if (Number.isNaN(parsed.valueOf())) return '';
+  const diff = Date.now() - parsed.getTime();
+  const minutes = Math.round(diff / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return parsed.toISOString().slice(0, 10);
 }
 
 function entryStamp(entry) {
@@ -427,32 +479,6 @@ function taskState(row) {
   return row?.dueState || (row?.entry?.completed ? 'done' : row?.entry?.due ? 'upcoming' : 'unscheduled');
 }
 
-const referencePinned = [
-  { type: 'Project', title: 'JotFolio 2.0', description: 'Product roadmap and key initiatives', progress: 68, color: '#4d8dff' },
-  { type: 'Note', title: 'Design Principles', description: 'Core principles for the next generation', time: '7m ago' },
-  { type: 'Note', title: 'User Research Synthesis', description: 'Key insights from user interviews', time: '2h ago' },
-  { type: 'Project', title: 'Marketing Site', description: 'Launch plan and content strategy', progress: 32, color: '#9a5cff' },
-];
-
-const referenceNotes = [
-  ['Weekly Review – May 11', '#planning', 'Today, 9:41 AM', '#a3adb9'],
-  ['Competitive Analysis – Q2', '#research', 'Yesterday, 4:12 PM', '#22c55e'],
-  ['Ideas: AI Workflow Automations', '#ideas', 'Yesterday, 11:03 AM', '#f59e0b'],
-  ['Design System Audit', '#design', 'May 9, 2026', '#4d8dff'],
-  ['Interview: Jamie Park (PM)', '#research', 'May 9, 2026', '#22c55e'],
-  ['Zapier Integration Outline', '#product', 'May 8, 2026', '#ef6f4d'],
-  ['Onboarding Flow Redesign', '#design', 'May 7, 2026', '#f59e0b'],
-  ['Product Metrics Dashboard', '#product', 'May 7, 2026', '#4d8dff'],
-];
-
-const referenceProjects = [
-  ['JotFolio 2.0', '68%', 'Changed 1h ago', '#4d8dff', true],
-  ['Marketing Site', '32%', 'Changed 3h ago', '#9a5cff', false],
-  ['Q2 Content Plan', '55%', 'Changed 5h ago', '#22c55e', false],
-  ['AI Assistant v1', '80%', 'Changed 1d ago', '#f59e0b', false],
-  ['Mobile Companion', '15%', 'Changed 2d ago', '#ef4444', false],
-];
-
 const captureKinds = [
   { id: 'note', label: 'Note', description: 'Write down a thought or idea', icon: '▣', type: 'note', category: 'notes' },
   { id: 'task', label: 'Task', description: 'Capture an action or to-do', icon: '✓', type: 'task', category: 'tasks' },
@@ -468,14 +494,6 @@ const captureFilterOptions = [
   ['links', 'Links', '⌁'],
   ['voice', 'Voice', '≋'],
   ['screenshots', 'Screenshots', '□'],
-];
-
-const referenceCaptureRows = [
-  { id: 'screenshot-932', title: 'Screenshot 2026-05-11 at 9.32.11 AM', label: 'Screenshot', time: '9:32 AM', kind: 'screenshot', category: 'screenshots', icon: 'thumb' },
-  { id: 'voice-jamie', title: 'Voice Note – Interview Jamie Park', label: 'Voice', time: '9:15 AM', kind: 'voice', category: 'voice', icon: 'wave' },
-  { id: 'product-hunt', title: 'Product Hunt – Launch Strategy', label: 'Web Clip', time: '8:47 AM', kind: 'web', category: 'links', icon: 'p' },
-  { id: 'meeting-sync', title: 'Meeting Notes – Design Sync', label: 'Note', time: '8:12 AM', kind: 'note', category: 'notes', icon: 'note' },
-  { id: 'ai-flow', title: 'AI onboarding flow – idea', label: 'Note', time: '7:58 AM', kind: 'note', category: 'notes', icon: 'note' },
 ];
 
 function formatCommandCenterDate(date) {
@@ -662,10 +680,10 @@ export function CommandCenterView({ model = {}, userName = 'Gavin', focusMode = 
         </div>
       </div>
 
-      {modeKey === 'planning' && <PlanningCommandCenter accent={mode.accent} state={modeState.planning} onStateChange={updater => updateModeState('planning', updater)} onModeChange={handleFocusModeChange} onNavigate={onNavigate} onAdd={onAdd} />}
+      {modeKey === 'planning' && <PlanningCommandCenter accent={mode.accent} state={modeState.planning} model={model} onStateChange={updater => updateModeState('planning', updater)} onModeChange={handleFocusModeChange} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />}
       {modeKey === 'capture' && <CaptureCommandCenter accent={mode.accent} state={modeState.capture} recentCaptures={model.recentCaptures || []} onStateChange={updater => updateModeState('capture', updater)} onNavigate={onNavigate} onAdd={onAdd} onQuickCapture={onQuickCapture} onOpenEntry={onOpenEntry} />}
-      {modeKey === 'review' && <ReviewCommandCenter accent={mode.accent} state={modeState.review} onStateChange={updater => updateModeState('review', updater)} onNavigate={onNavigate} onAdd={onAdd} />}
-      {modeKey === 'deep-work' && <DeepWorkCommandCenter accent={mode.accent} state={modeState.deepWork} onStateChange={updater => updateModeState('deepWork', updater)} onNavigate={onNavigate} onAdd={onAdd} />}
+      {modeKey === 'review' && <ReviewCommandCenter accent={mode.accent} state={modeState.review} model={model} onStateChange={updater => updateModeState('review', updater)} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />}
+      {modeKey === 'deep-work' && <DeepWorkCommandCenter accent={mode.accent} state={modeState.deepWork} model={model} onStateChange={updater => updateModeState('deepWork', updater)} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />}
     </div>
   );
 }
@@ -707,7 +725,7 @@ function MiniProgressRow({ title, value, color = 'var(--ac)', meta }) {
   );
 }
 
-function DeepWorkCommandCenter({ accent, state, onStateChange, onNavigate, onAdd }) {
+function DeepWorkCommandCenter({ accent, state, model = {}, onStateChange, onNavigate, onAdd, onOpenEntry }) {
   const activeTab = state?.activeTab || 'Deep Work Hub';
   const goals = state?.sessionGoals || commandCenterDefaults.deepWork.sessionGoals;
   const toggleGoal = index => onStateChange(current => ({
@@ -715,44 +733,109 @@ function DeepWorkCommandCenter({ accent, state, onStateChange, onNavigate, onAdd
     sessionGoals: goals.map((goal, goalIndex) => goalIndex === index ? { ...goal, done: !goal.done } : goal),
     lastAction: 'Session goals updated',
   }));
+
+  // Live deep-work data
+  const recentEntries = Array.isArray(model.recentEntries) ? model.recentEntries : [];
+  const projectRowsModel = Array.isArray(model.projectRows) ? model.projectRows : [];
+
+  // Pinned = starred entries, by recency (top 4)
+  const allEntries = recentEntries.concat(projectRowsModel.map(row => row.entry).filter(Boolean));
+  const seenIds = new Set();
+  const pinnedEntries = allEntries
+    .filter(entry => entry?.starred)
+    .filter(entry => {
+      if (seenIds.has(entry.id)) return false;
+      seenIds.add(entry.id);
+      return true;
+    })
+    .sort((a, b) => entryTimestamp(b) - entryTimestamp(a))
+    .slice(0, 4);
+
+  // Current focus = most-recently-modified note
+  const focusEntry = recentEntries
+    .filter(entry => entry.type === 'note')
+    .sort((a, b) => entryTimestamp(b) - entryTimestamp(a))[0] || null;
+
+  // Build a vault index for backlinks if we have entries
+  const vaultIndex = useMemo(() => recentEntries.length ? buildVaultIndex(recentEntries) : null, [recentEntries]);
+  const focusBacklinks = focusEntry && vaultIndex ? getBacklinks(vaultIndex, focusEntry.id).slice(0, 3) : [];
+  const focusUnresolvedRaw = focusEntry?.unresolvedLinks || focusEntry?.unresolvedTargets || [];
+  // Normalize: both strings and { target, line } shapes show up depending on source.
+  const focusUnresolved = (Array.isArray(focusUnresolvedRaw) ? focusUnresolvedRaw : [])
+    .map(item => (typeof item === 'string' ? item : item?.target || item?.label || ''))
+    .filter(Boolean)
+    .slice(0, 3);
+  const focusRelatedMemory = focusEntry
+    ? recentEntries
+        .filter(entry => (entry.type === 'wiki' || entry.type === 'review') && Array.isArray(entry.links) && entry.links.includes(focusEntry.id))
+        .slice(0, 3)
+    : [];
+
+  const wordsInFocus = focusEntry ? wordCount(focusEntry.notes || focusEntry.body || focusEntry.content) : 0;
+  const focusPrimaryTag = (focusEntry?.tags || [])[0];
+
+  const activeProjectsDW = projectRowsModel.filter(row => row.entry?.status !== 'archived' && row.entry?.status !== 'done');
+
+  const openEntryOrFallback = (entry, fallback) => {
+    if (entry?.id && onOpenEntry) onOpenEntry(entry.id);
+    else if (fallback) onNavigate?.(fallback);
+  };
+
   return (
     <>
       <SectionHeader title="Pinned" action={<TextActionButton ariaLabel="Open pinned entries" onClick={() => onNavigate?.('starred')}>View all pinned</TextActionButton>} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 16, marginBottom: 24 }}>
-        {referencePinned.map(card => (
-          <ReferencePinnedCard
-            key={card.title}
-            card={card}
-            onOpen={() => onNavigate?.(card.type === 'Project' ? 'projects' : 'note')}
-          />
-        ))}
-      </div>
+      {pinnedEntries.length === 0 ? (
+        <div style={{ marginBottom: 24, padding: '14px 16px', border: '1px dashed var(--br)', borderRadius: 'var(--rd)', color: 'var(--t3)', fontSize: 13 }}>
+          Star entries to pin them to your Deep Work hub.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 16, marginBottom: 24 }}>
+          {pinnedEntries.map(entry => {
+            const isProject = entry.type === 'project';
+            const matchingRow = projectRowsModel.find(row => row.entry?.id === entry.id);
+            const progress = isProject ? Math.round(matchingRow?.progress || 0) : null;
+            const desc = entry.notes || entry.summary || entry.body || '';
+            const card = {
+              type: isProject ? 'Project' : entry.type === 'note' ? 'Note' : (entry.type ? entry.type.charAt(0).toUpperCase() + entry.type.slice(1) : 'Entry'),
+              title: entry.title || 'Untitled',
+              description: typeof desc === 'string' ? desc.slice(0, 96) : '',
+              progress,
+              color: accent,
+              time: formatRelativeTime(entry.modified || entry.date || entry.entry_date),
+            };
+            return <ReferencePinnedCard key={entry.id} card={card} onOpen={() => openEntryOrFallback(entry, isProject ? 'projects' : 'note')} />;
+          })}
+        </div>
+      )}
       <ModeTabs active={activeTab} items={['Deep Work Hub', 'Active Projects', 'Backlinks', 'Smart Views']} accent={accent} onSelect={tab => onStateChange({ activeTab: tab, lastAction: `Opened ${tab}` })} />
       {activeTab === 'Deep Work Hub' && (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginTop: 14 }}>
             <section style={{ ...cardStyle, padding: 18 }}>
               <SectionHeader title="Current Focus" />
-              <button type="button" onClick={() => onNavigate?.('note')} style={{ width: '100%', border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--fn)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 16, borderBottom: '1px solid var(--br)' }}>
-                  <span aria-hidden="true" style={{ color: 'var(--t3)', fontSize: 22 }}>▤</span>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <strong style={{ color: 'var(--tx)', fontSize: 17 }}>Design Principles</strong>
-                      <span style={{ ...pillStyle, color: accent, background: `${accent}1f` }}>#design</span>
+              {focusEntry ? (
+                <>
+                  <button type="button" onClick={() => onOpenEntry?.(focusEntry.id)} style={{ width: '100%', border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--fn)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 16, borderBottom: '1px solid var(--br)' }}>
+                      <span aria-hidden="true" style={{ color: 'var(--t3)', fontSize: 22 }}>▤</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <strong style={{ color: 'var(--tx)', fontSize: 17 }}>{focusEntry.title || 'Untitled note'}</strong>
+                          {focusPrimaryTag && <span style={{ ...pillStyle, color: accent, background: `${accent}1f` }}>#{focusPrimaryTag}</span>}
+                        </div>
+                        {(focusEntry.notes || focusEntry.summary) && <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(focusEntry.notes || focusEntry.summary).slice(0, 120)}</div>}
+                        {focusEntry._path && <div style={{ color: 'var(--t3)', fontSize: 12, marginTop: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{focusEntry._path}</div>}
+                      </div>
                     </div>
-                    <div style={{ color: 'var(--t2)', fontSize: 12, marginTop: 6 }}>Core principles for the next generation of JotFolio</div>
-                    <div style={{ color: 'var(--t3)', fontSize: 12, marginTop: 10 }}>/Work/Design/Design Principles.md</div>
+                  </button>
+                  <div style={{ marginTop: 14, display: 'flex', gap: 18, color: 'var(--t2)', fontSize: 12 }}>
+                    <span><strong style={{ color: 'var(--tx)' }}>{wordsInFocus.toLocaleString()}</strong> word{wordsInFocus === 1 ? '' : 's'}</span>
+                    <span>Last edited <strong style={{ color: 'var(--tx)' }}>{formatRelativeTime(focusEntry.modified || focusEntry.date || focusEntry.entry_date) || 'just now'}</strong></span>
                   </div>
-                </div>
-              </button>
-              <div style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--t2)', fontSize: 12, marginBottom: 7 }}>
-                  <span>Focus Progress</span>
-                  <span>1,248 / 2,000 words</span>
-                </div>
-                <ProgressLine value={62} color={accent} />
-              </div>
+                </>
+              ) : (
+                <div style={{ padding: '20px 4px', color: 'var(--t3)', fontSize: 13 }}>Create a note to set your current focus.</div>
+              )}
             </section>
             <section style={{ ...cardStyle, padding: 18 }}>
               <SectionHeader title="Session Goals" />
@@ -760,21 +843,55 @@ function DeepWorkCommandCenter({ accent, state, onStateChange, onNavigate, onAdd
             </section>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12, marginBottom: 22 }}>
-            <MiniListCard title="Related Backlinks (8)" items={['Why Local-First Matters.md', 'JotFolio Principles.md', 'Offline-First Strategy.md', 'User Research Themes.md']} color="#52d273" onItemClick={() => onNavigate?.('graph')} />
-            <MiniListCard title="Unresolved Links (3)" items={['Authentication flow details', 'Sync conflict resolution', 'Export formats decision']} color="#facc15" onItemClick={() => onNavigate?.('graph')} />
-            <MiniListCard title="Related Memory (5)" items={['Local-First Concepts', 'Offline-First Design Patterns', 'User Trust & Privacy', 'Focus & Deep Work Habits']} color="#a855f7" onItemClick={() => onNavigate?.('graph')} />
+            <MiniListCard
+              title={`Related Backlinks (${focusBacklinks.length})`}
+              items={focusBacklinks.map(entry => ({ id: entry.id, label: entry.title || entry._path || 'Untitled' }))}
+              empty={focusEntry ? 'No backlinks yet.' : 'Pick a focus note to see backlinks.'}
+              color="#52d273"
+              onItemClick={item => item?.id && onOpenEntry?.(item.id)}
+            />
+            <MiniListCard
+              title={`Unresolved Links (${focusUnresolved.length})`}
+              items={focusUnresolved.map(label => ({ label }))}
+              empty={focusEntry ? 'No unresolved references.' : 'Pick a focus note to see unresolved references.'}
+              color="#facc15"
+              onItemClick={() => onNavigate?.('graph')}
+            />
+            <MiniListCard
+              title={`Related Memory (${focusRelatedMemory.length})`}
+              items={focusRelatedMemory.map(entry => ({ id: entry.id, label: entry.title || entry._path || 'Untitled' }))}
+              empty={focusEntry ? 'No related memory entries.' : 'Pick a focus note to see related memory.'}
+              color="#a855f7"
+              onItemClick={item => item?.id ? onOpenEntry?.(item.id) : onNavigate?.('graph')}
+            />
           </div>
         </>
       )}
       {state?.lastAction && <StatusLine tone={accent}>{state.lastAction}</StatusLine>}
-      {activeTab === 'Active Projects' && <ModePanelList title="Active Projects" rows={referenceProjects.map(([title, completion, changed, color]) => [title, `${completion} · ${changed}`, color])} onOpen={() => onNavigate?.('projects')} />}
-      {activeTab === 'Backlinks' && <ModePanelList title="Backlinks" rows={['Why Local-First Matters.md', 'JotFolio Principles.md', 'Offline-First Strategy.md', 'User Research Themes.md'].map(item => [item, 'Open in Constellation', '#52d273'])} onOpen={() => onNavigate?.('graph')} />}
+      {activeTab === 'Active Projects' && (
+        activeProjectsDW.length === 0
+          ? <div style={{ marginTop: 14, padding: 14, border: '1px dashed var(--br)', borderRadius: 'var(--rd)', color: 'var(--t3)' }}>No active projects yet.</div>
+          : <ModePanelList
+              title="Active Projects"
+              rows={activeProjectsDW.map(row => [row.entry?.title || 'Untitled project', `${Math.round(row.progress || 0)}% · ${formatRelativeTime(row.lastActivity) || 'No activity'}`, accent])}
+              onOpen={() => onNavigate?.('projects')}
+            />
+      )}
+      {activeTab === 'Backlinks' && (
+        focusBacklinks.length === 0
+          ? <div style={{ marginTop: 14, padding: 14, border: '1px dashed var(--br)', borderRadius: 'var(--rd)', color: 'var(--t3)' }}>No backlinks for the current focus.</div>
+          : <ModePanelList
+              title="Backlinks"
+              rows={focusBacklinks.map(entry => [entry.title || 'Untitled', 'Open in Constellation', '#52d273'])}
+              onOpen={() => onNavigate?.('graph')}
+            />
+      )}
       {activeTab === 'Smart Views' && <ModePanelList title="Smart Views" rows={['Current focus notes', 'Unresolved links', 'Recent memory', 'Project sources'].map(item => [item, 'Open search view', accent])} onOpen={() => onNavigate?.('search')} />}
       <SectionHeader title="Quick Actions" />
       <ModeActionTiles
         actions={[
           { label: 'New Note', type: 'note', icon: '▤', color: accent },
-          { label: 'Open Current', section: 'note', icon: '▣', color: '#3ddc84' },
+          { label: 'Open Current', onClick: () => focusEntry?.id ? onOpenEntry?.(focusEntry.id) : onNavigate?.('note'), icon: '▣', color: '#3ddc84' },
           { label: 'Review Backlinks', section: 'graph', icon: '⌘', color: '#2dd4bf' },
           { label: 'Compile to Memory', section: 'raw', icon: '☑', color: '#a855f7' },
           { label: 'Templates', section: 'templates', icon: '◇', color: '#a3adb9' },
@@ -786,49 +903,96 @@ function DeepWorkCommandCenter({ accent, state, onStateChange, onNavigate, onAdd
   );
 }
 
-function PlanningCommandCenter({ accent, state, onStateChange, onModeChange, onNavigate, onAdd }) {
+function PlanningCommandCenter({ accent, state, model = {}, onStateChange, onModeChange, onNavigate, onAdd, onOpenEntry }) {
   const priorities = state?.priorities || commandCenterDefaults.planning.priorities;
-  const selectedTimeBlock = state?.selectedTimeBlock || 'Mon 11';
   const togglePriority = index => onStateChange(current => ({
     ...current,
     priorities: priorities.map((item, itemIndex) => itemIndex === index ? { ...item, done: !item.done } : item),
     lastAction: 'Priorities saved',
   }));
   const setPlanningStatus = message => onStateChange(current => ({ ...current, lastAction: message }));
+
+  // Live metrics
+  const projectRows = Array.isArray(model.projectRows) ? model.projectRows : [];
+  const taskRows = Array.isArray(model.taskRows) ? model.taskRows : [];
+  const calendarDays = model.calendarDays && typeof model.calendarDays === 'object' ? model.calendarDays : {};
+  const activeProjects = projectRows.filter(row => row.entry?.status !== 'done' && row.entry?.status !== 'archived').length;
+  const openTasks = taskRows.filter(row => row.statusKey !== 'done' && !row.isDone && !row.entry?.completed).length;
+  const highPriorityOpen = taskRows.filter(row => (row.priorityRank === 0 || row.priorityRank === 1) && !row.isDone && !row.entry?.completed).length;
+  const today = todayISO();
+
+  // Upcoming deadlines (tasks + projects with future due dates)
+  const dueCandidates = [
+    ...taskRows.map(row => row.entry),
+    ...projectRows.map(row => row.entry),
+  ].filter((entry, idx, arr) => entry && entry.due && arr.findIndex(e => e?.id === entry.id) === idx)
+    .filter(entry => String(entry.due).slice(0, 10) >= today)
+    .sort((a, b) => String(a.due).localeCompare(String(b.due)));
+  const upcomingDeadlines = dueCandidates.slice(0, 5);
+
+  // This week's days: Monday-Sunday from start-of-week ISO
+  const weekStart = new Date(startOfWeekISO());
+  const weekDays = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const iso = d.toISOString().slice(0, 10);
+    const label = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric' }).format(d);
+    const bucket = calendarDays[iso] || { entries: [], tasks: [] };
+    const firstItem = [...(bucket.entries || []), ...(bucket.tasks || [])][0];
+    return { iso, label, firstItem };
+  });
+  const selectedTimeBlock = state?.selectedTimeBlock || weekDays[0]?.iso;
+
+  // Calendar items count = entries+tasks across the week
+  const weekItemCount = weekDays.reduce((sum, day) => {
+    const bucket = calendarDays[day.iso] || { entries: [], tasks: [] };
+    return sum + (bucket.entries?.length || 0) + (bucket.tasks?.length || 0);
+  }, 0);
+  const nextDeadline = upcomingDeadlines[0];
+  const nextDeadlineLabel = nextDeadline ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(String(nextDeadline.due).slice(0, 10))) : '—';
+
+  const projectsById = Object.fromEntries(projectRows.map(row => [row.entry?.id, row.entry]).filter(([id]) => id));
+
   return (
     <>
       <SectionHeader title="Planning Overview" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 14, marginBottom: 22 }}>
-        <OverviewMetricCard icon="▭" label="Active Projects" value="5" detail="2 on track" color={accent} />
-        <OverviewMetricCard icon="✓" label="Tasks This Week" value="18" detail="6 high priority" color={accent} />
-        <OverviewMetricCard icon="□" label="Upcoming Deadlines" value="4" detail="Next: May 16" color={accent} />
-        <OverviewMetricCard icon="◷" label="Time Blocks" value="12" detail="Planned this week" color={accent} />
+        <OverviewMetricCard icon="▭" label="Active Projects" value={String(activeProjects)} detail={activeProjects === 1 ? '1 in flight' : `${activeProjects} in flight`} color={accent} />
+        <OverviewMetricCard icon="✓" label="Open Tasks" value={String(openTasks)} detail={`${highPriorityOpen} high priority`} color={accent} />
+        <OverviewMetricCard icon="□" label="Upcoming Deadlines" value={String(dueCandidates.length)} detail={nextDeadline ? `Next: ${nextDeadlineLabel}` : 'None'} color={accent} />
+        <OverviewMetricCard icon="◷" label="Calendar Items" value={String(weekItemCount)} detail="This week" color={accent} />
       </div>
       <SectionHeader title="Plan Your Work" action={<TextActionButton onClick={() => onNavigate?.('calendar')}>View calendar</TextActionButton>} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>
         <PlanningStepCard number="1" title="Define Priorities" body="Focus on what matters most this week." action="Save Priorities" accent={accent} items={priorities} onToggleItem={togglePriority} onAction={() => setPlanningStatus('Priorities saved')} />
-        <PlanningStepCard number="2" title="Break Down Work" body="Decompose projects into actionable tasks." action="View All Tasks" accent={accent} progress onAction={() => onNavigate?.('tasks')} />
-        <PlanningStepCard number="3" title="Schedule Time" body="Block focused time for deep work." action="View Time Blocks" accent={accent} schedule onAction={() => onNavigate?.('calendar')} />
+        <PlanningStepCard number="2" title="Break Down Work" body="Decompose projects into actionable tasks." action="View All Tasks" accent={accent} progressRows={projectRows.slice(0, 3).map(row => ({ name: row.entry?.title || 'Untitled project', value: row.progress || 0, color: accent }))} onAction={() => onNavigate?.('tasks')} />
+        <PlanningStepCard number="3" title="Schedule Time" body="Block focused time for deep work." action="View Time Blocks" accent={accent} scheduleRows={weekDays.slice(0, 3).map(day => [day.label, day.firstItem?.title || 'Open'])} onAction={() => onNavigate?.('calendar')} />
         <PlanningStepCard number="4" title="Review & Adjust" body="Check progress and adjust the plan." action="Start Review" accent={accent} review onAction={() => onModeChange?.('review')} />
       </div>
       {state?.lastAction && <StatusLine tone={accent}>{state.lastAction}</StatusLine>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 16, marginBottom: 22 }}>
         <section style={{ ...cardStyle, padding: 14 }}>
           <SectionHeader title="Upcoming Deadlines" action={<TextActionButton onClick={() => onNavigate?.('calendar')}>View all</TextActionButton>} />
-          {[
-            ['Design System Audit', 'JotFolio 2.0', 'May 16, 2026', '#ef4444'],
-            ['Marketing Site Launch', 'Marketing Site', 'May 20, 2026', '#f59e0b'],
-            ['Q2 Content Plan v1', 'Q2 Content Plan', 'May 23, 2026', 'var(--t2)'],
-            ['User Research Report', 'JotFolio 2.0', 'May 28, 2026', '#c084fc'],
-          ].map(row => <DeadlineRow key={row[0]} row={row} onOpen={() => onNavigate?.('calendar')} />)}
+          {upcomingDeadlines.length === 0 ? (
+            <EmptyLine>No upcoming deadlines.</EmptyLine>
+          ) : upcomingDeadlines.map(entry => {
+            const dueIso = String(entry.due).slice(0, 10);
+            const projectTitle = projectsById[entry.project]?.title || (typeof entry.project === 'string' ? entry.project : entry.type === 'project' ? 'Project' : 'Task');
+            const color = dueIso === today ? '#f59e0b' : 'var(--t2)';
+            const dueLabel = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(dueIso));
+            return <DeadlineRow key={entry.id} row={[entry.title || 'Untitled', projectTitle, dueLabel, color]} onOpen={() => onOpenEntry ? onOpenEntry(entry.id) : onNavigate?.('calendar')} />;
+          })}
         </section>
         <section style={{ ...cardStyle, padding: 14 }}>
           <SectionHeader title="This Week’s Time Blocks" action={<TextActionButton onClick={() => onNavigate?.('calendar')}>View calendar</TextActionButton>} />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', border: '1px solid var(--br)', borderRadius: 7, overflow: 'hidden' }}>
-            {['Mon 11', 'Tue 12', 'Wed 13', 'Thu 14', 'Fri 15', 'Sat 16', 'Sun 17'].map((day, index) => (
-              <button key={day} type="button" onClick={() => onStateChange(current => ({ ...current, selectedTimeBlock: day, lastAction: `Selected ${day} time block` }))} style={{ padding: 10, minHeight: 70, border: 'none', borderLeft: index ? '1px solid var(--br)' : 'none', background: selectedTimeBlock === day ? `${accent}33` : 'transparent', fontFamily: 'var(--fn)', textAlign: 'left', cursor: 'pointer' }}>
-                <strong style={{ color: 'var(--tx)', fontSize: 13 }}>{day}</strong>
-                <div style={{ color: 'var(--t3)', fontSize: 11, marginTop: 12 }}>{index < 5 ? ['Deep Work', 'Meeting', 'Team sync', 'Deep Work', 'Review'][index] : ''}</div>
+            {weekDays.map((day, index) => (
+              <button key={day.iso} type="button" onClick={() => {
+                onStateChange(current => ({ ...current, selectedTimeBlock: day.iso, lastAction: `Selected ${day.label}` }));
+                if (day.firstItem?.id && onOpenEntry) onOpenEntry(day.firstItem.id);
+              }} style={{ padding: 10, minHeight: 70, border: 'none', borderLeft: index ? '1px solid var(--br)' : 'none', background: selectedTimeBlock === day.iso ? `${accent}33` : 'transparent', fontFamily: 'var(--fn)', textAlign: 'left', cursor: 'pointer' }}>
+                <strong style={{ color: 'var(--tx)', fontSize: 13 }}>{day.label}</strong>
+                <div style={{ color: 'var(--t3)', fontSize: 11, marginTop: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{day.firstItem?.title || 'Open'}</div>
               </button>
             ))}
           </div>
@@ -874,7 +1038,7 @@ function CaptureCommandCenter({ accent, state, recentCaptures = [], onStateChang
   const selected = captureKinds.find(kind => kind.id === selectedKind) || captureKinds[0];
   const localRows = state?.capturedRows || [];
   const realRows = recentCaptures.map(captureEntryToCommandRow);
-  const capturedRows = [...localRows, ...realRows, ...(localRows.length || realRows.length ? [] : referenceCaptureRows)];
+  const capturedRows = [...localRows, ...realRows];
   const visibleRows = selectedFilter === 'all'
     ? capturedRows
     : capturedRows.filter(row => row.category === selectedFilter);
@@ -940,15 +1104,14 @@ function CaptureCommandCenter({ accent, state, recentCaptures = [], onStateChang
           style={{ width: '100%', minHeight: 74, resize: 'vertical', border: 'none', outline: 'none', boxSizing: 'border-box', background: 'transparent', color: 'var(--tx)', padding: '18px 18px 8px', fontFamily: 'var(--fn)', fontSize: 15, lineHeight: 1.45 }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 15, padding: '8px 18px 16px' }}>
+          {/* Only show helpers that actually insert something into the draft. Removed Attach/Suggest until a real file picker and suggestion engine are wired in. */}
           {[
             ['List', '\n- ', '☷'],
             ['Link', '[link](https://)', '⌁'],
             ['Tag', ' #', '#'],
             ['Mention', ' @', '@'],
-            ['Attach', '', '♧'],
-            ['Suggest', '', '✧'],
           ].map(([label, value, icon]) => (
-            <button key={label} type="button" aria-label={label} onClick={() => value ? appendToDraft(value) : setCaptureStatus(`${label} helper ready`)} style={{ border: 'none', background: 'transparent', color: 'var(--t2)', fontSize: 18, fontFamily: 'var(--fn)', cursor: 'pointer' }}>{icon}</button>
+            <button key={label} type="button" aria-label={label} onClick={() => appendToDraft(value)} style={{ border: 'none', background: 'transparent', color: 'var(--t2)', fontSize: 18, fontFamily: 'var(--fn)', cursor: 'pointer' }}>{icon}</button>
           ))}
           <button type="button" onClick={captureNow} style={{ marginLeft: 'auto', minHeight: 38, minWidth: 148, border: `1px solid ${accent}66`, borderRadius: 7, background: `linear-gradient(180deg, ${accent}, #6f3bb9)`, color: '#fff', fontFamily: 'var(--fn)', fontSize: 14, fontWeight: 750, cursor: 'pointer', boxShadow: `0 10px 24px ${accent}24` }}>
             Capture <span style={{ marginLeft: 18, opacity: .78 }}>⌘↵</span>
@@ -962,7 +1125,9 @@ function CaptureCommandCenter({ accent, state, recentCaptures = [], onStateChang
       <div style={{ display: 'grid', gridTemplateColumns: '2fr .98fr', gap: 18, alignItems: 'stretch' }}>
         <section style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px 8px' }}><SectionHeader title="Captured Today" /></div>
-          {visibleRows.map(row => <CapturedTodayRow key={row.id} row={row} onOpen={() => row.entryId ? onOpenEntry?.(row.entryId) : onNavigate?.('raw')} />)}
+          {visibleRows.length === 0 ? (
+            <div style={{ padding: '6px 16px 14px', color: 'var(--t3)', fontSize: 13 }}>Nothing captured yet.</div>
+          ) : visibleRows.map(row => <CapturedTodayRow key={row.id} row={row} onOpen={() => row.entryId ? onOpenEntry?.(row.entryId) : onNavigate?.('raw')} />)}
           <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px 16px', color: 'var(--t3)', fontSize: 13 }}>
             <span style={{ flex: 1, textAlign: 'center' }}>{capturedRows.length} captures</span>
             <TextActionButton onClick={() => onNavigate?.('raw')}>View all captures</TextActionButton>
@@ -986,7 +1151,7 @@ function CaptureCommandCenter({ accent, state, recentCaptures = [], onStateChang
   );
 }
 
-function ReviewCommandCenter({ accent, state, onStateChange, onNavigate, onAdd }) {
+function ReviewCommandCenter({ accent, state, model = {}, onStateChange, onNavigate, onAdd, onOpenEntry }) {
   const [editingReflection, setEditingReflection] = useState(false);
   const reflection = state?.reflection || commandCenterDefaults.review.reflection;
   const goals = state?.goals || commandCenterDefaults.review.goals;
@@ -1012,15 +1177,37 @@ function ReviewCommandCenter({ accent, state, onStateChange, onNavigate, onAdd }
     lastAction: 'Goal added',
   }));
   const setReviewStatus = message => onStateChange(current => ({ ...current, lastAction: message }));
+
+  // Live review metrics — goals here come from local state (no done flag); use value (0-100) for progress.
+  const goalsAdvancing = goals.filter(goal => (goal.value || 0) > 0).length;
+  const goalsCompleted = goals.filter(goal => (goal.value || 0) >= 100).length;
+  const goalsAvg = goals.length > 0 ? Math.round(goals.reduce((sum, goal) => sum + (goal.value || 0), 0) / goals.length) : 0;
+
+  const taskRows = Array.isArray(model.taskRows) ? model.taskRows : [];
+  const tasksCompletedThisWeek = taskRows.filter(row => (row.isDone || row.entry?.completed) && withinThisWeek(row)).length;
+  const tasksOpenedThisWeek = taskRows.filter(row => withinThisWeek(row)).length;
+  const notesThisWeek = (Array.isArray(model.recentEntries) ? model.recentEntries : []).filter(entry => entry.type === 'note' && withinThisWeek(entry)).length;
+
+  const momentumRatio = tasksOpenedThisWeek > 0 ? tasksCompletedThisWeek / tasksOpenedThisWeek : 0;
+  const momentumLabel = tasksOpenedThisWeek === 0 ? '—' : momentumRatio >= 0.66 ? 'High' : momentumRatio >= 0.33 ? 'Medium' : 'Low';
+  const momentumDetail = tasksOpenedThisWeek === 0 ? 'No data yet' : `${tasksCompletedThisWeek} of ${tasksOpenedThisWeek} done`;
+
+  // Notes to review = recently-modified notes (top 5)
+  const notesEntries = Array.isArray(model.recentEntries) ? model.recentEntries : [];
+  const notesToReview = notesEntries.filter(entry => entry.type === 'note').slice(0, 5);
+
+  // Projects health (top 5 active)
+  const projectRowsModel = Array.isArray(model.projectRows) ? model.projectRows : [];
+  const projectsHealth = projectRowsModel.filter(row => row.entry?.status !== 'archived').slice(0, 5);
+
   return (
     <>
       <SectionHeader title="Review Overview" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>
-        <OverviewMetricCard icon="✓" label="Weekly Progress" value="74%" detail="On track" color={accent} />
-        <OverviewMetricCard icon="★" label="Goals Progress" value="3 / 5" detail="Goals advancing" color={accent} />
-        <OverviewMetricCard icon="☑" label="Tasks Completed" value="18" detail="This week" color={accent} />
-        <OverviewMetricCard icon="▤" label="Notes Reviewed" value="12" detail="Last 7 days" color={accent} />
-        <OverviewMetricCard icon="↗" label="Momentum" value="High" detail="Keep it up" color={accent} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>
+        <OverviewMetricCard icon="★" label="Goals Progress" value={`${goalsAvg}%`} detail={`${goalsCompleted} / ${goals.length} complete`} color={accent} />
+        <OverviewMetricCard icon="◎" label="Goals Advancing" value={`${goalsAdvancing} / ${goals.length}`} detail="Have progress" color={accent} />
+        <OverviewMetricCard icon="☑" label="Tasks Completed" value={String(tasksCompletedThisWeek)} detail="This week" color={accent} />
+        <OverviewMetricCard icon="↗" label="Momentum" value={momentumLabel} detail={momentumDetail} color={accent} />
       </div>
       <SectionHeader title="Weekly Reflection" action={<TextActionButton onClick={() => { setEditingReflection(open => !open); setReviewStatus(editingReflection ? 'Reflection locked' : 'Reflection editing enabled'); }}>{editingReflection ? 'Done Editing' : 'Edit Reflection'}</TextActionButton>} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 12, marginBottom: 16 }}>
@@ -1037,11 +1224,26 @@ function ReviewCommandCenter({ accent, state, onStateChange, onNavigate, onAdd }
         </section>
         <section style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: 14, borderBottom: '1px solid var(--br)' }}><SectionHeader title="Notes to Review" action={<TextActionButton onClick={() => onNavigate?.('note')}>View all</TextActionButton>} /></div>
-          {referenceNotes.slice(2, 7).map(([title, tag, time, color]) => <ReferenceNoteRow key={title} title={title} tag={tag} time={time} color={color} onOpen={() => onNavigate?.('note')} />)}
+          {notesToReview.length === 0 ? (
+            <div style={{ padding: 14 }}><EmptyLine>No notes yet.</EmptyLine></div>
+          ) : notesToReview.map(entry => {
+            const primaryTag = (entry.tags || [])[0];
+            const tagLabel = primaryTag ? `#${primaryTag}` : '';
+            const tagColor = primaryTag ? tagTone(primaryTag).color : 'var(--t3)';
+            const time = formatRelativeTime(entry.modified || entry.date || entry.entry_date);
+            return <ReferenceNoteRow key={entry.id} title={entry.title || 'Untitled note'} tag={tagLabel} time={time} color={tagColor} onOpen={() => onOpenEntry ? onOpenEntry(entry.id) : onNavigate?.('note')} />;
+          })}
         </section>
         <section style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: 14, borderBottom: '1px solid var(--br)' }}><SectionHeader title="Projects Health" action={<TextActionButton onClick={() => onNavigate?.('projects')}>View all</TextActionButton>} /></div>
-          {referenceProjects.map(([title, completion, changed, color, favorite]) => <ReferenceProjectRow key={title} title={title} completion={completion} changed={changed} color={color} favorite={favorite} onOpen={() => onNavigate?.('projects')} />)}
+          {projectsHealth.length === 0 ? (
+            <div style={{ padding: 14 }}><EmptyLine>No projects yet.</EmptyLine></div>
+          ) : projectsHealth.map(row => {
+            const project = row.entry;
+            const completion = `${Math.round(row.progress || 0)}%`;
+            const changed = row.lastActivity ? formatRelativeTime(row.lastActivity) : 'No recent activity';
+            return <ReferenceProjectRow key={project.id} title={project.title || 'Untitled project'} completion={completion} changed={changed} color={accent} favorite={!!project.starred} onOpen={() => onOpenEntry ? onOpenEntry(project.id) : onNavigate?.('projects')} />;
+          })}
         </section>
       </div>
       <SectionHeader title="Review Actions" />
@@ -1097,16 +1299,23 @@ function GoalLine({ done, label, color, onToggle }) {
   );
 }
 
-function MiniListCard({ title, items, color, onItemClick }) {
+function MiniListCard({ title, items = [], color, onItemClick, empty = 'Nothing here yet.' }) {
   return (
     <section style={{ ...cardStyle, padding: 16 }}>
       <SectionHeader title={title} />
-      {items.map(item => (
-        <button key={item} type="button" onClick={() => onItemClick?.(item)} style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', color: 'var(--t2)', fontSize: 13, fontFamily: 'var(--fn)', textAlign: 'left', cursor: onItemClick ? 'pointer' : 'default' }}>
-          <span aria-hidden="true" style={{ color }}>⌁</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item}</span>
-        </button>
-      ))}
+      {items.length === 0 ? (
+        <div style={{ padding: '6px 0', color: 'var(--t3)', fontSize: 13 }}>{empty}</div>
+      ) : items.map((item, index) => {
+        const isObj = item && typeof item === 'object';
+        const label = isObj ? item.label : item;
+        const key = isObj && item.id ? item.id : `${label}-${index}`;
+        return (
+          <button key={key} type="button" onClick={() => onItemClick?.(item)} style={{ width: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', color: 'var(--t2)', fontSize: 13, fontFamily: 'var(--fn)', textAlign: 'left', cursor: onItemClick ? 'pointer' : 'default' }}>
+            <span aria-hidden="true" style={{ color }}>⌁</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+          </button>
+        );
+      })}
     </section>
   );
 }
@@ -1128,7 +1337,7 @@ function ModePanelList({ title, rows, onOpen }) {
   );
 }
 
-function PlanningStepCard({ number, title, body, action, accent, items, onToggleItem, progress, schedule, review, onAction }) {
+function PlanningStepCard({ number, title, body, action, accent, items, onToggleItem, progressRows, scheduleRows, review, onAction }) {
   return (
     <section style={{ ...cardStyle, padding: 16, minHeight: 214, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -1137,9 +1346,23 @@ function PlanningStepCard({ number, title, body, action, accent, items, onToggle
       </div>
       <p style={{ margin: '0 0 12px 34px', color: 'var(--t2)', fontSize: 13, lineHeight: 1.45 }}>{body}</p>
       {items && <div style={{ marginTop: 4 }}>{items.map((item, index) => <GoalLine key={item.label || item} done={!!item.done} label={item.label || item} color={accent} onToggle={() => onToggleItem?.(index)} />)}</div>}
-      {progress && <div>{referenceProjects.slice(0, 3).map(([name, completion, , color]) => <MiniProgressRow key={name} title={name} value={Number(completion.replace('%', ''))} color={color} />)}</div>}
-      {schedule && <div>{[['Deep Work Blocks', '9h 30m'], ['Meetings', '4h 15m'], ['Buffer / Admin', '2h 15m']].map(row => <div key={row[0]} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--t2)', fontSize: 13, padding: '7px 0' }}><span>{row[0]}</span><span>{row[1]}</span></div>)}</div>}
-      {review && <div style={{ color: 'var(--t2)', fontSize: 13, lineHeight: 1.6 }}><strong style={{ color: 'var(--tx)' }}>Weekly Review</strong><br />May 16, 9:00 AM<br /><br /><strong style={{ color: 'var(--tx)' }}>Last Review</strong><br />May 9, 2026</div>}
+      {progressRows && progressRows.length > 0 && (
+        <div>
+          {progressRows.map(row => <MiniProgressRow key={row.name} title={row.name} value={row.value} color={row.color} />)}
+        </div>
+      )}
+      {progressRows && progressRows.length === 0 && <EmptyLine>No projects yet.</EmptyLine>}
+      {scheduleRows && scheduleRows.length > 0 && (
+        <div>
+          {scheduleRows.map(row => (
+            <div key={row[0]} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--t2)', fontSize: 13, padding: '7px 0', gap: 10 }}>
+              <span style={{ flexShrink: 0 }}>{row[0]}</span>
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{row[1]}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {review && <div style={{ color: 'var(--t2)', fontSize: 13, lineHeight: 1.6 }}>Compare last week's plan with what shipped. Capture wins, gaps, and next steps.</div>}
       <button type="button" onClick={onAction} style={{ marginTop: 'auto', minHeight: 34, border: `1px solid ${accent}66`, borderRadius: 6, background: 'transparent', color: '#e9d5ff', fontFamily: 'var(--fn)', cursor: 'pointer' }}>{action}</button>
     </section>
   );
@@ -1951,8 +2174,8 @@ export function GlobalSearchView({ query, setQuery, results, entries = [], onOpe
         ))}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, color: 'var(--t3)', fontSize: 13 }}>
-          <span>Search complete · {totalCount} result{totalCount === 1 ? '' : 's'} in 0.08s</span>
-          <button type="button" onClick={() => window.open(window.location.href, '_blank', 'noopener,noreferrer')} style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--t2)', cursor: 'pointer', fontFamily: 'var(--fn)', fontSize: 13 }}>Open in new tab ↗</button>
+          {/* No fabricated timer — show a real count or nothing. Removed misleading "Open in new tab" button (it opened the whole app, not the focused entry). */}
+          <span>{totalCount} result{totalCount === 1 ? '' : 's'}</span>
         </div>
       </main>
       <SearchDetailRail
@@ -3600,91 +3823,83 @@ export function VaultStatusBar({ vaultInfo, entryCount = 0, trashCount = 0, issu
   );
 }
 
-function railContentForMode(modeKey) {
-  if (modeKey === 'planning') {
-    return {
-      primaryTitle: "Today's Plan",
-      primaryAction: 'tasks',
-      primaryRows: [
-        [true, 'Review PRD draft', 'JotFolio 2.0', '9:00 AM'],
-        [true, 'User interview (2)', 'Research', '1:00 PM'],
-        [false, 'Design walkthrough', 'Marketing Site', '3:30 PM'],
-        [false, 'Metrics review', 'JotFolio 2.0', '5:00 PM'],
-        [false, 'Update roadmap', 'JotFolio 2.0', '5:30 PM'],
-      ],
-      secondaryTitle: 'Planning Notes',
-      secondaryRows: [
-        ['note', 'Q2 Roadmap Ideas', 'Note · May 10'],
-        ['note', 'PRD Outline', 'Note · May 9'],
-        ['note', 'Design System Audit Plan', 'Note · May 8'],
-      ],
-      finalTitle: 'Recent Captures',
-    };
-  }
-  if (modeKey === 'capture') {
-    return {
-      primaryTitle: 'Capture Queue',
-      primaryAction: 'raw',
-      capturePrimary: true,
-      primaryRows: [
-        ['9:32 AM', 'Screenshot 2026-05-11 at 9.32.11 AM', 'Image', 'thumb'],
-        ['9:15 AM', 'Voice Note – Interview Jamie Park', 'Audio', 'wave'],
-        ['8:47 AM', 'Product Hunt – Launch Strategy', 'Web Clip', 'p'],
-        ['8:12 AM', 'Meeting Notes – Design Sync', 'Note', 'note'],
-        ['7:58 AM', 'AI onboarding flow – idea', 'Note', 'note'],
-      ],
-      secondaryTitle: 'Recent Captures',
-      secondaryRows: null,
-      finalTitle: '',
-    };
-  }
-  if (modeKey === 'review') {
-    return {
-      primaryTitle: "Today's Review",
-      primaryAction: 'tasks',
-      primaryRows: [
-        [true, 'Review PRD draft', 'JotFolio 2.0', '9:00 AM'],
-        [true, 'User interview (2)', 'Research', '1:00 PM'],
-        [false, 'Design walkthrough', 'Marketing Site', '3:30 PM'],
-        [false, 'Metrics review', 'JotFolio 2.0', '5:00 PM'],
-        [false, 'Update roadmap', 'JotFolio 2.0', '5:30 PM'],
-      ],
-      secondaryTitle: 'Notes to Revisit',
-      secondaryRows: [
-        ['note', 'Metrics deep dive notes', 'Note · May 4'],
-        ['note', 'User pain points themes', 'Note · May 3'],
-        ['note', 'AI onboarding flow ideas', 'Note · May 2'],
-      ],
-      finalTitle: 'Recent Captures',
-    };
-  }
-  return {
-    primaryTitle: "Today's Tasks",
-    primaryAction: 'tasks',
-    primaryRows: [
-      [true, 'Review PRD draft', 'JotFolio 2.0', '10:00 AM'],
-      [true, 'User interview (2)', 'Research', '1:00 PM'],
-      [false, 'Design walkthrough', 'Marketing Site', '3:30 PM'],
-      [false, 'Metrics review', 'JotFolio 2.0', '5:00 PM'],
-      [false, 'Update roadmap', 'JotFolio 2.0', '5:30 PM'],
-    ],
-    secondaryTitle: 'Recent Captures',
-    secondaryRows: null,
-    finalTitle: '',
-  };
+function rightRailTitlesForMode(modeKey) {
+  // Headings only — actual rows are derived from live data in WorkspaceContextRail.
+  if (modeKey === 'planning') return { primaryTitle: "Today's Plan", primaryAction: 'tasks', secondaryTitle: 'Planning Notes', secondarySource: 'note', showFinal: true };
+  if (modeKey === 'capture') return { primaryTitle: 'Capture Queue', primaryAction: 'raw', capturePrimary: true, secondaryTitle: 'Recent Captures', secondarySource: 'raw', showFinal: false };
+  if (modeKey === 'review') return { primaryTitle: "Today's Review", primaryAction: 'tasks', secondaryTitle: 'Notes to Revisit', secondarySource: 'note', showFinal: true };
+  return { primaryTitle: "Today's Tasks", primaryAction: 'tasks', secondaryTitle: 'Recent Captures', secondarySource: 'raw', showFinal: false };
 }
 
-export function WorkspaceContextRail({ selectedEntry, entries = [], onOpenEntry, onNavigate, onUpdateEntry, onCreateFromMissing, onRevealEntry, showSelected = true, focusMode = 'deep-work' }) {
+function taskContextLabel(row, projectsById) {
+  const projectRef = row?.entry?.project;
+  const project = projectRef && projectsById?.[projectRef];
+  const title = project?.title || (typeof projectRef === 'string' ? projectRef : '');
+  return title || 'Unscheduled';
+}
+
+function dueTimeLabel(row) {
+  // Show overdue / today / due date for rail context.
+  if (!row?.entry?.due) return '';
+  const due = String(row.entry.due).slice(0, 10);
+  const today = todayISO();
+  if (due === today) return 'Today';
+  if (due < today) return 'Overdue';
+  // Format like "May 16"
+  const parsed = new Date(due);
+  if (Number.isNaN(parsed.valueOf())) return due;
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(parsed);
+}
+
+export function WorkspaceContextRail({ selectedEntry, entries = [], model = {}, onOpenEntry, onNavigate, onUpdateEntry, onCreateFromMissing, onRevealEntry, showSelected = true, focusMode = 'deep-work' }) {
   const modeKey = resolveFocusMode(focusMode);
   const mode = focusModes[modeKey];
-  const rail = railContentForMode(modeKey);
+  const rail = rightRailTitlesForMode(modeKey);
   const showNoteDetails = showSelected !== false && selectedEntry?.type === 'note';
-  const captureRows = [
-    ['thumb', 'Screenshot 2026-05-11 at 9.32.11 AM', 'Image · 9:32 AM'],
-    ['wave', 'Voice Note – Interview Jamie Park', 'Audio · 9:15 AM'],
-    ['p', 'Product Hunt – Launch Strategy', 'Web Clipping · 8:47 AM'],
-    ['note', 'Meeting Notes – Design Sync', 'Note · 8:12 AM'],
-  ];
+  const today = todayISO();
+
+  // Today widget: count completed/total tasks dated today, notes created today, projects updated today.
+  const taskRows = Array.isArray(model.taskRows) ? model.taskRows : [];
+  const tasksToday = taskRows.filter(row => entryDate(row.entry) === today);
+  const completedToday = tasksToday.filter(row => row.isDone || row.entry?.completed || row.dueState === 'done').length;
+  const totalToday = tasksToday.length;
+  const notesToday = entries.filter(entry => entry.type === 'note' && entryDate(entry) === today).length;
+  const projectsToday = entries.filter(entry => entry.type === 'project' && entryDate(entry, 'modified') === today).length;
+  const hasAnyTodayActivity = totalToday > 0 || notesToday > 0 || projectsToday > 0;
+  const ringFillDeg = totalToday > 0 ? (completedToday / totalToday) * 360 : 0;
+  const ringPercent = totalToday > 0 ? Math.round((completedToday / totalToday) * 100) : 0;
+
+  // Project lookup (for task context labels in the rail)
+  const projectsById = Object.fromEntries(entries.filter(entry => entry.type === 'project').flatMap(entry => [
+    [entry.id, entry],
+    entry.title ? [entry.title, entry] : null,
+    entry._path ? [entry._path, entry] : null,
+  ].filter(Boolean)));
+
+  // Primary list: open tasks due today or overdue (top 5)
+  const primaryTaskRows = taskRows
+    .filter(row => row.statusKey !== 'done' && !row.isDone && !row.entry?.completed)
+    .filter(row => entryDate(row.entry) === today || isOverdue(row) || String(row.entry?.due || '').slice(0, 10) === today)
+    .slice(0, 5);
+
+  // Recent captures
+  const recentCaptures = entries
+    .filter(entry => entry.type === 'raw' || entry.type === 'capture')
+    .sort((a, b) => entryTimestamp(b) - entryTimestamp(a))
+    .slice(0, 4);
+
+  // Secondary list: planning/review notes vs. recent captures
+  const recentNotes = entries
+    .filter(entry => entry.type === 'note')
+    .sort((a, b) => entryTimestamp(b) - entryTimestamp(a))
+    .slice(0, 4);
+  const secondaryEntries = rail.secondarySource === 'raw' ? recentCaptures : recentNotes;
+
+  const toggleTaskDone = (row, nextDone) => {
+    if (!row?.entry?.id) return;
+    onUpdateEntry?.(row.entry.id, { status: nextDone ? 'done' : 'todo' });
+  };
+
   return (
     <aside style={{
       width: 392,
@@ -3697,19 +3912,24 @@ export function WorkspaceContextRail({ selectedEntry, entries = [], onOpenEntry,
       boxSizing: 'border-box',
     }}>
       <RightRailWidget title="Today" variant="today">
-        <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', gap: 18, alignItems: 'center' }}>
-          <div style={{ width: 84, height: 84, borderRadius: 999, padding: 5, boxSizing: 'border-box', background: 'conic-gradient(from -90deg, #4d8dff 0deg 240deg, rgba(92,106,126,.34) 240deg 360deg)', display: 'grid', placeItems: 'center', boxShadow: '0 8px 18px rgba(0,0,0,.22)' }}>
-            <div style={{ width: '100%', height: '100%', borderRadius: 999, background: 'linear-gradient(145deg, rgba(26,34,45,.98), rgba(17,24,33,.98))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, boxShadow: 'inset 0 10px 18px rgba(255,255,255,.025), inset 0 -12px 20px rgba(0,0,0,.22)' }}>
-              <span style={{ display: 'block', fontSize: 19, lineHeight: 1.05, fontWeight: 760, color: 'var(--tx)' }}>6/9</span>
-              <span style={{ display: 'block', fontSize: 12, lineHeight: 1.1, color: 'var(--t3)', fontWeight: 500 }}>Done</span>
+        {hasAnyTodayActivity ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', gap: 18, alignItems: 'center' }}>
+            <div style={{ width: 84, height: 84, borderRadius: 999, padding: 5, boxSizing: 'border-box', background: `conic-gradient(from -90deg, ${mode.accent} 0deg ${ringFillDeg}deg, rgba(92,106,126,.34) ${ringFillDeg}deg 360deg)`, display: 'grid', placeItems: 'center', boxShadow: '0 8px 18px rgba(0,0,0,.22)' }}>
+              <div style={{ width: '100%', height: '100%', borderRadius: 999, background: 'linear-gradient(145deg, rgba(26,34,45,.98), rgba(17,24,33,.98))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, boxShadow: 'inset 0 10px 18px rgba(255,255,255,.025), inset 0 -12px 20px rgba(0,0,0,.22)' }}>
+                <span style={{ display: 'block', fontSize: 19, lineHeight: 1.05, fontWeight: 760, color: 'var(--tx)' }}>{totalToday > 0 ? `${completedToday}/${totalToday}` : '0%'}</span>
+                <span style={{ display: 'block', fontSize: 12, lineHeight: 1.1, color: 'var(--t3)', fontWeight: 500 }}>{totalToday > 0 ? 'Done' : 'No tasks'}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, fontWeight: 500, color: 'var(--t2)' }}>
+              <span>☑ {completedToday} Task{completedToday === 1 ? '' : 's'} completed</span>
+              <span>▣ {notesToday} Note{notesToday === 1 ? '' : 's'} created</span>
+              <span>□ {projectsToday} Project{projectsToday === 1 ? '' : 's'} updated</span>
+              {totalToday > 0 && <span style={{ color: 'var(--t3)', fontSize: 12 }}>{ringPercent}% of today's tasks done</span>}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, fontWeight: 500, color: 'var(--t2)' }}>
-            <span>☑ 3 Tasks completed</span>
-            <span>▣ 2 Notes created</span>
-            <span>□ 1 Project updated</span>
-          </div>
-        </div>
+        ) : (
+          <div style={{ padding: '6px 2px 2px', color: 'var(--t3)', fontSize: 13 }}>No activity yet today.</div>
+        )}
       </RightRailWidget>
 
       <div style={{ height: 16 }} />
@@ -3737,34 +3957,72 @@ export function WorkspaceContextRail({ selectedEntry, entries = [], onOpenEntry,
         variant="plain"
         >
         {rail.capturePrimary ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', padding: '2px 0 12px', color: 'var(--tx)', fontSize: 13, fontWeight: 650 }}>
-              <span style={{ flex: 1 }}>Unprocessed</span>
-              <span style={{ width: 22, height: 22, borderRadius: 99, background: '#7c4bd4', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12 }}>5</span>
-            </div>
-            {rail.primaryRows.map(capture => <CaptureQueueRailRow key={`queue-${capture[1]}`} row={capture} />)}
-            <button type="button" onClick={() => onNavigate?.('raw')} style={{ width: '100%', minHeight: 38, marginTop: 12, border: `1px solid ${mode.accent}88`, borderRadius: 7, background: 'transparent', color: '#e9d5ff', fontFamily: 'var(--fn)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Review All</button>
-          </>
-        ) : rail.primaryRows.map(task => <TaskChecklistRow key={`task-${task[1]}`} checked={task[0]} title={task[1]} context={task[2]} time={task[3]} accent={mode.accent} />)}
+          recentCaptures.length === 0 ? (
+            <div style={{ padding: '6px 2px', color: 'var(--t3)', fontSize: 13 }}>Nothing captured yet.</div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', padding: '2px 0 12px', color: 'var(--tx)', fontSize: 13, fontWeight: 650 }}>
+                <span style={{ flex: 1 }}>Unprocessed</span>
+                <span style={{ width: 22, height: 22, borderRadius: 99, background: '#7c4bd4', color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12 }}>{recentCaptures.length}</span>
+              </div>
+              {recentCaptures.map(entry => (
+                <CaptureQueueRailRow
+                  key={`queue-${entry.id}`}
+                  entry={entry}
+                  onClick={() => onOpenEntry?.(entry.id)}
+                />
+              ))}
+              {/* Renamed from "Review All" to "Open Inbox" — the button just navigates to the inbox, no batch review. */}
+              <button type="button" onClick={() => onNavigate?.('raw')} style={{ width: '100%', minHeight: 38, marginTop: 12, border: `1px solid ${mode.accent}88`, borderRadius: 7, background: 'transparent', color: '#e9d5ff', fontFamily: 'var(--fn)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Open Inbox</button>
+            </>
+          )
+        ) : primaryTaskRows.length === 0 ? (
+          <div style={{ padding: '6px 2px', color: 'var(--t3)', fontSize: 13 }}>No tasks due today.</div>
+        ) : primaryTaskRows.map(row => (
+          <TaskChecklistRow
+            key={`task-${row.entry.id}`}
+            checked={row.isDone || row.dueState === 'done'}
+            title={row.entry.title || 'Untitled task'}
+            context={taskContextLabel(row, projectsById)}
+            time={dueTimeLabel(row)}
+            accent={mode.accent}
+            onToggle={next => toggleTaskDone(row, next)}
+            onOpen={() => onOpenEntry?.(row.entry.id)}
+          />
+        ))}
       </RightRailWidget>
 
       <div aria-hidden="true" style={{ height: 1, margin: '18px 0 22px', background: 'linear-gradient(90deg, transparent, rgba(161,174,194,.18) 10%, rgba(161,174,194,.18) 90%, transparent)' }} />
 
       <RightRailWidget
         title={rail.secondaryTitle}
-        action={onNavigate && <TextActionButton ariaLabel={`Open ${rail.secondaryTitle}`} onClick={() => onNavigate(rail.secondaryTitle.includes('Capture') || rail.secondaryTitle.includes('Queue') ? 'raw' : 'note')}>View all</TextActionButton>}
+        action={onNavigate && <TextActionButton ariaLabel={`Open ${rail.secondaryTitle}`} onClick={() => onNavigate(rail.secondarySource === 'raw' ? 'raw' : 'note')}>View all</TextActionButton>}
         variant="plain"
         >
-        {(rail.secondaryRows || captureRows).map(row => <CaptureFeedRow key={`secondary-${row[1]}`} kind={row[0]} title={row[1]} meta={row[2]} />)}
+        {secondaryEntries.length === 0 ? (
+          <div style={{ padding: '6px 2px', color: 'var(--t3)', fontSize: 13 }}>{rail.secondarySource === 'raw' ? 'Nothing captured yet.' : 'No notes yet.'}</div>
+        ) : secondaryEntries.map(entry => (
+          <CaptureFeedRow
+            key={`secondary-${entry.id}`}
+            entry={entry}
+            onClick={() => onOpenEntry?.(entry.id)}
+          />
+        ))}
       </RightRailWidget>
-      {rail.finalTitle && (
+      {rail.showFinal && recentCaptures.length > 0 && (
         <>
           <div aria-hidden="true" style={{ height: 1, margin: '18px 0 22px', background: 'linear-gradient(90deg, transparent, rgba(161,174,194,.18) 10%, rgba(161,174,194,.18) 90%, transparent)' }} />
           <RightRailWidget
-            title={rail.finalTitle}
-            action={onNavigate && <TextActionButton ariaLabel={`Open ${rail.finalTitle}`} onClick={() => onNavigate('raw')}>View all</TextActionButton>}
+            title="Recent Captures"
+            action={onNavigate && <TextActionButton ariaLabel="Open recent captures" onClick={() => onNavigate('raw')}>View all</TextActionButton>}
             variant="plain">
-            {captureRows.slice(0, modeKey === 'capture' ? 3 : 2).map(row => <CaptureFeedRow key={`final-${row[1]}`} kind={row[0]} title={row[1]} meta={row[2]} />)}
+            {recentCaptures.slice(0, 2).map(entry => (
+              <CaptureFeedRow
+                key={`final-${entry.id}`}
+                entry={entry}
+                onClick={() => onOpenEntry?.(entry.id)}
+              />
+            ))}
           </RightRailWidget>
         </>
       )}
@@ -3812,43 +4070,79 @@ function RightRailWidget({ title, action, children, variant = 'card' }) {
   );
 }
 
-function TaskChecklistRow({ checked, title, context, time, accent = '#3ddc84' }) {
+function TaskChecklistRow({ checked, title, context, time, accent = '#3ddc84', onToggle, onOpen }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr auto', gap: 10, alignItems: 'start', padding: '7px 0' }}>
-      <span aria-hidden="true" style={{ width: 14, height: 14, marginTop: 2, borderRadius: 3, border: '1px solid var(--t3)', background: checked ? accent : 'transparent', color: '#07111f', display: 'grid', placeItems: 'center', fontSize: 10 }}>{checked ? '✓' : ''}</span>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        aria-label={`Mark ${title} ${checked ? 'incomplete' : 'complete'}`}
+        onClick={event => { event.stopPropagation(); onToggle?.(!checked); }}
+        style={{ width: 14, height: 14, marginTop: 2, padding: 0, borderRadius: 3, border: '1px solid var(--t3)', background: checked ? accent : 'transparent', color: '#07111f', display: 'grid', placeItems: 'center', fontSize: 10, cursor: 'pointer', fontFamily: 'var(--fn)' }}
+      >{checked ? '✓' : ''}</button>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open ${title}`}
+        style={{ all: 'unset', minWidth: 0, cursor: onOpen ? 'pointer' : 'default' }}
+      >
+        <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: checked ? 'line-through' : 'none', opacity: checked ? 0.6 : 1 }}>{title}</span>
         <span style={{ display: 'block', color: 'var(--t3)', fontSize: 12, fontWeight: 400, marginTop: 3 }}>{context}</span>
-      </span>
+      </button>
       <span style={{ color: 'var(--t3)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>{time}</span>
     </div>
   );
 }
 
-function CaptureFeedRow({ kind, title, meta }) {
-  const icon = kind === 'thumb' ? '▤' : kind === 'wave' ? '≋' : kind === 'p' ? 'P' : '▤';
-  const background = kind === 'p' || kind === 'note' ? '#f97316' : 'rgba(255,255,255,.08)';
-  const color = kind === 'p' || kind === 'note' ? '#15100a' : 'var(--t2)';
+function captureIconKindFromEntry(entry) {
+  const kind = captureKind(entry);
+  if (kind === 'image') return 'thumb';
+  if (kind === 'audio') return 'wave';
+  if (kind === 'article') return 'p';
+  return 'note';
+}
+
+function CaptureFeedRow({ entry, onClick }) {
+  const iconKind = captureIconKindFromEntry(entry);
+  const icon = iconKind === 'thumb' ? '▤' : iconKind === 'wave' ? '≋' : iconKind === 'p' ? 'P' : '▤';
+  const background = iconKind === 'p' || iconKind === 'note' ? '#f97316' : 'rgba(255,255,255,.08)';
+  const color = iconKind === 'p' || iconKind === 'note' ? '#15100a' : 'var(--t2)';
+  const meta = [
+    entry.type === 'note' ? 'Note' : iconKind === 'wave' ? 'Audio' : iconKind === 'thumb' ? 'Image' : iconKind === 'p' ? 'Web Clipping' : 'Capture',
+    captureTimeLabel(entry) || formatRelativeTime(entry?.modified || entry?.date),
+  ].filter(Boolean).join(' · ');
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '34px 1fr', gap: 10, alignItems: 'center', padding: '8px 0' }}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open ${entry.title || 'capture'}`}
+      style={{ all: 'unset', display: 'grid', gridTemplateColumns: '34px 1fr', gap: 10, alignItems: 'center', padding: '8px 0', cursor: onClick ? 'pointer' : 'default', width: '100%', boxSizing: 'border-box' }}
+    >
       <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 4, background, color, display: 'grid', placeItems: 'center', fontWeight: 850, fontSize: 14, border: '1px solid rgba(255,255,255,.10)' }}>{icon}</span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title || 'Untitled'}</span>
         <span style={{ display: 'block', color: 'var(--t3)', fontSize: 12, fontWeight: 400, marginTop: 3 }}>{meta}</span>
       </span>
-    </div>
+    </button>
   );
 }
 
-function CaptureQueueRailRow({ row }) {
-  const [time, title, meta, kind] = row;
+function CaptureQueueRailRow({ entry, onClick }) {
+  const iconKind = captureIconKindFromEntry(entry);
+  const label = iconKind === 'wave' ? 'Audio' : iconKind === 'thumb' ? 'Image' : iconKind === 'p' ? 'Web Clip' : 'Note';
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr', gap: 10, alignItems: 'start', padding: '8px 0' }}>
-      <span style={{ color: 'var(--t3)', fontSize: 13, whiteSpace: 'nowrap', paddingTop: 1 }}>{time}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Open ${entry.title || 'capture'}`}
+      style={{ all: 'unset', display: 'grid', gridTemplateColumns: '52px 1fr', gap: 10, alignItems: 'start', padding: '8px 0', cursor: onClick ? 'pointer' : 'default', width: '100%', boxSizing: 'border-box' }}
+    >
+      <span style={{ color: 'var(--t3)', fontSize: 13, whiteSpace: 'nowrap', paddingTop: 1 }}>{captureTimeLabel(entry) || formatRelativeTime(entry?.modified || entry?.date)}</span>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
-        <span style={{ display: 'block', color: 'var(--t3)', fontSize: 12, fontWeight: 400, marginTop: 3 }}>{meta}</span>
+        <span style={{ display: 'block', color: 'var(--tx)', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title || 'Untitled capture'}</span>
+        <span style={{ display: 'block', color: 'var(--t3)', fontSize: 12, fontWeight: 400, marginTop: 3 }}>{label}</span>
       </span>
-    </div>
+    </button>
   );
 }

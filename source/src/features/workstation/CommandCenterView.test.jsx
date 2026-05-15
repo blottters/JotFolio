@@ -44,9 +44,20 @@ describe('CommandCenterView reference shell', () => {
     const onNavigate = vi.fn();
     const onAdd = vi.fn();
     const onQuickCapture = vi.fn();
+    const liveModel = {
+      ...baseModel,
+      projectRows: [{
+        entry: { id: 'p-live', type: 'project', title: 'JotFolio 2.0', status: 'active' },
+        progress: 68,
+        lastActivity: Date.now() - 60 * 60 * 1000, // 1h ago
+        entryCount: 0,
+        taskCount: 0,
+        openTaskCount: 0,
+      }],
+    };
     render(
       <CommandCenterView
-        model={baseModel}
+        model={liveModel}
         userName="Alex"
         onOpenEntry={vi.fn()}
         onNavigate={onNavigate}
@@ -56,8 +67,9 @@ describe('CommandCenterView reference shell', () => {
     );
 
     fireEvent.click(screen.getByRole('tab', { name: 'Active Projects' }));
-    expect(screen.getByText('68% · Changed 1h ago')).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /JotFolio 2.0/ })[1]);
+    // Real project row should render with computed progress + relative time.
+    expect(screen.getByText(/68% ·/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: /JotFolio 2.0/ })[0]);
     expect(onNavigate).toHaveBeenCalledWith('projects');
 
     const focusSelect = screen.getByRole('combobox', { name: 'Focus mode' });

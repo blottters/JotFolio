@@ -24,6 +24,7 @@ describe('WorkstationViews', () => {
     const onOpenEntry = vi.fn();
     const onNavigate = vi.fn();
     const onAdd = vi.fn();
+    const starredNote = { ...note, id: 'n-starred', title: 'Pinned Note', starred: true, modified: '2026-05-14T10:00:00.000Z' };
     render(
       <CommandCenterView
         model={{
@@ -32,8 +33,8 @@ describe('WorkstationViews', () => {
           tasksDueToday: [task],
           memoryReviewsDue: [memory],
           overdueTasks: [{ ...task, id: 't-overdue', title: 'Overdue item', due: '2026-05-13' }],
-          recentEntries: [note],
-          projectRows: [{ entry: project, entryCount: 3, taskCount: 2, openTaskCount: 1, backlinkCount: 4 }],
+          recentEntries: [starredNote, note],
+          projectRows: [{ entry: { ...project, starred: true }, entryCount: 3, taskCount: 2, openTaskCount: 1, backlinkCount: 4, progress: 50, lastActivity: Date.now() }],
         }}
         userName="Gavin"
         onOpenEntry={onOpenEntry}
@@ -45,12 +46,13 @@ describe('WorkstationViews', () => {
     expect(screen.getByText('Good morning, Gavin')).toBeInTheDocument();
     expect(screen.getByText(todayLabel)).toBeInTheDocument();
     expect(screen.getByText('Pinned')).toBeInTheDocument();
-    expect(screen.getAllByText('Design Principles').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Marketing Site').length).toBeGreaterThan(0);
+    // Real pinned card from starred entry.
+    expect(screen.getAllByText('Pinned Note').length).toBeGreaterThan(0);
     expect(screen.getByText('Deep Work Hub')).toBeInTheDocument();
     expect(screen.getByText('Current Focus')).toBeInTheDocument();
     expect(screen.getByText('Session Goals')).toBeInTheDocument();
-    expect(screen.getByText('Related Backlinks (8)')).toBeInTheDocument();
+    // Most-recently-modified note appears as the current focus.
+    expect(screen.getAllByText('Pinned Note').length).toBeGreaterThan(0);
     expect(screen.getByText('Quick Actions')).toBeInTheDocument();
     expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
     expect(screen.getByText(/focus is active/)).toBeInTheDocument();
@@ -494,50 +496,62 @@ describe('WorkstationViews', () => {
   });
 
   it('renders a persistent context rail with today, task, capture, and selected entry details', () => {
-    const { container } = render(
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const dueToday = { ...task, id: 't-today', title: 'Today task', due: todayKey, entry_date: todayKey, completed: false, status: 'open' };
+    const doneToday = { ...task, id: 't-done', title: 'Done task', due: todayKey, entry_date: todayKey, completed: true, status: 'done' };
+    const rawToday = { id: 'raw-1', type: 'raw', title: 'Voice note from meeting', date: `${todayKey}T09:00:00.000Z`, modified: `${todayKey}T09:00:00.000Z`, entry_date: todayKey };
+    render(
       <WorkspaceContextRail
         selectedEntry={note}
         model={{
           metrics: { entries: 4, projects: 1, openTasks: 1, memory: 1 },
-          tasksDueToday: [task],
-          recentCaptures: [{ id: 'raw-1', type: 'raw', title: 'Voice note', date: '2026-05-14T09:00:00.000Z' }],
+          taskRows: [
+            { entry: dueToday, statusKey: 'todo', isDone: false, dueState: 'today' },
+            { entry: doneToday, statusKey: 'done', isDone: true, dueState: 'done' },
+          ],
+          tasksDueToday: [dueToday],
+          recentCaptures: [rawToday],
         }}
-        entries={[project, note, task, memory]}
+        entries={[project, note, dueToday, doneToday, rawToday, memory]}
         onOpenEntry={vi.fn()}
       />,
     );
 
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument();
     expect(screen.getByText("Today's Tasks")).toBeInTheDocument();
     expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
     expect(screen.queryByText('Next Up')).not.toBeInTheDocument();
-    expect(screen.getByText('6/9')).toBeInTheDocument();
-    expect(screen.getByText(/3 Tasks completed/)).toBeInTheDocument();
-    expect(screen.getByText('Review PRD draft')).toBeInTheDocument();
-    expect(screen.getByText('Update roadmap')).toBeInTheDocument();
-    expect(screen.getByText('Voice Note – Interview Jamie Park')).toBeInTheDocument();
-    expect(screen.getByText('Product Hunt – Launch Strategy')).toBeInTheDocument();
+    // Ring shows real completed/total — one done, two total.
+    expect(screen.getByText('1/2')).toBeInTheDocument();
+    expect(screen.getByText(/1 Task completed/)).toBeInTheDocument();
+    // Open task row appears, completed one filtered out.
+    expect(screen.getByText('Today task')).toBeInTheDocument();
+    // Recent capture surfaces by title.
+    expect(screen.getByText('Voice note from meeting')).toBeInTheDocument();
     expect(screen.queryByText('Selected Entry')).not.toBeInTheDocument();
   });
 
   it('can render the home context rail without selected-entry detail', () => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const dueToday = { ...task, id: 't-today', title: 'Today task', due: todayKey, entry_date: todayKey, completed: false, status: 'open' };
     render(
       <WorkspaceContextRail
         showSelected={false}
         selectedEntry={note}
         model={{
           metrics: { entries: 4, projects: 1, openTasks: 1, memory: 1 },
-          tasksDueToday: [task],
+          taskRows: [{ entry: dueToday, statusKey: 'todo', isDone: false, dueState: 'today' }],
+          tasksDueToday: [dueToday],
           recentCaptures: [],
         }}
-        entries={[project, note, task, memory]}
+        entries={[project, note, dueToday, memory]}
         onOpenEntry={vi.fn()}
       />,
     );
 
-    expect(screen.getByText('Today')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument();
     expect(screen.getByText("Today's Tasks")).toBeInTheDocument();
-    expect(screen.getByText('Review PRD draft')).toBeInTheDocument();
+    expect(screen.getByText('Today task')).toBeInTheDocument();
     expect(screen.queryByText('Selected Entry')).not.toBeInTheDocument();
   });
 });

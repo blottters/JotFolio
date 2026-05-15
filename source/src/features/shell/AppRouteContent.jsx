@@ -240,7 +240,8 @@ export function AppRouteContent({
       onQuickSwitcher={onQuickSwitcher}
       onCommandPalette={onCommandPalette}
       onRevealEntry={onRevealEntry}
-      onNavigate={handleWorkstationNavigate}/>
+      onNavigate={handleWorkstationNavigate}
+      onOpenInConstellation={onOpenInConstellation}/>
   );
   if(section==='raw')return(
     <InboxView
@@ -274,7 +275,7 @@ export function AppRouteContent({
       onCreateFromMissing={createFromMissing}
       onUpdateEntry={updateEntry}/>
   );
-  if(section==='tasks')return <TasksView rows={taskRows} onOpenEntry={setDetailId} onAdd={openAdd}/>;
+  if(section==='tasks')return <TasksView rows={taskRows} onOpenEntry={setDetailId} onAdd={openAdd} onUpdateEntry={updateEntry}/>;
   if(section==='calendar')return <CalendarView days={calendarDays} entries={visibleEntries} onOpenEntry={setDetailId} onNavigate={handleWorkstationNavigate} onAdd={openAdd}/>;
   if(section==='spaces')return <SpacesView spaces={spaces} onSelectSpace={id=>setSection(`space:${id}`)}/>;
   if(section==='tags')return <TagManagerView tags={tagRows} onSelectTag={tag=>{setFilterTag(tag);setSection('all')}}/>;

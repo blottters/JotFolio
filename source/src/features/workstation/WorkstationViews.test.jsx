@@ -76,6 +76,17 @@ describe('WorkstationViews', () => {
     expect(screen.getByText('Local-first Roadmap')).toBeInTheDocument();
   });
 
+  it('toggles task completion via inline checkbox without opening the entry', () => {
+    const onOpenEntry = vi.fn();
+    const onUpdateEntry = vi.fn();
+    render(<TasksView rows={[{ entry: task, project, sourceEntry: note }]} onOpenEntry={onOpenEntry} onAdd={vi.fn()} onUpdateEntry={onUpdateEntry} />);
+    const checkbox = screen.getByRole('checkbox', { name: /Mark Review roadmap complete/ });
+    expect(checkbox).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(checkbox);
+    expect(onUpdateEntry).toHaveBeenCalledWith('t-1', { status: 'done', completed: true });
+    expect(onOpenEntry).not.toHaveBeenCalled();
+  });
+
   it('filters, sorts, selects, and wires project workspace actions', () => {
     const onAdd = vi.fn();
     const onOpenEntry = vi.fn();

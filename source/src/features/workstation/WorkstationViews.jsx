@@ -1859,7 +1859,7 @@ function SearchResultRow({ row, selected, onSelect, onOpen }) {
   );
 }
 
-function SearchDetailRail({ row, backlinks, unresolved, onOpenEntry, onNavigate, onRevealEntry }) {
+function SearchDetailRail({ row, backlinks, unresolved, onOpenEntry, onNavigate, onRevealEntry, onClearSelection, onOpenInConstellation }) {
   const [message, setMessage] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
   if (!row) {
@@ -1889,7 +1889,7 @@ function SearchDetailRail({ row, backlinks, unresolved, onOpenEntry, onNavigate,
             <span style={{ ...pillStyle, margin: 0 }}>{row.typeLabel}</span>
           </span>
         </span>
-        <button type="button" aria-label="Close selected result" onClick={() => setMessage('Selection kept in search')} style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--fn)', fontSize: 22 }}>×</button>
+        <button type="button" aria-label="Close selected result" onClick={() => onClearSelection?.()} style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: 'var(--t3)', cursor: 'pointer', fontFamily: 'var(--fn)', fontSize: 22 }}>×</button>
       </div>
 
       <SearchRailSection title="Info">
@@ -1940,7 +1940,10 @@ function SearchDetailRail({ row, backlinks, unresolved, onOpenEntry, onNavigate,
           <SearchActionButton primary onClick={() => openSearchRow(row, { onOpenEntry, onNavigate })}>{searchOpenLabel(row)} ↗</SearchActionButton>
           {entry ? <SearchActionButton onClick={() => onRevealEntry?.(entry)}>Reveal in Vault</SearchActionButton> : <SearchActionButton onClick={() => copyText(row.path, 'Path')}>Copy Path</SearchActionButton>}
           <SearchActionButton onClick={() => copyText(row.path, 'Local path')}>Copy Local path</SearchActionButton>
-          <SearchActionButton onClick={() => onNavigate?.('graph')}>Open in Constellation</SearchActionButton>
+          <SearchActionButton onClick={() => {
+            if (entry && onOpenInConstellation) onOpenInConstellation(entry);
+            else onNavigate?.('graph');
+          }}>Open in Constellation</SearchActionButton>
         </div>
         <div style={{ position: 'relative', marginTop: 10 }}>
           <SearchActionButton onClick={() => setMoreOpen(open => !open)}>More ⌄</SearchActionButton>
@@ -2046,9 +2049,10 @@ const moreMenuButtonStyle = {
   padding: '0 9px',
 };
 
-export function GlobalSearchView({ query, setQuery, results, entries = [], onOpenEntry, onNavigate, onQuickSwitcher, onCommandPalette, onRevealEntry }) {
+export function GlobalSearchView({ query, setQuery, results, entries = [], onOpenEntry, onNavigate, onQuickSwitcher, onCommandPalette, onRevealEntry, onOpenInConstellation }) {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedId, setSelectedId] = useState('');
+  const [explicitlyDeselected, setExplicitlyDeselected] = useState(false);
   const vaultIndex = useMemo(() => buildVaultIndex(entries), [entries]);
   const provisionalRows = useMemo(() => searchRowLists(results, []), [results]);
   const firstSourceEntry = [
@@ -2066,12 +2070,15 @@ export function GlobalSearchView({ query, setQuery, results, entries = [], onOpe
   const counts = searchCounts(lists, totalCount);
   const sections = searchSectionsForTab(activeTab, lists);
   const visibleRows = allVisibleSearchRows(sections);
-  const selectedRow = Object.values(lists).flat().find(row => row.id === selectedId) || visibleRows[0] || null;
+  const selectedRow = explicitlyDeselected
+    ? null
+    : Object.values(lists).flat().find(row => row.id === selectedId) || visibleRows[0] || null;
   const selectedEntry = selectedRow?.kind === 'entry' ? selectedRow.source : null;
   const selectedBacklinks = selectedEntry ? getBacklinks(vaultIndex, selectedEntry.id) : [];
   const unresolved = Array.isArray(selectedEntry?.unresolvedTargets) ? selectedEntry.unresolvedTargets : [];
 
   useEffect(() => {
+    setExplicitlyDeselected(false);
     if (!visibleRows.length) {
       setSelectedId('');
       return;
@@ -2167,7 +2174,7 @@ export function GlobalSearchView({ query, setQuery, results, entries = [], onOpe
             count={count}
             tabId={tabId}
             activeId={selectedRow?.id}
-            onSelect={row => setSelectedId(row.id)}
+            onSelect={row => { setExplicitlyDeselected(false); setSelectedId(row.id); }}
             onOpen={row => openSearchRow(row, { onOpenEntry, onNavigate })}
             onViewAll={setActiveTab}
           />
@@ -2185,6 +2192,8 @@ export function GlobalSearchView({ query, setQuery, results, entries = [], onOpe
         onOpenEntry={onOpenEntry}
         onNavigate={onNavigate}
         onRevealEntry={onRevealEntry}
+        onClearSelection={() => setExplicitlyDeselected(true)}
+        onOpenInConstellation={onOpenInConstellation}
       />
     </div>
   );
@@ -3128,7 +3137,7 @@ export function ProjectsView({ rows = [], canvases = [], onOpenEntry, onAdd, onN
   );
 }
 
-export function TasksView({ rows = [], onOpenEntry, onAdd }) {
+export function TasksView({ rows = [], onOpenEntry, onAdd, onUpdateEntry }) {
   const [filter, setFilter] = useState('open');
   const filteredRows = useMemo(() => rows.filter(row => {
     if (filter === 'all') return true;
@@ -3164,16 +3173,61 @@ export function TasksView({ rows = [], onOpenEntry, onAdd }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filteredRows.map(row => (
-          <EntryButton
-            key={row.entry.id}
-            entry={row.entry}
-            onOpenEntry={onOpenEntry}
-            meta={[row.statusLabel || row.entry.status, row.entry.priority, row.project?.title, row.sourceEntry?.title]}
-          />
+            <TaskEntryRow
+              key={row.entry.id}
+              row={row}
+              onOpenEntry={onOpenEntry}
+              onUpdateEntry={onUpdateEntry}
+            />
           ))}
         </div>
       )}
     </PanelShell>
+  );
+}
+
+function TaskEntryRow({ row, onOpenEntry, onUpdateEntry }) {
+  const entry = row.entry;
+  if (!entry) return null;
+  const done = entry.status === 'done' || row.isDone === true;
+  const icon = ICON[entry.type] || '□';
+  const metaParts = [row.statusLabel || entry.status, entry.priority, row.project?.title, row.sourceEntry?.title].filter(Boolean);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${entry.title || 'entry'}`}
+      onClick={() => onOpenEntry?.(entry.id)}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpenEntry?.(entry.id);
+        }
+      }}
+      style={{ ...rowButtonStyle, marginBottom: 8, gap: 12 }}
+    >
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={done}
+        aria-label={`Mark ${entry.title || 'task'} ${done ? 'incomplete' : 'complete'}`}
+        onClick={event => {
+          event.stopPropagation();
+          const nextDone = !done;
+          onUpdateEntry?.(entry.id, { status: nextDone ? 'done' : 'todo', completed: nextDone });
+        }}
+        style={{ width: 16, height: 16, flexShrink: 0, padding: 0, borderRadius: 3, border: '1px solid var(--br)', background: done ? 'var(--ac)' : 'transparent', color: done ? 'var(--bg)' : 'var(--tx)', display: 'grid', placeItems: 'center', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--fn)' }}
+      >{done ? '✓' : ''}</button>
+      <span aria-hidden="true" style={{ width: 20, flexShrink: 0 }}>{icon}</span>
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: done ? 'line-through' : 'none', opacity: done ? 0.65 : 1 }}>{entry.title || 'Untitled'}</span>
+        {metaParts.length > 0 && (
+          <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 6 }}>
+            {metaParts.map(part => <span key={part} style={pillStyle}>{part}</span>)}
+          </span>
+        )}
+      </span>
+    </div>
   );
 }
 
@@ -3605,7 +3659,7 @@ function CalendarDetailRail({ date, day, items, primaryEntry, linkedProjects, ta
       <CalendarDetailSection title="Tags on this day">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {tags.map(tag => <span key={tag} style={pillStyle}>#{tag}</span>)}
-          <button type="button" onClick={() => onNavigate?.('tags')} style={{ ...pillStyle, cursor: 'pointer', fontFamily: 'var(--fn)' }}>+ Add tag</button>
+          <button type="button" onClick={() => onNavigate?.('tags')} style={{ ...pillStyle, cursor: 'pointer', fontFamily: 'var(--fn)' }}>Manage tags</button>
         </div>
       </CalendarDetailSection>
 

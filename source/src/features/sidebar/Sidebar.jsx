@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Pressable } from '../primitives/Pressable.jsx';
+import { TagManageDialog } from '../tags/TagManageDialog.jsx';
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,folders=[],folderFiles=[],activeFolderFilePath='',onSelectFolder,onNewFolder,onOpenFolderFile,onDeleteFolderFile,onDeleteFolder,bases=[],onSelectBase,onNewBase,onDeleteBase,canvases=[],onSelectCanvas,onNewCanvas,onDeleteCanvas,pluginPanelsSlot,flags={},spaces=[]}){
+export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,folders=[],folderFiles=[],activeFolderFilePath='',onSelectFolder,onNewFolder,onOpenFolderFile,onDeleteFolderFile,onDeleteFolder,bases=[],onSelectBase,onNewBase,onDeleteBase,canvases=[],onSelectCanvas,onNewCanvas,onDeleteCanvas,pluginPanelsSlot,flags={},spaces=[],entries=[],onUpdateEntry}){
+  const [tagManageOpen,setTagManageOpen]=useState(false);
   const spaceItems=(Array.isArray(spaces)?spaces:[])
     .map(space=>{
       if(typeof space==='string')return{id:space.toLowerCase(),name:space,count:0};
@@ -44,7 +47,6 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
             onClick={()=>setSection(`space:${space.id}`)}/>
         ))}
         {open&&spaceItems.length===0?<EmptyNavHint>No spaces yet</EmptyNavHint>:null}
-        <NavItem icon="+" label="New Space" active={section==='spaces'} open={open} onClick={()=>setSection('spaces')}/>
 
         {open&&<>
           <SectionDivider/>
@@ -58,9 +60,10 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
             </Pressable>
           ))}
           {tagItems.length===0?<EmptyNavHint>No tags yet</EmptyNavHint>:null}
-          <NavItem icon="+" label="Manage Tags" active={section==='tags'} open={open} onClick={()=>setSection('tags')}/>
+          <NavItem icon="+" label="Manage Tags" active={tagManageOpen} open={open} onClick={()=>setTagManageOpen(true)}/>
         </>}
       </nav>
+      <TagManageDialog open={tagManageOpen} entries={entries} onUpdateEntry={onUpdateEntry} onClose={()=>setTagManageOpen(false)}/>
       <div style={{borderTop:'1px solid var(--br)',padding:'14px',flexShrink:0}}>
         <NavItem icon="⚙" label="Settings" active={section==='settings'} open={open} onClick={()=>onOpenSettings?onOpenSettings():setSection('settings')}/>
         <NavItem icon="⌫" label="Trash" count={counts.trash} active={section==='trash'} open={open} onClick={()=>setSection('trash')}/>

@@ -1388,7 +1388,9 @@ export default function App(){
           onNewCanvas={handleNewCanvas}
           onDeleteCanvas={handleDeleteCanvas}
           pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}
-          flags={prefs.featureFlags}/>
+          flags={prefs.featureFlags}
+          entries={entries}
+          onUpdateEntry={updateEntry}/>
 
         <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
           <div style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>

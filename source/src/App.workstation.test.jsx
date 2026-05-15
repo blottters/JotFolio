@@ -90,13 +90,12 @@ describe('App workstation shell', () => {
     expect(screen.getByText('May 14, 2026')).toBeInTheDocument();
     expect(screen.getByText('Review route rendering')).toBeInTheDocument();
 
-    fireEvent.click(within(sidebar).getByText('New Space'));
-    expect(await screen.findByRole('heading', { name: 'Spaces' })).toBeInTheDocument();
-    expect(screen.getAllByText('work').length).toBeGreaterThan(0);
+    expect(within(sidebar).queryByText('New Space')).not.toBeInTheDocument();
 
     fireEvent.click(within(sidebar).getByText('Manage Tags'));
-    expect(await screen.findByRole('heading', { name: 'Tag Manager' })).toBeInTheDocument();
-    expect(screen.getAllByText('#product').length).toBeGreaterThan(0);
+    const tagDialog = await screen.findByRole('dialog');
+    expect(within(tagDialog).getByRole('heading', { name: 'Manage Tags' })).toBeInTheDocument();
+    fireEvent.click(within(tagDialog).getByRole('button', { name: 'Done' }));
 
     fireEvent.click(within(sidebar).getByText('Search'));
     expect(await screen.findByRole('heading', { name: 'Search / Quick Switcher' })).toBeInTheDocument();

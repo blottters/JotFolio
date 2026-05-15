@@ -68,6 +68,9 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const [mediaPath, setMediaPath] = useState('');
+  const [removeConfirmNode, setRemoveConfirmNode] = useState(null);
+  const [editingEdgeId, setEditingEdgeId] = useState(null);
+  const [edgeLabelDraft, setEdgeLabelDraft] = useState('');
 
   // Mirror canvas locally so node drags don't churn the parent on every
   // pointermove. Commit happens on pointerup.
@@ -277,10 +280,42 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
       ? localCanvas?.nodes?.find(n => n.id === nodeOrId)
       : nodeOrId;
     if (!node) return;
-    const ok = window.confirm(`Remove ${describeNode(node)} from this canvas? This does not delete the entry file from your vault.`);
-    if (!ok) return;
-    commit(removeNode(localCanvas, node.id));
-  }, [commit, describeNode, localCanvas]);
+    setRemoveConfirmNode({ id: node.id, label: describeNode(node) });
+  }, [describeNode, localCanvas]);
+
+  const confirmRemoveNode = useCallback(() => {
+    const id = removeConfirmNode?.id;
+    if (!id) return;
+    commit(removeNode(localCanvas, id));
+    setRemoveConfirmNode(null);
+  }, [commit, localCanvas, removeConfirmNode]);
+
+  const beginEdgeLabelEdit = useCallback((edge) => {
+    setEditingEdgeId(edge.id);
+    setEdgeLabelDraft(edge.label || '');
+  }, []);
+
+  const cancelEdgeLabelEdit = useCallback(() => {
+    setEditingEdgeId(null);
+    setEdgeLabelDraft('');
+  }, []);
+
+  const saveEdgeLabel = useCallback(() => {
+    if (!editingEdgeId) return;
+    commit(updateEdge(localCanvas, editingEdgeId, { label: edgeLabelDraft.trim() }));
+    cancelEdgeLabelEdit();
+  }, [cancelEdgeLabelEdit, commit, edgeLabelDraft, editingEdgeId, localCanvas]);
+
+  const clearEdgeLabel = useCallback(() => {
+    if (!editingEdgeId) return;
+    commit(updateEdge(localCanvas, editingEdgeId, { label: '' }));
+    cancelEdgeLabelEdit();
+  }, [cancelEdgeLabelEdit, commit, editingEdgeId, localCanvas]);
+
+  const editingEdge = useMemo(
+    () => (localCanvas?.edges || []).find(edge => edge.id === editingEdgeId) || null,
+    [editingEdgeId, localCanvas],
+  );
 
   const moveNodeByKeyboard = useCallback((node, dx, dy) => {
     commit(moveNode(localCanvas, node.id, node.x + dx, node.y + dy));
@@ -353,6 +388,20 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
         </span>
       </div>
 
+      {removeConfirmNode && (
+        <div role="alert" style={{ padding: '8px 12px', borderBottom: '1px solid var(--br)', background: 'rgba(180,83,9,.10)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ flex: 1, minWidth: 220, color: 'var(--tx)', fontSize: 12, lineHeight: 1.45 }}>
+            Remove {removeConfirmNode.label} from this canvas? The vault file stays in place.
+          </span>
+          <button type="button" onClick={confirmRemoveNode} style={{ ...TOOLBAR_BTN, borderColor: '#b45309', background: '#b45309', color: '#fff', fontWeight: 800 }}>
+            Remove Card
+          </button>
+          <button type="button" onClick={() => setRemoveConfirmNode(null)} style={TOOLBAR_BTN}>
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* Pickers */}
       {showFilePicker && (
         <div style={{ padding: 8, borderBottom: '1px solid var(--br)', background: 'var(--sb)' }}>
@@ -393,6 +442,41 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
             style={{ flex: 1, padding: '6px 10px', background: 'var(--bg)', border: '1px solid var(--br)', borderRadius: 'var(--rd)', color: 'var(--tx)', fontFamily: 'var(--fn)', fontSize: 13 }}
           />
           <button type="button" onClick={handleAddMedia} disabled={!mediaPath.trim()} style={{ ...TOOLBAR_BTN, background: 'var(--ac)', color: 'var(--act)', borderColor: 'var(--ac)' }}>Add</button>
+        </div>
+      )}
+
+      {editingEdge && (
+        <div role="form" aria-label="Edit canvas edge label" style={{ padding: '8px 12px', borderBottom: '1px solid var(--br)', background: 'var(--sb)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--t2)', fontWeight: 700 }}>
+            Connection label
+          </span>
+          <input
+            autoFocus
+            aria-label="Edge label"
+            value={edgeLabelDraft}
+            onChange={event => setEdgeLabelDraft(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                saveEdgeLabel();
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                cancelEdgeLabelEdit();
+              }
+            }}
+            placeholder="Describe this connection"
+            style={{ flex: '1 1 220px', minWidth: 180, padding: '6px 10px', background: 'var(--bg)', border: '1px solid var(--br)', borderRadius: 'var(--rd)', color: 'var(--tx)', fontFamily: 'var(--fn)', fontSize: 13 }}
+          />
+          <button type="button" aria-label="Save edge label" onClick={saveEdgeLabel} style={{ ...TOOLBAR_BTN, background: 'var(--ac)', color: 'var(--act)', borderColor: 'var(--ac)', fontWeight: 800 }}>
+            Save
+          </button>
+          <button type="button" onClick={clearEdgeLabel} style={TOOLBAR_BTN}>
+            Clear
+          </button>
+          <button type="button" onClick={cancelEdgeLabelEdit} style={TOOLBAR_BTN}>
+            Cancel
+          </button>
         </div>
       )}
 
@@ -471,12 +555,7 @@ export function CanvasView({ canvas, entries = [], onCanvasChange, onOpenEntry, 
                     x1={fx} y1={fy} x2={tx} y2={ty}
                     stroke="var(--t3)" strokeWidth={2}
                     style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
-                    onClick={() => {
-                      const lbl = window.prompt('Edge label (blank to clear):', edge.label || '');
-                      if (lbl === null) return;
-                      if (lbl === '') commit(updateEdge(localCanvas, edge.id, { label: '' }));
-                      else commit(updateEdge(localCanvas, edge.id, { label: lbl }));
-                    }}
+                    onClick={() => beginEdgeLabelEdit(edge)}
                   />
                   {edge.label && (
                     <text

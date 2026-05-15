@@ -10,9 +10,9 @@ describe('ConstellationStateOverlay', () => {
 
   it('locked: shows glyph, headline, and "You have N." with provided count', () => {
     render(<ConstellationStateOverlay state="locked" count={5} onAdd={() => {}} />);
-    expect(screen.getByText('✦')).toBeInTheDocument();
+    expect(screen.getByText('⌁')).toBeInTheDocument();
     expect(screen.getByText('Graph unlocks at 3 entries.')).toBeInTheDocument();
-    expect(screen.getByText('You have 5.')).toBeInTheDocument();
+    expect(screen.getByText(/You have 5\./)).toBeInTheDocument();
   });
 
   it('locked: clicking primary button calls onAdd', () => {
@@ -29,7 +29,7 @@ describe('ConstellationStateOverlay', () => {
     const code = screen.getByText('[[links]]');
     expect(code.tagName.toLowerCase()).toBe('code');
     expect(code.parentElement.textContent).toMatch(
-      /Add a few \[\[links\]\] between entries to see them appear here\./
+      /Add \[\[links\]\], backlinks, or memory sources between entries/
     );
   });
 
@@ -51,6 +51,14 @@ describe('ConstellationStateOverlay', () => {
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
+  it('error: uses assertive alert semantics and recovery copy', () => {
+    render(<ConstellationStateOverlay state="error" message="Index is still warming up." />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveAttribute('aria-live', 'assertive');
+    expect(screen.getByText('Constellation could not render.')).toBeInTheDocument();
+    expect(screen.getByText('Index is still warming up.')).toBeInTheDocument();
+  });
+
   it('outer container has role="status" and aria-live="polite"', () => {
     render(<ConstellationStateOverlay state="locked" count={1} onAdd={() => {}} />);
     const status = screen.getByRole('status');
@@ -59,7 +67,7 @@ describe('ConstellationStateOverlay', () => {
 
   it('glyph rendered as text content (not an image)', () => {
     render(<ConstellationStateOverlay state="empty" />);
-    const glyph = screen.getByText('✦');
+    const glyph = screen.getByText('⌁');
     expect(glyph.tagName.toLowerCase()).toBe('div');
     // No <img> in the overlay
     expect(document.querySelector('img')).toBeNull();

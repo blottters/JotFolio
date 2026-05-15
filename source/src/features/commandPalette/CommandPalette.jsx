@@ -28,7 +28,7 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
     if (open) {
       setQuery('');
       setActiveIdx(0);
-      // Defer to next tick so the input exists in the DOM.
+      inputRef.current?.focus();
       const t = setTimeout(() => inputRef.current?.focus(), 0);
       return () => clearTimeout(t);
     }
@@ -86,7 +86,7 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
         boxShadow: '0 24px 64px rgba(0,0,0,0.32)', display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
-        <input id={inputId} ref={inputRef}
+        <input id={inputId} ref={inputRef} autoFocus
           value={query} onChange={e => { setQuery(e.target.value); setActiveIdx(0); }}
           onKeyDown={handleKey}
           placeholder="Run an app command…"

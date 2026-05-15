@@ -18,6 +18,7 @@ import backlinkMeasurements from './measure/backlink.js';
 import frontmatterMeasurements from './measure/frontmatter.js';
 import parseMeasurements from './measure/parse.js';
 import pluginMeasurements from './measure/plugin.js';
+import workstationMeasurements from './measure/workstation.js';
 
 const BENCH_ROOT = dirname(fileURLToPath(import.meta.url));
 const BASELINE_PATH = join(BENCH_ROOT, 'baseline.json');
@@ -41,6 +42,8 @@ const TARGETS = {
   'plugin-discover-5':      { target: 10,   mode: 'warn' },
   'plugin-discover-20':     { target: 30,   mode: 'warn' },
   'plugin-discover-50':     { target: 80,   mode: 'warn' },
+  'workstation-derive-1k':   { target: 300,  mode: 'fail' },
+  'workstation-derive-5k':   { target: 1800, mode: 'warn' },
 };
 
 const allMeasurements = [
@@ -49,6 +52,7 @@ const allMeasurements = [
   ...searchMeasurements,
   ...backlinkMeasurements,
   ...pluginMeasurements,
+  ...workstationMeasurements,
   ...vaultMeasurements,
 ];
 

@@ -66,6 +66,13 @@ describe('StarNode', () => {
       'italic'
     );
   });
+
+  it('renders an accent focus ring when focused', () => {
+    const { container } = renderInSvg(
+      <StarNode n={makeNode()} focused={true} />
+    );
+    expect(container.querySelector('[data-node-focus-ring]')).not.toBeNull();
+  });
 });
 
 describe('BoardNode', () => {
@@ -120,9 +127,16 @@ describe('BoardNode', () => {
     );
     const card = container.querySelector('[data-node-card]');
     expect(card.getAttribute('fill')).toBe('transparent');
-    expect(card.getAttribute('stroke-dasharray')).toBe('3 3');
+    expect(card.getAttribute('stroke-dasharray')).toBe('5 5');
     // ghost has no type strip
     expect(container.querySelector('[data-node-strip]')).toBeNull();
+  });
+
+  it('uses app surface variables instead of hard-coded board colors', () => {
+    const { container } = renderInSvg(<BoardNode n={makeNode()} focused={true} />);
+    expect(container.querySelector('[data-node-card]').getAttribute('fill')).toBe('var(--cd)');
+    expect(container.querySelector('[data-node-title]').getAttribute('fill')).toBe('var(--tx)');
+    expect(container.querySelector('[data-node-focus-ring]').getAttribute('stroke')).toBe('var(--ac)');
   });
 });
 
@@ -152,6 +166,14 @@ describe('EditorialNode', () => {
       <EditorialNode n={makeNode({ links: 1 })} labelPolicy="hover" />
     );
     expect(container.querySelector('[data-node-label]')).toBeNull();
+  });
+
+  it('focused tier 2 shows label and focus ring', () => {
+    const { container } = renderInSvg(
+      <EditorialNode n={makeNode({ links: 1 })} focused={true} labelPolicy="hover" />
+    );
+    expect(container.querySelector('[data-node-focus-ring]')).not.toBeNull();
+    expect(container.querySelector('[data-node-label]').textContent).toBe('Test Node');
   });
 });
 

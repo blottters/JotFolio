@@ -25,7 +25,7 @@ export function TrashView({items = [], busy, error, onRefresh, onRestore, onPerm
       <div style={{padding:'10px 14px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:10,background:'var(--b2)',flexShrink:0}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontSize:12,fontWeight:800,color:'var(--tx)'}}>JotFolio Trash</div>
-          <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.4}}>Deleted files are kept here until you restore them or permanently delete them.</div>
+          <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.4}}>Deleted files stay recoverable here. Restore stops if the original path is occupied; permanent delete cannot be undone.</div>
         </div>
         <button type="button" onClick={onRefresh} disabled={busy}
           style={{padding:'7px 11px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:busy?'default':'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
@@ -70,7 +70,7 @@ export function TrashView({items = [], busy, error, onRefresh, onRestore, onPerm
                   </button>
                   <button type="button" onClick={()=>onPermanentDelete(item.path)} disabled={busy}
                     style={{padding:'6px 10px',fontSize:12,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:busy?'default':'pointer',fontFamily:'var(--fn)',fontWeight:800,flexShrink:0}}>
-                    Delete
+                    Delete forever
                   </button>
                 </article>
               );

@@ -32,6 +32,7 @@ function RecoverySnapshotsSection({entry,onToast}){
   const[loading,setLoading]=useState(false);
   const[items,setItems]=useState(null);
   const[error,setError]=useState('');
+  const[pendingRestore,setPendingRestore]=useState(null);
   const canUse=!!snapshots?.list&&!!entry?._path;
   const load=async()=>{
     if(!canUse)return;
@@ -40,9 +41,10 @@ function RecoverySnapshotsSection({entry,onToast}){
     catch(err){setError(err.message||'Snapshot list failed')}
     finally{setLoading(false)}
   };
-  const restore=async(item)=>{
-    const ok=window.confirm(`Restore snapshot from ${item.date || item.label || 'this point'}? This overwrites the current file, so review the entry after restore.`);
-    if(!ok)return;
+  const confirmRestore=async()=>{
+    const item=pendingRestore;
+    if(!item)return;
+    setPendingRestore(null);
     try{
       await snapshots.restore(entry._path,item.date);
       onToast?.('Snapshot restored. Rescan may take a moment.','info');
@@ -61,6 +63,17 @@ function RecoverySnapshotsSection({entry,onToast}){
         {canUse?'Review older saved copies for this file before restoring.':'Snapshots are available in the packaged desktop app after a real vault file exists.'}
       </div>
       {error&&<div role="alert" style={{fontSize:11,color:'#b91c1c',marginTop:6}}>{error}</div>}
+      {pendingRestore&&(
+        <div role="alert" style={{marginTop:8,padding:8,border:'1px solid #b45309',borderRadius:'var(--rd)',background:'rgba(180,83,9,.10)',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+          <span style={{flex:1,fontSize:11,color:'var(--tx)',lineHeight:1.45}}>
+            Restore snapshot from {pendingRestore.date||pendingRestore.label||'this point'}? This overwrites the current file.
+          </span>
+          <button type="button" onClick={confirmRestore}
+            style={{padding:'3px 8px',fontSize:11,border:'1px solid #b45309',borderRadius:'var(--rd)',background:'#b45309',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>Restore</button>
+          <button type="button" onClick={()=>setPendingRestore(null)}
+            style={{padding:'3px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Cancel</button>
+        </div>
+      )}
       {Array.isArray(items)&&(
         <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:8}}>
           {items.length===0?(
@@ -68,7 +81,7 @@ function RecoverySnapshotsSection({entry,onToast}){
           ):items.slice(0,8).map((item,idx)=>(
             <div key={`${item.date||idx}`} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--t2)'}}>
               <span style={{flex:1,fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.date||item.label||`Snapshot ${idx+1}`}</span>
-              <button type="button" onClick={()=>restore(item)}
+              <button type="button" onClick={()=>setPendingRestore(item)}
                 style={{padding:'2px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Restore</button>
             </div>
           ))}

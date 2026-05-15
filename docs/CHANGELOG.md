@@ -12,6 +12,24 @@ Bump rules:
 
 ---
 
+## [Unreleased]
+
+### Added
+- Workstation UI overhaul ledger at [`docs/changes/jotfolio-ui-overhaul-ledger.md`](./changes/jotfolio-ui-overhaul-ledger.md). This tracks screenshot-approved surfaces and the real functionality wired behind them.
+- Search / Quick Switcher route rebuilt with category tabs, grouped vault results, selected-result detail rail, backlinks/unresolved-link context, Quick Switcher and Command Palette launch buttons, and real result actions.
+- Capture / New Entry modal rebuilt with asset-kit entry icons, template application, local path copy, source URL open, save-to-inbox/project, tag editing, and canvas creation.
+- Projects route rebuilt with screenshot-style project cards, compact project table, selected-project detail rail, tabs, sorting, grid/list toggle, project-aware New Entry, project canvas creation, project-filtered Bases, Constellation routing, and copy/reveal actions.
+- Notes route rebuilt as a full Markdown editor workspace with tabbed file chrome, edit/preview modes, Markdown toolbar actions, live debounced vault saving, line/word/file status, tag editing, backlinks, unresolved-link context, and file actions.
+
+### Changed
+- Search now owns its right detail rail instead of using the generic Today/tasks rail.
+- Top-bar Capture opens the full Capture / New Entry workflow.
+- Projects now owns its project detail rail and no longer shows the generic Today/tasks dashboard rail.
+- Notes now opens directly into the editor workspace instead of the generic card/list library route.
+
+### Fixed
+- Constellation info help no longer opens as an overlapping floating popover; it now renders inline below the toolbar.
+
 ## [0.5.0-alpha.25] — 2026-05-07
 
 > Note: alpha.23 (onboarding) and alpha.24 (bundle code-split) deferred — they require Gavin's design input. alpha.25 ran first because its scope is fully mechanical.

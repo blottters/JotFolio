@@ -31,6 +31,16 @@ export function PrivacyPanel() {
         JotFolio can send anonymous crash reports to help fix bugs. You can turn this off any time. It's off by default.
       </div>
 
+      <div style={statusCard}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Privacy state</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: enabled ? 'var(--tx)' : '#10b981' }}>
+          {enabled ? 'Crash reports enabled' : 'Crash reports disabled'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.5, marginTop: 4 }}>
+          AI provider calls are controlled separately in AI Keys. Extensions are controlled separately in Extensions.
+        </div>
+      </div>
+
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
@@ -39,7 +49,7 @@ export function PrivacyPanel() {
               {enabled ? 'On — crashes are sent anonymously.' : 'Off — nothing is sent.'}
             </div>
           </div>
-          <button onClick={toggle} aria-pressed={enabled} style={toggleBtn(enabled)}>
+          <button onClick={toggle} aria-label={enabled ? 'Disable crash reports' : 'Enable crash reports'} aria-pressed={enabled} style={toggleBtn(enabled)}>
             <span style={{ position: 'absolute', top: 2, left: enabled ? 20 : 2, width: 18, height: 18, borderRadius: 9, background: enabled ? 'var(--act)' : 'var(--t3)', transition: 'left 0.2s' }} />
           </button>
         </div>
@@ -78,6 +88,13 @@ export function PrivacyPanel() {
 const card = {
   padding: 12,
   background: 'var(--cd)',
+  border: '1px solid var(--br)',
+  borderRadius: 'var(--rd)',
+};
+
+const statusCard = {
+  padding: 12,
+  background: 'var(--b2)',
   border: '1px solid var(--br)',
   borderRadius: 'var(--rd)',
 };

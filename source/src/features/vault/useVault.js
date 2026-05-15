@@ -55,6 +55,8 @@ export function useVault() {
         // recovery snapshots, sync.log, etc). It is NOT user-authored notes
         // and must not be parsed as entries. Skip the whole subtree.
         if (isInternalVaultPath(f.path)) continue;
+        // Templates are loaded by the template store, not parsed as entries.
+        if (f.path.startsWith('templates/')) continue;
         // Only parse markdown files. Non-`.md` files that happen to live
         // at the vault root (images, PDFs, etc.) are future attachment
         // surface — ignore for entry parsing.

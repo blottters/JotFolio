@@ -195,6 +195,55 @@ describe('entryToFile + fileToEntry', () => {
     expect(back.channel).toBe('Karpathy');
   });
 
+  it('round-trips project and task workstation metadata as markdown entries', () => {
+    const project = {
+      id: 'p-1',
+      type: 'project',
+      title: 'JotFolio 2.0',
+      tags: ['product'],
+      status: 'active',
+      space: 'work',
+      due: '2026-06-01',
+      notes: 'Core product direction.',
+      starred: true,
+      links: [],
+    };
+    const task = {
+      id: 't-1',
+      type: 'task',
+      title: 'Review roadmap',
+      tags: ['planning'],
+      status: 'open',
+      project: 'p-1',
+      space: 'work',
+      source_entry: 'n-1',
+      due: '2026-05-14',
+      priority: 'high',
+      completed: false,
+      notes: 'Read the latest roadmap before planning.',
+      starred: false,
+      links: [],
+    };
+
+    const projectFile = entryToFile(project);
+    const taskFile = entryToFile(task);
+
+    expect(projectFile.path).toBe('projects/JotFolio 2.0.md');
+    expect(taskFile.path).toBe('tasks/Review roadmap.md');
+    expect(parse(projectFile.content).frontmatter.space).toBe('work');
+    expect(parse(taskFile.content).frontmatter.source_entry).toBe('n-1');
+
+    const projectBack = fileToEntry({ path: projectFile.path, content: projectFile.content });
+    const taskBack = fileToEntry({ path: taskFile.path, content: taskFile.content });
+
+    expect(projectBack.space).toBe('work');
+    expect(projectBack.due).toBe('2026-06-01');
+    expect(taskBack.project).toBe('p-1');
+    expect(taskBack.source_entry).toBe('n-1');
+    expect(taskBack.priority).toBe('high');
+    expect(taskBack.completed).toBe(false);
+  });
+
   it('collision resolution suffixes filenames', () => {
     const e = { id: '1', type: 'note', title: 'Dup', tags: [], notes: '', links: [] };
     const used = new Set(['notes/Dup.md', 'notes/Dup-2.md']);

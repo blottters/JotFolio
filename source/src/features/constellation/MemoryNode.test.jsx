@@ -52,6 +52,14 @@ describe('MemoryNode', () => {
     expect(getNode().style.border).toContain('var(--br)');
   });
 
+  it('focus state uses the accent border for keyboard navigation', () => {
+    render(<MemoryNode entry={makeEntry()} onSelect={() => {}} />);
+    fireEvent.focus(getNode());
+    expect(getNode().style.border).toContain('var(--ac)');
+    fireEvent.blur(getNode());
+    expect(getNode().style.border).toContain('var(--br)');
+  });
+
   it('click triggers onSelect with entry.id', () => {
     const onSelect = vi.fn();
     render(<MemoryNode entry={makeEntry({ id: 'abc' })} onSelect={onSelect} />);

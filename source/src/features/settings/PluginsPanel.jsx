@@ -11,6 +11,7 @@ export function PluginsPanel() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [pendingUninstall, setPendingUninstall] = useState(null);
+  const [pendingEnable, setPendingEnable] = useState(null);
 
   const refresh = useCallback(async () => {
     setBusy(true); setErr(null);
@@ -35,13 +36,22 @@ export function PluginsPanel() {
     finally { setBusy(false); }
   };
 
-  const toggle = async (rec) => {
+  const applyToggle = async (rec) => {
     setBusy(true); setErr(null);
     try {
       if (rec.status === 'enabled') await pluginHost.disable(rec.manifest.id);
       else await pluginHost.enable(rec.manifest.id);
     } catch (e) { setErr(e?.message || String(e)); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setPendingEnable(null); }
+  };
+
+  const toggle = async (rec) => {
+    if (rec.status !== 'enabled' && needsReviewBeforeEnable(rec.manifest.permissions)) {
+      setPendingEnable(rec.manifest.id);
+      setPendingUninstall(null);
+      return;
+    }
+    await applyToggle(rec);
   };
 
   const uninstall = async (id) => {
@@ -58,6 +68,9 @@ export function PluginsPanel() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
       <div style={{ fontSize: 12, color: 'var(--t3)', lineHeight: 1.5 }}>
         Extensions are optional workflow add-ons stored in <code>&lt;vault&gt;/.jotfolio/plugins/</code>. They should deepen the local vault workflow, not replace it. Enable only plugins whose permissions match their purpose.
+      </div>
+      <div style={safetyNote}>
+        JotFolio core works without extensions. Plugins that request vault write or network access ask for one extra inline review before they are enabled.
       </div>
       {err && <div role="alert" style={errStyle}>{err}</div>}
 
@@ -80,12 +93,27 @@ export function PluginsPanel() {
               </div>
             </div>
             <button type="button" onClick={() => toggle(rec)} disabled={busy || rec.status === 'failed'}
-              style={toggleBtn(rec.status === 'enabled')} aria-pressed={rec.status === 'enabled'}>
+              style={toggleBtn(rec.status === 'enabled')}
+              aria-label={`${rec.status === 'enabled' ? 'Disable' : 'Enable'} ${rec.manifest.name}`}
+              aria-pressed={rec.status === 'enabled'}>
               <span style={{ position: 'absolute', top: 2, left: rec.status === 'enabled' ? 20 : 2, width: 18, height: 18, borderRadius: 9, background: rec.status === 'enabled' ? 'var(--act)' : 'var(--t3)', transition: 'left 0.2s' }} />
             </button>
           </div>
           {rec.status === 'failed' && (
             <div style={{ fontSize: 11, color: '#ef4444', marginTop: 6 }}>⚠ {rec.error}</div>
+          )}
+          {pendingEnable === rec.manifest.id && (
+            <div role="group" aria-label={`Confirm enable ${rec.manifest.name}`} style={confirmRow}>
+              <span style={{ flex: 1, fontSize: 11, color: 'var(--t2)' }}>
+                Enable with permissions: {permissionSummary(rec.manifest.permissions)}?
+              </span>
+              <button type="button" onClick={() => applyToggle(rec)} disabled={busy} style={dangerBtn}>
+                Enable
+              </button>
+              <button type="button" onClick={() => setPendingEnable(null)} disabled={busy} style={smallBtn}>
+                Cancel
+              </button>
+            </div>
           )}
           {pendingUninstall === rec.manifest.id ? (
             <div role="group" aria-label={`Confirm uninstall ${rec.manifest.name}`} style={confirmRow}>
@@ -101,7 +129,7 @@ export function PluginsPanel() {
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-              <button type="button" onClick={() => setPendingUninstall(rec.manifest.id)} disabled={busy} style={smallBtn}>
+              <button type="button" onClick={() => { setPendingUninstall(rec.manifest.id); setPendingEnable(null); }} disabled={busy} style={smallBtn}>
                 Uninstall
               </button>
             </div>
@@ -143,6 +171,10 @@ function permissionSummary(perms = {}) {
   return bits.length ? bits.join(' · ') : 'none';
 }
 
+function needsReviewBeforeEnable(perms = {}) {
+  return Boolean(perms.vault_write || perms.http_domains?.length);
+}
+
 const row = (failed) => ({
   padding: 10,
   background: 'var(--cd)',
@@ -169,6 +201,10 @@ const dangerBtn = {
 const installBtn = {
   padding: '4px 12px', fontSize: 12, background: 'var(--ac)', color: 'var(--act)', border: 'none',
   borderRadius: 'var(--rd)', cursor: 'pointer', fontFamily: 'var(--fn)', fontWeight: 700,
+};
+const safetyNote = {
+  fontSize: 11, color: 'var(--t3)', lineHeight: 1.5, padding: 10, background: 'var(--b2)',
+  border: '1px solid var(--br)', borderRadius: 'var(--rd)',
 };
 const errStyle = {
   fontSize: 12, color: '#ef4444', padding: '8px 10px',

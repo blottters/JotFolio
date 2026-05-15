@@ -3,19 +3,29 @@ import { ALL_ENTRY_TYPES, LABEL, applyTypeSat } from '../../lib/types.js';
 import { ConstellationStateOverlay } from './ConstellationStateOverlay.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from './layout.js';
+import {
+  getEdgeVisualState,
+  getNodeVisualState,
+  nodeRoleLabel,
+  summarizeGraph,
+} from './constellationVisuals.js';
 
 // ── Constellation (Graph view) ────────────────────────────────────────────
-// Polar layout — nodes on circles, no physics sim (keeps bundle tiny, no hover
-// jitter). Node size encodes link-count. Node color encodes type. Starred
-// entries get a halo. Click node = open detail.
+// Stable graph layout — nodes are placed by deterministic layout helpers, no
+// physics sim (keeps bundle tiny, no hover jitter). Node size encodes
+// link-count. Node color encodes type. Starred entries get a quiet ring.
 //
-// Visual variants (via `style` prop): 'star' (default — luminous dots),
+// Visual variants (via `style` prop): 'star' (default compact map nodes),
 // 'board' (index-card with title + meta), 'editorial' (sparse dots + tier-
-// sized labels by link count). Color saturation tunable via `saturation`
-// prop ('full' / 'muted' / 'mono'). Background variant via `bg` prop.
+// sized labels by link count). Type color theme is controlled via
+// `saturation`, with `signal` as the clearer graph-first default.
+// Background variant via `bg` prop.
 const KNOWLEDGE_FLAG_MAP={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
-export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,flags={},style='star',saturation='full',bg='solid'}){
+const LARGE_GRAPH_ANIMATION_LIMIT=120;
+
+export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,focusEntryId,flags={},style='star',saturation='signal',bg='atlas'}){
   const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!KNOWLEDGE_FLAG_MAP[t]||flags[KNOWLEDGE_FLAG_MAP[t]]===true);
+  const prefersReducedMotion=usePrefersReducedMotion();
   const[filter,setFilter]=useState('all');
   const[tagFilter,setTagFilter]=useState('');
   const[titleQuery,setTitleQuery]=useState('');
@@ -27,6 +37,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   },[]);
   const[infoOpen,setInfoOpen]=useState(null); // null | 'ghosts' | 'messy' | 'clusters' | 'affinity'
   const[hover,setHover]=useState(null);
+  const[keyboardFocus,setKeyboardFocus]=useState(null);
   // Stack of focal ids. Top = current view. Empty = full web.
   // Click node deeper → push. Back / Esc / click same → pop.
   const[focalStack,setFocalStack]=useState([]);
@@ -53,6 +64,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   const nodeBobRef=useRef(new Map()); // id → inner <g> element (bob target)
   const edgeElsRef=useRef(new Map()); // `${aId}|${bId}` → {a, b, el}
   const positionsRef=useRef({}); // mirror of positions for RAF edge math
+  const appliedFocusRef=useRef(null);
 
   // All tags present in the visible entries — drives the tag-filter dropdown.
   const allTags=useMemo(()=>{
@@ -73,6 +85,18 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     });
   },[entries,filter,tagFilter,titleQuery]);
   const poolById=useMemo(()=>{const m={};pool.forEach(e=>m[e.id]=e);return m},[pool]);
+  useEffect(()=>{
+    const id=String(focusEntryId||'');
+    if(!id){
+      appliedFocusRef.current=null;
+      return;
+    }
+    if(appliedFocusRef.current===id)return;
+    if(!poolById[id])return;
+    appliedFocusRef.current=id;
+    setFocalStack([id]);
+    setKeyboardFocus(id);
+  },[focusEntryId,poolById]);
   const components=useMemo(()=>{
     // Build undirected adjacency first. A wiki-link on A targeting B is
     // visually bidirectional (they belong to the same cluster) even though
@@ -170,6 +194,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     if(!memoryOnly)return combined;
     return combined.filter(n=>n.type==='wiki'||n.type==='review');
   },[nodes,unresolvedPseudoNodes,memoryOnly]);
+  const motionAllowed=!prefersReducedMotion&&renderNodes.length<=LARGE_GRAPH_ANIMATION_LIMIT;
   const nodeById=useMemo(()=>{const m={};renderNodes.forEach(n=>m[n.id]=n);return m},[renderNodes]);
   const nodeToComp=useMemo(()=>{const m={};renderNodes.forEach(n=>{m[n.id]=n.comp});return m},[renderNodes]);
 
@@ -348,6 +373,11 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   // that. setOffsets is gone; bobRef.current is the single source of truth
   // for bob deltas, mirrored into the DOM each frame.
   useEffect(()=>{
+    if(!motionAllowed){
+      bobRef.current={};
+      nodeBobRef.current.forEach(node=>node.setAttribute('transform','translate(0 0)'));
+      return;
+    }
     let raf=0,iv=0,lastRaf=performance.now();
     const start=performance.now();
     const compute=(t)=>{
@@ -377,27 +407,31 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
         line.setAttribute('y2',pb.y+ob.dy);
       });
     };
-    const tick=(t)=>{lastRaf=t;compute(t);raf=requestAnimationFrame(tick)};
+    const tick=(t)=>{
+      lastRaf=t;
+      if(!document.hidden)compute(t);
+      raf=requestAnimationFrame(tick);
+    };
     raf=requestAnimationFrame(tick);
     // Watchdog: if RAF hasn't fired in 500ms, switch to setInterval
     iv=setInterval(()=>{
       const now=performance.now();
-      if(now-lastRaf>500)compute(now);
+      if(!document.hidden&&now-lastRaf>500)compute(now);
     },33);
     return()=>{cancelAnimationFrame(raf);clearInterval(iv)};
-  },[]);
+  },[motionAllowed]);
 
   // Escape pops one layer. "C" toggles between messy web and cluster view.
   useEffect(()=>{
     const h=e=>{
       if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
-      if(e.key==='Escape'&&focalStack.length)popFocal();
+      if(e.key==='Escape'&&focalStack.length)setFocalStack(st=>st.slice(0,-1));
       else if(e.key==='c'||e.key==='C')setLayoutMode(m=>m==='messy'?'clusters':'messy');
       else if(e.key==='a'||e.key==='A')setLayoutMode(m=>m==='affinity'?'messy':'affinity');
     };
     document.addEventListener('keydown',h);
     return()=>document.removeEventListener('keydown',h);
-  },[focalStack.length]);
+  },[focalStack.length,setLayoutMode]);
 
   // Effective per-node position. Base = cluster-grid layout. In focal mode,
   // focal snaps to canvas center and its neighbors orbit. Component-drag
@@ -449,6 +483,15 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
 
   const transform=`translate(${view.tx} ${view.ty}) scale(${view.s})`;
   const displayedZoom=Math.round(view.s*100);
+  const layerTransition=prefersReducedMotion||isDragging||panRef.current||compDragRef.current
+    ?'none'
+    :'transform 0.5s var(--jf-ease-in-out)';
+  const nodeTransition=prefersReducedMotion
+    ?'none'
+    :'transform 0.72s var(--jf-ease-in-out)';
+  const edgeTransition=prefersReducedMotion||!focal
+    ?'none'
+    :'x1 0.5s var(--jf-ease-in-out), y1 0.5s var(--jf-ease-in-out), x2 0.5s var(--jf-ease-in-out), y2 0.5s var(--jf-ease-in-out)';
 
   const edgeOpacity=(a,b)=>{
     if(hoverSet){return(hoverSet.has(a.id)&&hoverSet.has(b.id))?0.9:0.05}
@@ -471,6 +514,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   };
 
   const focalNode=focal?nodeById[focal]:null;
+  const graphSummary=useMemo(()=>summarizeGraph({nodes:renderNodes,edges}),[renderNodes,edges]);
 
   const describeGraphNode=useCallback((n)=>{
     const degree=(n.links||[]).length;
@@ -512,7 +556,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'var(--bg)',position:'relative'}}>
         <div style={{padding:'10px 20px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:10,flexShrink:0,background:'var(--b2)'}}>
           <button onClick={onBack} style={{padding:'6px 10px',fontSize:12,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>← Back</button>
-          <span style={{fontWeight:700,fontSize:17,letterSpacing:-0.3}}>✦ Constellation</span>
+          <span style={{fontWeight:700,fontSize:17,letterSpacing:0}}>Constellation</span>
         </div>
         <div style={{flex:1,position:'relative'}}>
           <ConstellationStateOverlay state="locked" count={entries.length} onAdd={()=>{onBack();onAdd&&onAdd()}}/>
@@ -523,74 +567,77 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
 
   return(
     <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'var(--bg)'}}>
-      <div style={{padding:'10px 20px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:10,flexShrink:0,background:'var(--b2)'}}>
-        <button onClick={onBack} style={{padding:'6px 10px',fontSize:12,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>← Back</button>
-        <span style={{fontWeight:700,fontSize:17,letterSpacing:-0.3}}>✦ Constellation</span>
-        <span style={{fontSize:12,color:'var(--t3)'}}>{nodes.length} entries · {edges.length} links</span>
-        {focalStack.length>0&&(
-          <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:12,padding:'4px 10px',background:'var(--b2)',border:'1px solid var(--ac)',borderRadius:'var(--rd)',maxWidth:440,overflow:'hidden'}}>
-            <button onClick={popFocal} aria-label="Back one layer" title="Back one layer (Esc)" style={{padding:'2px 6px',fontSize:13,background:'transparent',border:'none',color:'var(--ac)',cursor:'pointer',fontWeight:700}}>←</button>
-            <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace',letterSpacing:1}}>L{focalStack.length}</span>
-            <div style={{display:'flex',alignItems:'center',gap:4,fontSize:12,overflow:'hidden'}}>
-              {focalStack.flatMap((id,i)=>{
-                const n=nodeById[id];if(!n)return[];
-                const last=i===focalStack.length-1;
-                const items=[];
-                if(i>0)items.push(<span key={'sep'+i} style={{color:'var(--t3)'}}>›</span>);
-                items.push(<button key={'bc'+i+id} onClick={()=>setFocalStack(st=>st.slice(0,i+1))}
-                  style={{padding:0,background:'transparent',border:'none',color:last?'var(--tx)':'var(--t2)',fontWeight:last?700:400,cursor:'pointer',fontFamily:'var(--fn)',fontSize:12,maxWidth:last?180:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                  {n.title||'Untitled'}
-                </button>);
-                return items;
+      <div style={{padding:'14px 20px 12px',borderBottom:'1px solid var(--br)',display:'flex',flexDirection:'column',gap:12,flexShrink:0,background:'linear-gradient(180deg, rgba(15,23,32,.98), rgba(8,13,19,.96))'}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}>
+          <button onClick={onBack} style={{padding:'7px 11px',fontSize:12,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>← Back</button>
+          <div style={{minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+              <span style={{fontWeight:850,fontSize:18,letterSpacing:0,color:'var(--tx)'}}>Constellation</span>
+              <span style={{fontSize:11,color:'var(--t3)',textTransform:'uppercase',letterSpacing:1.1}}>Vault relationship map</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,flexWrap:'wrap'}}>
+              <MetricChip label="Entries" value={graphSummary.nodes}/>
+              <MetricChip label="Links" value={graphSummary.edges}/>
+              <MetricChip label="Memory" value={graphSummary.memory}/>
+              <MetricChip label="Missing" value={graphSummary.missing}/>
+              <MetricChip label="Hubs" value={graphSummary.hubs}/>
+              <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace'}}>{displayedZoom}% zoom</span>
+            </div>
+          </div>
+          {focalStack.length>0&&(
+            <div style={{display:'flex',alignItems:'center',gap:7,marginLeft:'auto',padding:'6px 10px',background:'rgba(59,130,246,.08)',border:'1px solid color-mix(in srgb, var(--ac) 55%, var(--br))',borderRadius:'var(--rd)',maxWidth:520,overflow:'hidden'}}>
+              <button onClick={popFocal} aria-label="Back one layer" title="Back one layer (Esc)" style={{padding:'2px 7px',fontSize:13,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--ac)',cursor:'pointer',fontWeight:800}}>←</button>
+              <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace',letterSpacing:1}}>L{focalStack.length}</span>
+              <div style={{display:'flex',alignItems:'center',gap:4,fontSize:12,overflow:'hidden',minWidth:0}}>
+                {focalStack.flatMap((id,i)=>{
+                  const n=nodeById[id];if(!n)return[];
+                  const last=i===focalStack.length-1;
+                  const items=[];
+                  if(i>0)items.push(<span key={'sep'+i} style={{color:'var(--t3)'}}>›</span>);
+                  items.push(<button key={'bc'+i+id} aria-current={last?'page':undefined} onClick={()=>setFocalStack(st=>st.slice(0,i+1))}
+                    style={{padding:0,background:'transparent',border:'none',color:last?'var(--tx)':'var(--t2)',fontWeight:last?800:500,cursor:'pointer',fontFamily:'var(--fn)',fontSize:12,maxWidth:last?210:96,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                    {n.title||'Untitled'}
+                  </button>);
+                  return items;
+                })}
+              </div>
+              {focalNode&&<button onClick={()=>onOpen(focalNode.id)} style={{padding:'3px 9px',fontSize:11,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:800,flexShrink:0}}>Open</button>}
+            </div>
+          )}
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',rowGap:8,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+            <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden',background:'rgba(255,255,255,.025)'}}>
+              {[['messy','Spread','C'],['clusters','Groups','C'],['affinity','Similarity','A']].map(([k,label,hint])=>{
+                const isActive=layoutMode===k;
+                return(
+                  <button key={k} onClick={()=>setLayoutMode(k)}
+                    title={`Layout: ${label} (${hint})`}
+                    style={{padding:'6px 11px',fontSize:11,background:isActive?'var(--ac)':'transparent',color:isActive?'var(--act)':'var(--t2)',border:'none',borderRight:'1px solid var(--br)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:800}}>
+                    {label}
+                  </button>
+                );
               })}
             </div>
-            {focalNode&&<button onClick={()=>onOpen(focalNode.id)} style={{padding:'2px 8px',fontSize:11,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>Open</button>}
-          </div>
-        )}
-        <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',justifyContent:'flex-end',rowGap:6,minWidth:0}}>
-          {/* Layout buttons render first so they stay pinned to the right
-              and never clip; other controls below shrink/wrap as needed. */}
-          <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0,order:0}}>
-          <div style={{display:'flex',gap:0,border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden'}}>
-            {[['messy','◉ Spread','C'],['clusters','✦ Link groups','C'],['affinity','⚛ Similarity','A']].map(([k,label,hint])=>{
-              const isActive=layoutMode===k;
-              return(
-                <button key={k} onClick={()=>setLayoutMode(k)}
-                  title={`Layout: ${label} (${hint})`}
-                  style={{padding:'4px 10px',fontSize:11,background:isActive?'var(--ac)':'transparent',color:isActive?'var(--act)':'var(--t2)',border:'none',borderRight:'1px solid var(--br)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-                  {label}
-                </button>
-              );
-            })}
-          </div>
             <InfoButton open={infoOpen==='layout'} onToggle={()=>setInfoOpen(o=>o==='layout'?null:'layout')}
-              title="Layout modes"
-              body={(<>
-                <div style={{marginBottom:4}}><strong>◉ Spread</strong>: entries are scattered evenly so the vault is easy to scan.</div>
-                <div style={{marginBottom:4}}><strong>✦ Link groups</strong>: entries connected by links get grouped together.</div>
-                <div><strong>⚛ Similarity</strong>: entries that share tags, type, or dates pull together.</div>
-              </>)}/>
+              title="Layout modes"/>
           </div>
-          <div style={{position:'relative',display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
-            <button onClick={()=>setShowUnresolved(s=>!s)}
-              title={showUnresolved?'Hide missing linked notes':'Show missing linked notes'}
-              style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:showUnresolved?'var(--ac)':'transparent',color:showUnresolved?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-              {showUnresolved?'◌ Missing linked notes: on':'◌ Missing linked notes: off'}
-            </button>
-            <InfoButton open={infoOpen==='ghosts'} onToggle={()=>setInfoOpen(o=>o==='ghosts'?null:'ghosts')}
-              title="Missing linked notes"
-              body="Names you mention with [[wiki-link]] syntax but have not created yet show up as dashed circles. Click one to create the real note entry. Toggle this off if you want to see only entries that already exist."/>
-          </div>
-          <button onClick={resetAll} style={{padding:'4px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',flexShrink:0}}>Reset</button>
-          <span style={{fontSize:11,color:'var(--t3)',fontFamily:'monospace',flexShrink:0}}>{displayedZoom}%</span>
+          <button onClick={()=>setShowUnresolved(s=>!s)}
+            title={showUnresolved?'Hide missing linked notes':'Show missing linked notes'}
+            style={controlButton(showUnresolved)}>
+            Missing links
+          </button>
+          <InfoButton open={infoOpen==='ghosts'} onToggle={()=>setInfoOpen(o=>o==='ghosts'?null:'ghosts')}
+            title="Missing linked notes"/>
+          <button onClick={resetAll} style={controlButton(false)}>Reset map</button>
           <input value={titleQuery} onChange={e=>setTitleQuery(e.target.value)}
             placeholder="Search titles…" aria-label="Search node titles"
-            style={{padding:'4px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',width:120,minWidth:80}}/>
-          <div style={{width:140,flexShrink:0}}>
+            style={{padding:'7px 10px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'rgba(255,255,255,.035)',color:'var(--tx)',fontFamily:'var(--fn)',width:150,minWidth:100}}/>
+          <div style={{width:150,flexShrink:0}}>
             <Select ariaLabel="Filter by tag" value={tagFilter} onChange={v=>setTagFilter(v)}
               options={[{value:'',label:'All tags'},...allTags.map(t=>({value:t,label:`#${t}`}))]}/>
           </div>
-          <div style={{width:140,flexShrink:0}}>
+          <div style={{width:150,flexShrink:0}}>
             <Select ariaLabel="Filter graph by type" value={filter} onChange={setFilter}
               options={[{value:'all',label:'All types'},...visibleEntryTypes.map(t=>({value:t,label:LABEL[t]}))]}/>
           </div>
@@ -599,10 +646,22 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             aria-pressed={memoryOnly}
             aria-label="Show only memory entries"
             title={memoryOnly?'Show all entries':'Show only memory entries'}
-            style={{padding:'4px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:memoryOnly?'var(--ac)':'transparent',color:memoryOnly?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700,flexShrink:0}}>
+            style={controlButton(memoryOnly)}>
             Memory only
           </button>
         </div>
+        {infoOpen==='layout'&&(
+          <InfoPanel title="Layout modes">
+            <div style={{marginBottom:4}}><strong>Spread</strong>: entries are scattered evenly so the vault is easy to scan.</div>
+            <div style={{marginBottom:4}}><strong>Groups</strong>: linked entries collect into visible clusters.</div>
+            <div><strong>Similarity</strong>: shared tags, type, and dates pull entries together.</div>
+          </InfoPanel>
+        )}
+        {infoOpen==='ghosts'&&(
+          <InfoPanel title="Missing linked notes">
+            Dashed nodes are names you mentioned with [[wiki-link]] syntax but have not created yet. Click one to create the note.
+          </InfoPanel>
+        )}
       </div>
       {renderNodes.length>0&&(
         <details style={{borderBottom:'1px solid var(--br)',background:'var(--b2)',padding:'6px 20px'}}>
@@ -633,7 +692,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
       )}
       <div style={{flex:1,position:'relative',overflow:'hidden'}}>
         <ConstellationBackground kind={bg}/>
-        {nodes.length===0?(
+        {renderNodes.length===0?(
           <ConstellationStateOverlay
             state={hasFilters?'no-matches':'empty'}
             count={entries.length}
@@ -641,9 +700,12 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
             onReset={resetFilters}/>
         ):(
           <svg ref={svgRef} viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet"
+            aria-label="Constellation relationship graph"
             style={{width:'100%',height:'100%',display:'block',cursor:isDragging?'grabbing':'grab',userSelect:'none',touchAction:'none'}}
             onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-            <g transform={transform} style={{transition:isDragging||panRef.current||compDragRef.current?'none':'transform 0.5s var(--jf-ease-in-out)'}}>
+            <title>Constellation relationship graph</title>
+            <desc>Entries, backlinks, missing linked notes, and memory nodes arranged by the selected layout.</desc>
+            <g data-constellation-pan-layer transform={transform} style={{transition:layerTransition}}>
               {edges.map(({a,b,unresolved},i)=>{
                 // Initial endpoints = base positions only; the RAF loop adds
                 // bob deltas via setAttribute on each frame. Reading offsets
@@ -652,34 +714,38 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                 const pb=positions[b.id]||{x:b.x,y:b.y};
                 const bothHover=hoverSet&&hoverSet.has(a.id)&&hoverSet.has(b.id);
                 const bothFocal=focalSet&&focalSet.has(a.id)&&focalSet.has(b.id);
+                const edgeVisual=getEdgeVisualState({a,b,unresolved},{
+                  active:!!bothHover,
+                  focal:!!bothFocal,
+                  dimmed:!!(hoverSet||focalSet)&&!(bothHover||bothFocal),
+                });
                 const edgeKey=`${a.id}|${b.id}`;
                 return(
                   <line key={i}
                     ref={el=>{if(el)edgeElsRef.current.set(edgeKey,{a:a.id,b:b.id,el});else edgeElsRef.current.delete(edgeKey);}}
                     x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
-                    stroke={unresolved?'var(--t3)':(bothHover||bothFocal?'var(--ac)':'var(--tx)')}
-                    strokeWidth={bothHover||bothFocal?1.6:0.8}
-                    strokeDasharray={unresolved?'4 4':undefined}
-                    opacity={unresolved?0.45:edgeOpacity(a,b)}
-                    style={{transition:focal?'x1 0.55s var(--jf-ease-in-out), y1 0.55s var(--jf-ease-in-out), x2 0.55s var(--jf-ease-in-out), y2 0.55s var(--jf-ease-in-out)':'none'}}/>
+                    stroke={edgeVisual.stroke}
+                    strokeWidth={edgeVisual.strokeWidth}
+                    strokeDasharray={edgeVisual.strokeDasharray}
+                    opacity={unresolved?edgeVisual.opacity:Math.min(edgeVisual.opacity,edgeOpacity(a,b)+0.1)}
+                    style={{transition:edgeTransition}}/>
                 );
               })}
               {renderNodes.map(n=>{
                 // Size: degree-based but reduced with depth. Opacity fades with depth.
-                const degR=6+Math.min(14,(n.links?.length||0)*2.2);
-                const r=Math.max(5,degR-(n.depth||0)*1.6);
                 const depthOp=Math.max(0.5,1-(n.depth||0)*0.18);
                 // Memory entries (wiki/review) get distinct stroke + review = hollow.
                 const isMemory=n.type==='wiki'||n.type==='review';
-                const isReviewMemory=n.type==='review';
                 const isStaleMemory=isMemory&&n.freshness==='stale';
-                const typeColor=applyTypeSat(n.type,saturation);
-                const fill=n._unresolved
-                  ?'var(--bg)'
-                  :(isReviewMemory?'transparent':typeColor);
-                const active=hover===n.id||focal===n.id;
+                const keyboardActive=keyboardFocus===n.id;
+                const active=hover===n.id||focal===n.id||keyboardActive;
+                const dimmed=!!(hoverSet&&!hoverSet.has(n.id))||!!(focalSet&&!focalSet.has(n.id));
+                const visual=getNodeVisualState(n,{theme:saturation,active,focused:keyboardActive,focal:focal===n.id,dimmed});
+                const r=Math.max(5,visual.radius-(n.depth||0)*1.3);
+                const typeColor=visual.stroke;
+                const fill=visual.isHollow?'transparent':visual.fill;
                 const memoryStaleOp=isStaleMemory?0.6:1;
-                const op=nodeOpacity(n)*depthOp*memoryStaleOp;
+                const op=nodeOpacity(n)*depthOp*memoryStaleOp*visual.opacity;
                 const p=positions[n.id]||{x:n.x,y:n.y};
                 const memoryConfidencePct=isMemory&&typeof n.confidence==='number'
                   ?Math.round(n.confidence*100)
@@ -694,8 +760,9 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                   // loop via nodeBobRef. Initial transform is "translate(0 0)"; the
                   // first frame overrides almost immediately.
                   <g key={n.id}
+                    data-constellation-node-id={n.id}
                     transform={`translate(${p.x} ${p.y})`}
-                    style={{transition:'transform 0.85s cubic-bezier(0.22,1,0.36,1)'}}>
+                    style={{transition:nodeTransition}}>
                     <g ref={el=>{if(el)nodeBobRef.current.set(n.id,el);else nodeBobRef.current.delete(n.id);}}
                       transform="translate(0 0)"
                       onPointerDown={e=>{if(!n._unresolved)onNodePointerDown(e,n.id)}}
@@ -703,15 +770,23 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                       onPointerUp={e=>{if(n._unresolved){handleUnresolvedClick();return}onNodePointerUp(e,n.id)}}
                       onPointerCancel={e=>{compDragRef.current=null}}
                       onKeyDown={e=>onGraphNodeKeyDown(e,n)}
+                      onFocus={()=>setKeyboardFocus(n.id)}
+                      onBlur={()=>setKeyboardFocus(current=>current===n.id?null:current)}
                       onMouseEnter={()=>setHover(n.id)} onMouseLeave={()=>setHover(null)}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${describeGraphNode(n)}. Press Enter to ${n._unresolved?'create this ghost note':'focus this node'}. Press O to open.`}
-                      style={{cursor:n._unresolved?'pointer':(compDragRef.current?.nodeId===n.id?'grabbing':'pointer'),touchAction:'none'}} opacity={n._unresolved?0.7:op}>
-                      {n.starred&&style!=='board'&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#e0a600" strokeWidth={1.4} opacity={0.6}/>}
+                      aria-label={`${describeGraphNode(n)}. ${nodeRoleLabel(n)} node. Press Enter to ${n._unresolved?'create this ghost note':'focus this node'}. Press O to open.`}
+                      style={{cursor:n._unresolved?'pointer':(compDragRef.current?.nodeId===n.id?'grabbing':'pointer'),touchAction:'none',outline:'none'}} opacity={op}>
+                      {(active||visual.isHub||n.starred)&&style!=='board'&&(
+                        <circle cx={0} cy={0} r={r+10} fill={visual.halo} opacity={active?0.95:0.55}/>
+                      )}
+                      {keyboardActive&&style!=='board'&&(
+                        <circle data-node-focus-ring cx={0} cy={0} r={r+8} fill="none" stroke="var(--ac)" strokeWidth={2} opacity={0.95}/>
+                      )}
+                      {n.starred&&style!=='board'&&<circle cx={0} cy={0} r={r+5} fill="none" stroke="#FFE08A" strokeWidth={1.4} opacity={0.75}/>}
                       {style==='board'?(()=>{
-                        // Detective board variant: dark index card, type-color strip on the
-                        // left, cream title + muted meta line. Memory entries keep their
+                        // Board variant: compact index card, type-color strip on the
+                        // left, title + muted meta line. Memory entries keep their
                         // accent stroke + confidence badge so the card doesn't lose its tells.
                         const cardW=Math.max(120,r*8);
                         const cardH=Math.max(40,r*3);
@@ -721,26 +796,30 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                         return(
                           <g>
                             <rect x={-cardW/2} y={-cardH/2} width={cardW} height={cardH}
-                              fill={n._unresolved?'transparent':'#1c1b1a'}
-                              stroke={isMemory?'var(--ac)':typeColor}
-                              strokeWidth={active||isMemory?1.5:1}
-                              strokeDasharray={n._unresolved?'3 3':undefined}/>
+                              fill={visual.isHollow?'rgba(255,255,255,.025)':'var(--cd)'}
+                              stroke={typeColor}
+                              strokeWidth={visual.strokeWidth}
+                              strokeDasharray={visual.strokeDasharray}/>
+                            {keyboardActive&&(
+                              <rect data-node-focus-ring x={-cardW/2-3} y={-cardH/2-3} width={cardW+6} height={cardH+6}
+                                fill="none" stroke="var(--ac)" strokeWidth={2}/>
+                            )}
                             {!n._unresolved&&(
-                              <rect x={-cardW/2} y={-cardH/2} width={3} height={cardH} fill={typeColor}/>
+                              <rect x={-cardW/2} y={-cardH/2} width={4} height={cardH} fill={visual.fill}/>
                             )}
                             {n.starred&&(
                               <rect x={-cardW/2-2} y={-cardH/2-2} width={cardW+4} height={cardH+4}
-                                fill="none" stroke="#e0a600" strokeWidth={0.75} opacity={0.7}/>
+                                fill="none" stroke="#FFE08A" strokeWidth={0.9} opacity={0.8}/>
                             )}
                             <text x={-cardW/2+10} y={-cardH/2+18}
-                              fill={n._unresolved?'rgba(241,234,222,0.45)':'#F1EADE'}
+                              fill={n._unresolved?'var(--t3)':visual.labelFill}
                               fontSize="12"
                               fontWeight={isHub?600:500}
                               fontFamily="var(--fn)"
                               fontStyle={n._unresolved?'italic':'normal'}
                               pointerEvents="none">{titleStr}</text>
                             <text x={-cardW/2+10} y={-cardH/2+34}
-                              fill="rgba(241,234,222,0.5)"
+                              fill="var(--t2)"
                               fontSize="10" letterSpacing="0.06em"
                               fontFamily="var(--fn)" pointerEvents="none">
                               {n.type}{linkCount>0?` · ${linkCount}`:''}
@@ -757,31 +836,35 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                         const tier=linkCount>=4?0:linkCount>=2?1:2;
                         const fontSize=[20,13,11][tier];
                         const fontWeight=[400,500,400][tier];
-                        const dotR=n.starred?5:linkCount>=4?4:2.5;
+                        const dotR=n.starred?5:linkCount>=4?4.5:2.8;
                         const editorialShow=labelVisible(n)||tier===0||active||n._unresolved;
                         return(
                           <g>
+                            {(active||visual.isHub||n.starred)&&(
+                              <circle cx={0} cy={0} r={dotR+7} fill={visual.halo} opacity={active?0.85:0.45}/>
+                            )}
                             {n._unresolved?(
-                              <circle cx={0} cy={0} r={dotR} fill="none" stroke={typeColor} strokeWidth={0.75} strokeDasharray="1.5 2"/>
+                              <circle cx={0} cy={0} r={dotR} fill="none" stroke={typeColor} strokeWidth={1} strokeDasharray="1.5 2"/>
                             ):(
-                              <circle cx={0} cy={0} r={dotR} fill={isReviewMemory?'transparent':typeColor}
-                                stroke={isMemory?'var(--ac)':(active?'var(--tx)':'transparent')}
-                                strokeWidth={isMemory?1.5:(active?1:0)}/>
+                              <circle cx={0} cy={0} r={dotR} fill={visual.isHollow?'transparent':visual.fill}
+                                stroke={visual.stroke}
+                                strokeWidth={Math.max(1,visual.strokeWidth-0.6)}
+                                strokeDasharray={visual.strokeDasharray}/>
                             )}
                             {active&&!n._unresolved&&(
-                              <circle cx={0} cy={0} r={dotR+4} fill="none" stroke="var(--ac)" strokeWidth={0.5}/>
+                              <circle cx={0} cy={0} r={dotR+5} fill="none" stroke="var(--ac)" strokeWidth={0.8}/>
                             )}
                             {editorialShow&&n.title&&(
                               <text
                                 x={tier===0?dotR+10:0}
                                 y={tier===0?6:dotR+fontSize+2}
                                 textAnchor={tier===0?'start':'middle'}
-                                fill={n._unresolved?'var(--t3)':(tier===0?'var(--tx)':'var(--t2)')}
+                                fill={n._unresolved?'var(--t3)':(tier===0?visual.labelFill:'var(--t2)')}
                                 fontSize={fontSize}
                                 fontWeight={fontWeight}
                                 fontFamily="var(--fn)"
                                 fontStyle={n._unresolved?'italic':'normal'}
-                                letterSpacing={tier===0?'-0.005em':0}
+                                letterSpacing={0}
                                 pointerEvents="none"
                                 style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
                                 {n.title}
@@ -797,13 +880,13 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                           </g>
                         );
                       })():(<>
-                        {/* Star chart variant — current default. Luminous dot + label. */}
+                        {/* Map-node variant — current default. Compact dot + label. */}
                         <circle cx={0} cy={0} r={r} fill={fill}
-                          stroke={n._unresolved?'var(--t3)':(isMemory?'var(--ac)':(active?'var(--tx)':'var(--bg)'))}
-                          strokeWidth={isMemory?2:(active?2.5:2)}
-                          strokeDasharray={n._unresolved?'3 3':undefined}/>
+                          stroke={typeColor}
+                          strokeWidth={visual.strokeWidth}
+                          strokeDasharray={visual.strokeDasharray}/>
                         {(labelVisible(n)||n._unresolved)&&<text x={0} y={r+12} textAnchor="middle"
-                          fill={n._unresolved?'var(--t3)':'var(--tx)'} fontSize="10"
+                          fill={n._unresolved?'var(--t3)':visual.labelFill} fontSize="10"
                           fontFamily="var(--fn)" fontStyle={n._unresolved?'italic':'normal'} pointerEvents="none"
                           style={{paintOrder:'stroke',stroke:'var(--bg)',strokeWidth:3,strokeLinejoin:'round'}}>
                           {(n.title||'').slice(0,22)}{(n.title||'').length>22?'…':''}
@@ -835,14 +918,22 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
               </div>
             ))}
             <div style={{display:'flex',alignItems:'center',gap:7,color:'var(--t2)',marginTop:4}}>
-              <span style={{width:14,height:14,borderRadius:'50%',border:'1.4px solid #e0a600'}}/>
+              <span style={{width:14,height:14,borderRadius:'50%',border:'1.4px solid #FFE08A'}}/>
               <span>Starred</span>
             </div>
+            <div style={{display:'flex',alignItems:'center',gap:7,color:'var(--t2)'}}>
+              <span style={{width:14,height:14,borderRadius:'50%',border:'1.4px dashed #9AA7B8',background:'rgba(154,167,184,.10)'}}/>
+              <span>Missing link</span>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:7,color:'var(--t2)'}}>
+              <span style={{width:14,height:14,borderRadius:'50%',border:'1.4px solid #FF8BBE',background:'transparent'}}/>
+              <span>Review memory</span>
+            </div>
             <div style={{marginTop:10,paddingTop:8,borderTop:'1px solid var(--br)',fontSize:10,color:'var(--t3)',display:'flex',flexDirection:'column',gap:3,lineHeight:1.4}}>
-              <div>Click · focus cluster</div>
-              <div>Drag · move cluster</div>
-              <div><kbd style={{padding:'0 4px',border:'1px solid var(--br)',borderRadius:3,fontFamily:'monospace',fontSize:9}}>Alt</kbd>+drag · detach node</div>
-              <div><kbd style={{padding:'0 4px',border:'1px solid var(--br)',borderRadius:3,fontFamily:'monospace',fontSize:9}}>Alt</kbd>+click · snap back</div>
+              <div>Click · focus local graph</div>
+              <div>Drag · move one node</div>
+              <div><kbd style={{padding:'0 4px',border:'1px solid var(--br)',borderRadius:3,fontFamily:'monospace',fontSize:9}}>Alt</kbd>+drag · move linked group</div>
+              <div><kbd style={{padding:'0 4px',border:'1px solid var(--br)',borderRadius:3,fontFamily:'monospace',fontSize:9}}>Alt</kbd>+click · open note</div>
               <div><kbd style={{padding:'0 4px',border:'1px solid var(--br)',borderRadius:3,fontFamily:'monospace',fontSize:9}}>C</kbd> · clusters <kbd style={{padding:'0 4px',border:'1px solid var(--br)',borderRadius:3,fontFamily:'monospace',fontSize:9,marginLeft:4}}>A</kbd> · affinity</div>
               <div>Wheel · zoom · Esc · up one</div>
             </div>
@@ -856,12 +947,41 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   );
 }
 
-// Small ⓘ button paired with an inline popover that explains a control
-// in plain language. Click toggles open/closed; click outside the
-// popover OR press Esc closes it (handled by the consumer's state).
-function InfoButton({open,onToggle,title,body}){
+function MetricChip({label,value}){
   return(
-    <div style={{position:'relative',display:'inline-flex',alignItems:'center'}}>
+    <span style={{
+      display:'inline-flex',alignItems:'center',gap:5,
+      minHeight:22,padding:'0 8px',
+      border:'1px solid var(--br)',borderRadius:'var(--rd)',
+      background:'rgba(255,255,255,.035)',
+      color:'var(--t2)',fontSize:11,fontFamily:'var(--fn)'
+    }}>
+      <strong style={{color:'var(--tx)',fontWeight:850}}>{value}</strong>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function controlButton(active=false){
+  return{
+    padding:'7px 11px',
+    fontSize:12,
+    border:'1px solid var(--br)',
+    borderRadius:'var(--rd)',
+    background:active?'var(--ac)':'rgba(255,255,255,.025)',
+    color:active?'var(--act)':'var(--t2)',
+    cursor:'pointer',
+    fontFamily:'var(--fn)',
+    fontWeight:800,
+    flexShrink:0,
+  };
+}
+
+// Small info button paired with an inline help panel rendered by the parent.
+// The panel lives below the toolbar so it never covers nearby controls.
+function InfoButton({open,onToggle,title}){
+  return(
+    <div style={{display:'inline-flex',alignItems:'center'}}>
       <button onClick={onToggle} aria-label={`What is ${title}?`} aria-expanded={open}
         title={open?'Close info':'About this'}
         style={{
@@ -871,31 +991,66 @@ function InfoButton({open,onToggle,title,body}){
           display:'inline-flex',alignItems:'center',justifyContent:'center',
           lineHeight:1,fontStyle:'italic',fontWeight:700,
         }}>i</button>
-      {open&&(
-        <div role="tooltip" style={{
-          position:'absolute',top:'calc(100% + 6px)',right:0,zIndex:60,
-          width:280,padding:'10px 12px',
-          background:'var(--bg)',border:'1px solid var(--br)',borderRadius:'var(--rd)',
-          boxShadow:'0 8px 24px rgba(0,0,0,0.18)',
-          fontSize:12,lineHeight:1.5,color:'var(--tx)',
-        }}>
-          <div style={{fontWeight:700,marginBottom:4,fontSize:12}}>{title}</div>
-          <div style={{color:'var(--t2)'}}>{body}</div>
-        </div>
-      )}
+    </div>
+  );
+}
+
+function InfoPanel({title,children}){
+  return(
+    <div role="note" style={{
+      alignSelf:'flex-start',
+      maxWidth:680,
+      padding:'10px 12px',
+      background:'rgba(9,14,20,.78)',
+      border:'1px solid var(--br)',
+      borderRadius:'var(--rd)',
+      boxShadow:'inset 0 1px 0 rgba(255,255,255,.035)',
+      fontSize:12,
+      lineHeight:1.5,
+      color:'var(--t2)',
+    }}>
+      <div style={{fontWeight:800,marginBottom:4,fontSize:12,color:'var(--tx)'}}>{title}</div>
+      {children}
     </div>
   );
 }
 
 // ── Background variants ─────────────────────────────────────────────────────
-// 'solid'    — bare app background (default).
+// 'solid'    — bare app background.
+// 'atlas'    — faint map rings and cross-lines, tuned for the signal palette.
 // 'vignette' — radial fade darkens the edges, focuses center.
 // 'grid'     — hairline grid, "thinking tablet" feel.
 // 'constellation' — sparse decorative star dots, "night sky" atmosphere.
-// All four sit BELOW the SVG canvas with pointer-events disabled so they
+// All variants sit BELOW the SVG canvas with pointer-events disabled so they
 // never block pan/zoom interaction.
 function ConstellationBackground({kind='solid'}){
   if(kind==='solid')return null;
+  if(kind==='atlas'){
+    return(
+      <svg aria-hidden="true" style={{position:'absolute',inset:0,pointerEvents:'none'}}
+        viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <radialGradient id="jf-atlas-wash" cx="50%" cy="48%" r="72%">
+            <stop offset="0%" stopColor="var(--ac)" stopOpacity="0.08"/>
+            <stop offset="58%" stopColor="var(--bg)" stopOpacity="0.02"/>
+            <stop offset="100%" stopColor="var(--bg)" stopOpacity="0"/>
+          </radialGradient>
+          <pattern id="jf-atlas-grid" width="96" height="96" patternUnits="userSpaceOnUse">
+            <path d="M 96 0 L 0 0 0 96" fill="none" stroke="var(--br)" strokeWidth="0.7" opacity="0.42"/>
+          </pattern>
+        </defs>
+        <rect width="1600" height="1000" fill="url(#jf-atlas-wash)"/>
+        <rect width="1600" height="1000" fill="url(#jf-atlas-grid)" opacity="0.42"/>
+        {[260,440,650].map((r,i)=>(
+          <circle key={r} cx="800" cy="500" r={r} fill="none"
+            stroke="var(--ac)" strokeWidth={i===0?0.9:0.55}
+            opacity={i===0?0.2:0.11} strokeDasharray={i===1?'10 16':'2 18'}/>
+        ))}
+        <path d="M 260 500 H 1340 M 800 140 V 860 M 418 242 L 1182 758 M 1182 242 L 418 758"
+          fill="none" stroke="var(--br)" strokeWidth="0.7" opacity="0.28"/>
+      </svg>
+    );
+  }
   if(kind==='vignette'){
     return(
       <div aria-hidden="true" style={{
@@ -935,4 +1090,28 @@ function ConstellationBackground({kind='solid'}){
     );
   }
   return null;
+}
+
+function usePrefersReducedMotion(){
+  const getPreference=()=>(
+    typeof window!=='undefined'&&
+    typeof window.matchMedia==='function'&&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  const[reduced,setReduced]=useState(getPreference);
+
+  useEffect(()=>{
+    if(typeof window==='undefined'||typeof window.matchMedia!=='function')return undefined;
+    const media=window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update=()=>setReduced(media.matches);
+    update();
+    if(typeof media.addEventListener==='function'){
+      media.addEventListener('change',update);
+      return()=>media.removeEventListener('change',update);
+    }
+    media.addListener?.(update);
+    return()=>media.removeListener?.(update);
+  },[]);
+
+  return reduced;
 }

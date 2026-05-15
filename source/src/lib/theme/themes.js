@@ -1,4 +1,37 @@
 export const THEMES = {
+  workstation:{
+    name:'JotFolio Workstation',
+    light:{
+      '--bg':'#f6f3ec',
+      '--b1':'#fffdf8',
+      '--b2':'#ebe7dd',
+      '--sb':'#e3ded2',
+      '--cd':'#fcfaf6',
+      '--ac':'#235fb8',
+      '--act':'#ffffff',
+      '--tx':'#171a1f',
+      '--t2':'#414a58',
+      '--t3':'#6f7a89',
+      '--br':'#cbc4b7',
+      '--rd':'5px',
+      '--fn':'"SF Pro Text","SF Pro Display","Inter Variable","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif'
+    },
+    dark:{
+      '--bg':'#090e13',
+      '--b1':'#121922',
+      '--b2':'#0f151d',
+      '--sb':'#070b10',
+      '--cd':'#151d26',
+      '--ac':'#4d8dff',
+      '--act':'#07111f',
+      '--tx':'#f2f5f9',
+      '--t2':'#b8c1cd',
+      '--t3':'#7a8491',
+      '--br':'rgba(129,150,172,0.17)',
+      '--rd':'7px',
+      '--fn':'"SF Pro Text","SF Pro Display","Inter Variable","Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif'
+    }
+  },
   glass:{name:'🪟 Glass',light:{'--bg':'#1a1050','--b2':'rgba(255,255,255,0.08)','--sb':'rgba(255,255,255,0.06)','--cd':'rgba(255,255,255,0.1)','--ac':'#a78bfa','--act':'#fff','--tx':'#f5f3ff','--t2':'#c4b5fd','--t3':'rgba(255,255,255,0.6)','--br':'rgba(255,255,255,0.18)','--rd':'16px','--fn':'"Inter",system-ui,sans-serif'},dark:{'--bg':'#0a0818','--b2':'rgba(255,255,255,0.06)','--sb':'rgba(255,255,255,0.04)','--cd':'rgba(255,255,255,0.08)','--ac':'#c4b5fd','--act':'#0a0818','--tx':'#f5f3ff','--t2':'#a78bfa','--t3':'rgba(255,255,255,0.55)','--br':'rgba(255,255,255,0.12)'}},
   neo:{name:'⬛ Neo-Brutal',light:{'--bg':'#fafaf8','--b2':'#f0e900','--sb':'#f0e900','--cd':'#ffffff','--ac':'#111111','--act':'#ffffff','--tx':'#111111','--t2':'#222','--t3':'#777','--br':'#111111','--rd':'0px','--fn':'"Arial Black","Arial",system-ui,sans-serif'},dark:{'--bg':'#111111','--b2':'#1c1c1c','--sb':'#0a0a0a','--cd':'#1c1c1c','--ac':'#f0e900','--act':'#000000','--tx':'#f5f5f5','--t2':'#d0d0d0','--t3':'#888','--br':'#f5f5f5'}},
   techy:{name:'⚡ Techy',light:{'--bg':'#0a0e1a','--b2':'#0f1729','--sb':'#060c18','--cd':'#0f1729','--ac':'#00ff88','--act':'#000','--tx':'#e2e8f0','--t2':'#00ff88','--t3':'#475569','--br':'#1e3a5f','--rd':'4px','--fn':'"Courier New",monospace'},dark:{'--bg':'#00000a','--b2':'#070d1a','--sb':'#030812','--cd':'#070d1a','--ac':'#00ff88','--act':'#00000a','--tx':'#e2e8f0','--t2':'#00ff88','--br':'#0f2040','--t3':'#334155'}},
@@ -26,6 +59,63 @@ export const THEMES = {
   vellum:{name:'📜 Vellum',light:{'--bg':'#f5ecd8','--b2':'#ede2c8','--sb':'#e2d4b4','--cd':'#faf2e0','--ac':'#7a0e1e','--act':'#faf2e0','--tx':'#2a1408','--t2':'#4a2018','--t3':'#8a5848','--br':'#c8b090','--rd':'4px','--fn':'"EB Garamond","Georgia",serif'},dark:{'--bg':'#1a0a0e','--b2':'#240e14','--sb':'#12050a','--cd':'#1e0c12','--ac':'#d4557a','--act':'#1a0a0e','--tx':'#f0e5d0','--t2':'#c8b098','--t3':'#7a4858','--br':'#4a1a2c'}},
   signal:{name:'📡 Signal',light:{'--bg':'#fafdf2','--b2':'#f0f5dc','--sb':'#e4ecc8','--cd':'#fdfee8','--ac':'#166534','--act':'#fafdf2','--tx':'#0a1a0a','--t2':'#1a3a1a','--t3':'#6a7a6a','--br':'#b8d0a0','--rd':'2px','--fn':'"Space Mono","Courier New",monospace'},dark:{'--bg':'#000000','--b2':'#080c06','--sb':'#000000','--cd':'#040804','--ac':'#39ff14','--act':'#000000','--tx':'#d0d0d0','--t2':'#8a8a8a','--t3':'#5a5a5a','--br':'#1f2a1f'}},
 };
+
+export const THEME_VAR_CONTRACT = ['--bg','--b2','--sb','--cd','--ac','--act','--tx','--t2','--t3','--br','--rd','--fn'];
+
+const SYSTEM_WORKSPACE_STACK = 'system-ui,-apple-system,"Segoe UI",sans-serif';
+const MONO_WORKSPACE_STACK = '"JetBrains Mono Variable","JetBrains Mono","Consolas","Courier New",monospace';
+
+for (const key of ['glass','minimal','cobalt','graphite','paper']) {
+  THEMES[key].light['--fn'] = SYSTEM_WORKSPACE_STACK;
+}
+
+THEMES.obsidian = {
+  ...THEMES.obsidian,
+  name:'Obsidian Workspace',
+  light:{
+    ...THEMES.obsidian.light,
+    '--bg':'#eff2f7',
+    '--b2':'#e2e7ef',
+    '--sb':'#d8dee8',
+    '--cd':'#f8fafd',
+    '--ac':'#285ea8',
+    '--act':'#ffffff',
+    '--tx':'#111827',
+    '--t2':'#354153',
+    '--t3':'#6f7a89',
+    '--br':'#b7c0ce',
+    '--rd':'5px',
+    '--fn':MONO_WORKSPACE_STACK
+  },
+  dark:{
+    ...THEMES.obsidian.dark,
+    '--bg':'#0b1118',
+    '--b2':'#111922',
+    '--sb':'#080d13',
+    '--cd':'#151d26',
+    '--ac':'#3b82f6',
+    '--act':'#07111f',
+    '--tx':'#eef3f8',
+    '--t2':'#c2ccd8',
+    '--t3':'#788698',
+    '--br':'#2b3543',
+    '--rd':'5px',
+    '--fn':MONO_WORKSPACE_STACK
+  }
+};
+
+export function getThemeContractIssues(){
+  const issues=[];
+  for(const [key,theme] of Object.entries(THEMES)){
+    for(const mode of ['light','dark']){
+      const vars={...theme.light,...(mode==='dark'?theme.dark:{})};
+      for(const token of THEME_VAR_CONTRACT){
+        if(!vars[token]) issues.push(`${key}.${mode}.${token}`);
+      }
+    }
+  }
+  return issues;
+}
 
 // Self-hosted fonts only (charter: local-first). Installed via @fontsource(-variable)
 // packages and bundled by Vite. Themes that referenced fonts not in this list

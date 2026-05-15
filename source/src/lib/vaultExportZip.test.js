@@ -113,4 +113,23 @@ describe('exportVaultAsZip', () => {
     expect(blob.size).toBeGreaterThan(0)
     expect(blob.type).toBe('application/zip')
   })
+
+  it('skips folder records from vault list output', async () => {
+    const reads = []
+    const fakeVault = {
+      list: async () => [
+        { path: 'notes', type: 'folder' },
+        { path: 'notes/a.md', type: 'file' },
+      ],
+      readBinary: async (p) => {
+        reads.push(p)
+        return enc(`content of ${p}`)
+      },
+    }
+
+    const blob = await exportVaultAsZip(fakeVault, { now: FIXED_NOW })
+
+    expect(blob).toBeInstanceOf(Blob)
+    expect(reads).toEqual(['notes/a.md'])
+  })
 })

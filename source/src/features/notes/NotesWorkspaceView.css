@@ -1,0 +1,506 @@
+.jf-notes-workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 48% 0%, rgba(42, 76, 114, .13), transparent 36%),
+    linear-gradient(180deg, #0a1017 0%, #081018 100%);
+  color: var(--tx);
+  font-family: var(--fn);
+}
+
+.jf-notes-workspace.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.jf-notes-empty {
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: 24px;
+}
+
+.jf-notes-empty-card {
+  width: min(360px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(118, 137, 160, .18);
+  border-radius: 8px;
+  background: rgba(15, 22, 30, .84);
+  text-align: center;
+}
+
+.jf-notes-empty-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.jf-notes-empty-card p {
+  margin: 0 0 16px;
+  color: var(--t3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.jf-notes-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(118, 137, 160, .18);
+  background: rgba(7, 13, 20, .48);
+}
+
+.jf-notes-tabbar {
+  min-height: 58px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  padding: 14px 16px 0;
+  border-bottom: 1px solid rgba(118, 137, 160, .16);
+  background: linear-gradient(180deg, rgba(11, 17, 24, .92), rgba(9, 15, 22, .76));
+}
+
+.jf-notes-tab,
+.jf-notes-tab-add {
+  min-height: 38px;
+  border: 1px solid rgba(118, 137, 160, .18);
+  border-bottom-color: rgba(118, 137, 160, .10);
+  border-radius: 7px 7px 0 0;
+  background: rgba(17, 25, 34, .86);
+  color: var(--tx);
+  font-family: var(--fn);
+}
+
+.jf-notes-tab {
+  max-width: min(360px, 70%);
+  display: inline-grid;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.jf-notes-tab-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jf-notes-tab-close {
+  color: var(--t3);
+  font-weight: 500;
+}
+
+.jf-notes-file-icon {
+  color: var(--t3);
+}
+
+.jf-notes-tab-add {
+  width: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--t2);
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.jf-notes-modebar {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(118, 137, 160, .15);
+  background: rgba(8, 14, 21, .72);
+}
+
+.jf-notes-mode-group {
+  display: flex;
+  gap: 8px;
+}
+
+.jf-notes-mode-button,
+.jf-notes-icon-button,
+.jf-notes-primary {
+  border: 1px solid rgba(118, 137, 160, .18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .028);
+  color: var(--t2);
+  min-height: 36px;
+  padding: 0 13px;
+  font-family: var(--fn);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jf-notes-mode-button.is-active,
+.jf-notes-primary {
+  border-color: rgba(77, 141, 255, .46);
+  background: rgba(77, 141, 255, .16);
+  color: #dbeafe;
+}
+
+.jf-notes-icon-button {
+  width: 32px;
+  padding: 0;
+  font-size: 18px;
+}
+
+.jf-notes-editor-more {
+  position: relative;
+}
+
+.jf-notes-editor-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 172px;
+  padding: 6px;
+  border: 1px solid rgba(118, 137, 160, .22);
+  border-radius: 7px;
+  background: #111923;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .36);
+}
+
+.jf-notes-toolbar {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(118, 137, 160, .14);
+  background: rgba(10, 17, 24, .72);
+}
+
+.jf-notes-tool {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--t2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fn);
+  font-size: 13px;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.jf-notes-tool:hover {
+  border-color: rgba(118, 137, 160, .18);
+  background: rgba(255, 255, 255, .035);
+  color: var(--tx);
+}
+
+.jf-notes-toolbar-spacer {
+  flex: 1;
+}
+
+.jf-notes-editor-shell {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 52% -18%, rgba(39, 72, 104, .16), transparent 35%),
+    #081018;
+}
+
+.jf-notes-editor-scroll {
+  height: 100%;
+  overflow: auto;
+  padding: 20px 0 34px;
+}
+
+.jf-notes-editor-code {
+  margin: 0;
+  min-width: 760px;
+  color: #d7dee8;
+  font-family: "JetBrains Mono Variable", "JetBrains Mono", "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.72;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.jf-notes-line {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  min-height: 22px;
+}
+
+.jf-notes-line-number {
+  color: rgba(122, 134, 152, .72);
+  text-align: right;
+  user-select: none;
+  padding-right: 22px;
+}
+
+.jf-notes-line code {
+  color: inherit;
+  font: inherit;
+  white-space: pre;
+}
+
+.jf-notes-statusbar {
+  min-height: 40px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 22px;
+  border-top: 1px solid rgba(118, 137, 160, .16);
+  background: rgba(10, 16, 23, .96);
+  color: var(--t2);
+  font-size: 12px;
+}
+
+.jf-notes-statusbar span:not(:last-child)::after {
+  content: "•";
+  margin-left: 10px;
+  color: var(--t3);
+}
+
+.jf-notes-status-push {
+  margin-left: auto;
+}
+
+.jf-notes-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .13);
+}
+
+.jf-notes-live-dot::after {
+  content: none !important;
+}
+
+.jf-notes-rail {
+  width: 420px;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 20px 24px 28px;
+  background:
+    linear-gradient(180deg, rgba(7, 13, 20, .98), rgba(8, 15, 22, .96)),
+    #07101a;
+  border-left: 1px solid rgba(118, 137, 160, .18);
+}
+
+.jf-notes-rail-tabs {
+  min-height: 44px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  border-bottom: 1px solid rgba(118, 137, 160, .14);
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+
+.jf-notes-rail-tabs button {
+  min-height: 44px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--t3);
+  font-family: var(--fn);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.jf-notes-rail-tabs button.is-active {
+  color: var(--tx);
+  border-bottom-color: #4d8dff;
+}
+
+.jf-notes-rail-section {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(118, 137, 160, .13);
+}
+
+.jf-notes-rail-section h3 {
+  margin: 0 0 11px;
+  color: var(--tx);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.jf-notes-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jf-notes-tag,
+.jf-notes-tag-add {
+  border: 1px solid rgba(118, 137, 160, .13);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .035);
+  color: var(--t2);
+  padding: 5px 8px;
+  font-family: var(--fn);
+  font-size: 12px;
+}
+
+.jf-notes-tag:nth-child(1) {
+  color: #52d273;
+  background: rgba(82, 210, 115, .13);
+}
+
+.jf-notes-tag:nth-child(4) {
+  color: #4d8dff;
+  background: rgba(77, 141, 255, .13);
+}
+
+.jf-notes-tag-add {
+  color: var(--t3);
+  cursor: pointer;
+}
+
+.jf-notes-rail-row,
+.jf-notes-unresolved-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  padding: 5px 0;
+  text-align: left;
+  font-family: var(--fn);
+  font-size: 13px;
+}
+
+.jf-notes-rail-row {
+  cursor: pointer;
+}
+
+.jf-notes-rail-row span:last-child,
+.jf-notes-unresolved-row span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jf-notes-rail-more,
+.jf-notes-rail-empty,
+.jf-notes-file-size {
+  color: var(--t3);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.jf-notes-unresolved-row span:first-child {
+  color: #f97316;
+}
+
+.jf-notes-unresolved-row button {
+  min-height: 26px;
+  border: 1px solid rgba(118, 137, 160, .18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .035);
+  color: var(--t2);
+  font-family: var(--fn);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jf-notes-properties {
+  display: grid;
+  gap: 9px;
+}
+
+.jf-notes-property {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  color: var(--t3);
+  font-size: 13px;
+}
+
+.jf-notes-property strong {
+  min-width: 0;
+  color: var(--t2);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jf-notes-file-path {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .035);
+  padding: 8px 9px;
+  color: var(--t2);
+  font-size: 12px;
+}
+
+.jf-notes-file-path span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jf-notes-file-path button {
+  border: none;
+  background: transparent;
+  color: var(--t3);
+  cursor: pointer;
+}
+
+.jf-notes-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jf-notes-actions button {
+  min-height: 36px;
+  border: 1px solid rgba(118, 137, 160, .18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, .035);
+  color: var(--t2);
+  padding: 0 12px;
+  font-family: var(--fn);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 980px) {
+  .jf-notes-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .jf-notes-rail {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid rgba(118, 137, 160, .18);
+  }
+}

@@ -5,12 +5,82 @@ import { MANUAL_LINKS_FIELD } from '../../lib/frontmatter.js';
 import { useDebouncedCallback } from '../../lib/hooks.js';
 import { injectNoteCss, renderWikiLinks, escapeHtml, sanitizeHtml, getCaretCoords, detectWikiTrigger } from '../../lib/markdown.js';
 
+const TOOLBAR_COMMANDS = [
+  ['h1', 'Heading 1', 'H1'],
+  ['h2', 'Heading 2', 'H2'],
+  ['bold', 'Bold', 'B'],
+  ['italic', 'Italic', 'I'],
+  ['link', 'Link', '⌁'],
+  ['code', 'Inline code', '<>'],
+  ['bullet', 'Bulleted list', '•'],
+  ['number', 'Numbered list', '1.'],
+  ['check', 'Checklist', '☐'],
+  ['quote', 'Quote', '“'],
+  ['image', 'Image', '□'],
+  ['table', 'Table', '▦'],
+];
+
+function countWords(text) {
+  const cleaned = String(text || '').replace(/[#*`_>\[\]()|!-]/g, ' ').trim();
+  return cleaned ? cleaned.split(/\s+/).length : 0;
+}
+
+function countSpaces(text) {
+  return (String(text || '').match(/ /g) || []).length;
+}
+
+function countLines(text) {
+  if (!text) return 1;
+  return String(text).split(/\r\n|\r|\n/).length;
+}
+
+function formatBytes(text) {
+  const bytes = new TextEncoder().encode(String(text || '')).length;
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(bytes < 10240 ? 1 : 0)} KB`;
+}
+
+function lineNumbers(text) {
+  return Array.from({ length: countLines(text) }, (_, index) => index + 1);
+}
+
+function selectedOr(value, fallback) {
+  return value || fallback;
+}
+
+function prefixLines(text, marker, fallback) {
+  const source = text || fallback;
+  return source.split(/\r\n|\r|\n/).map((line, index) => {
+    if (marker === 'number') return `${index + 1}. ${line || 'List item'}`;
+    return `${marker}${line || fallback}`;
+  }).join('\n');
+}
+
+function commandText(command, selection) {
+  switch (command) {
+    case 'h1': return prefixLines(selection, '# ', 'Heading');
+    case 'h2': return prefixLines(selection, '## ', 'Heading');
+    case 'bold': return `**${selectedOr(selection, 'text')}**`;
+    case 'italic': return `*${selectedOr(selection, 'text')}*`;
+    case 'link': return `[${selectedOr(selection, 'label')}](https://example.com)`;
+    case 'code': return `\`${selectedOr(selection, 'code')}\``;
+    case 'bullet': return prefixLines(selection, '- ', 'List item');
+    case 'number': return prefixLines(selection, 'number', 'List item');
+    case 'check': return prefixLines(selection, '- [ ] ', 'Task');
+    case 'quote': return prefixLines(selection, '> ', 'Quote');
+    case 'image': return `![${selectedOr(selection, 'alt text')}](image-url)`;
+    case 'table': return '| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |';
+    default: return selection;
+  }
+}
+
 // ── Note Body: inline markdown editor ─────────────────────────────────────
 // Click read-view to edit. Debounced autosave on keystroke. Blur or "done"
 // exits edit mode. Renders `[[Title]]` as clickable links that call
 // onOpenEntry for the matched entry (gray + dashed if no title match).
-export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
+export function NoteBody({entry,entries,onUpdate,onUpdateEntry,onOpenEntry}){
   const[editing,setEditing]=useState(false);
+  const[mode,setMode]=useState('edit');
   const[draft,setDraft]=useState(entry.notes||'');
   const[savedAt,setSavedAt]=useState(null);
   // Suggest popover state: {x, y, lineHeight, query, start, index}
@@ -18,7 +88,7 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
   const taRef=useRef(null);
   const containerRef=useRef(null);
   useEffect(()=>{injectNoteCss()},[]);
-  useEffect(()=>{setDraft(entry.notes||'');setEditing(false);setSavedAt(null);setSuggest(null)},[entry.id]);
+  useEffect(()=>{setDraft(entry.notes||'');setEditing(false);setMode('edit');setSavedAt(null);setSuggest(null)},[entry.id]);
 
   const titleIndex=useMemo(()=>{
     const m=new Map();
@@ -41,7 +111,8 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
     const merged=[...manual,...found.filter(id=>!manual.includes(id))];
     const patch={notes:text,links:merged};
     if(manual.length)patch[MANUAL_LINKS_FIELD]=true;
-    onUpdate(patch);
+    if(onUpdateEntry)onUpdateEntry(entry.id,patch);
+    else onUpdate?.(patch);
     setSavedAt(Date.now());
   },250);
 
@@ -95,17 +166,38 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
     setTimeout(()=>{
       if(draft!==(entry.notes||'')){commitNotes(draft)}
       setSuggest(null);
-      setEditing(false);
     },120);
   };
 
-  const html=useMemo(()=>{
-    if(!entry.notes)return'';
+  const renderMarkdown=source=>{
+    if(!source)return'';
     try{
-      const pre=renderWikiLinks(entry.notes,titleIndex);
+      const pre=renderWikiLinks(source,titleIndex);
       return sanitizeHtml(marked.parse(pre,{breaks:true,gfm:true}));
-    }catch(err){console.error('marked.parse failed',err);return escapeHtml(entry.notes)}
-  },[entry.notes,titleIndex]);
+    }catch(err){console.error('marked.parse failed',err);return escapeHtml(source)}
+  };
+  const html=useMemo(()=>renderMarkdown(entry.notes),[entry.notes,titleIndex]);
+  const draftHtml=useMemo(()=>renderMarkdown(draft),[draft,titleIndex]);
+
+  const applyCommand=command=>{
+    const ta=taRef.current;
+    const start=ta?.selectionStart ?? draft.length;
+    const end=ta?.selectionEnd ?? draft.length;
+    const before=draft.slice(0,start);
+    const selected=draft.slice(start,end);
+    const after=draft.slice(end);
+    const insert=commandText(command,selected);
+    const next=before+insert+after;
+    setDraft(next);
+    commitNotes(next);
+    requestAnimationFrame(()=>{
+      ta?.focus();
+      const nextStart=before.length;
+      const nextEnd=before.length+insert.length;
+      ta?.setSelectionRange(nextStart,nextEnd);
+      updateSuggest();
+    });
+  };
 
   // Click handler on rendered body: intercept wiki-link anchor clicks
   const onBodyClick=e=>{
@@ -140,18 +232,49 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
   }
 
   return(
-    <div style={{marginBottom:16}}>
-      <textarea ref={taRef} autoFocus value={draft}
-        onChange={onChange} onBlur={onBlur}
-        onKeyUp={onKeyUp} onKeyDown={onKeyDown} onClick={updateSuggest}
-        placeholder="Write in markdown… # heading, - list, **bold**, [[WikiLink]]"
-        style={{
-          width:'100%',minHeight:140,padding:'10px 12px',
-          background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',
-          color:'var(--tx)',fontFamily:'var(--fn)',fontSize:13,lineHeight:1.7,
-          resize:'vertical',outline:'none',boxSizing:'border-box',
-        }}
-      />
+    <div style={{marginBottom:16,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b1)',overflow:'hidden'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderBottom:'1px solid var(--br)',background:'var(--b2)',flexWrap:'wrap'}}>
+        <div role="tablist" aria-label="Editor mode" style={{display:'inline-flex',border:'1px solid var(--br)',borderRadius:'var(--rd)',overflow:'hidden'}}>
+          {['edit','preview'].map(nextMode=>(
+            <button key={nextMode} type="button" role="tab" aria-selected={mode===nextMode} onMouseDown={e=>e.preventDefault()} onClick={()=>setMode(nextMode)}
+              style={{border:'none',padding:'5px 10px',background:mode===nextMode?'var(--ac)':'transparent',color:mode===nextMode?'var(--act)':'var(--t2)',fontFamily:'var(--fn)',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+              {nextMode==='edit'?'Edit':'Preview'}
+            </button>
+          ))}
+        </div>
+        <div role="toolbar" aria-label="Markdown formatting" style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+          {TOOLBAR_COMMANDS.map(([id,label,short])=>(
+            <button key={id} type="button" aria-label={label} title={label}
+              onMouseDown={e=>e.preventDefault()}
+              onClick={()=>applyCommand(id)}
+              style={{minWidth:28,height:26,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',fontFamily:'var(--fn)',fontSize:11,fontWeight:800,cursor:'pointer'}}>
+              {short}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mode==='preview'?(
+        <div className="mgn-md" style={{minHeight:140,padding:'12px 14px',background:'var(--bg)'}} dangerouslySetInnerHTML={{__html:draftHtml||'<p></p>'}} />
+      ):(
+        <div style={{display:'grid',gridTemplateColumns:'44px minmax(0,1fr)',background:'var(--bg)'}}>
+          <div aria-label="Line numbers" style={{padding:'10px 8px',borderRight:'1px solid var(--br)',background:'var(--b2)',color:'var(--t3)',fontFamily:'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',fontSize:12,lineHeight:1.7,textAlign:'right',userSelect:'none'}}>
+            {lineNumbers(draft).map(line=><div key={line}>{line}</div>)}
+          </div>
+          <textarea ref={taRef} autoFocus value={draft}
+            aria-label="Markdown editor"
+            onChange={onChange} onBlur={onBlur}
+            onKeyUp={onKeyUp} onKeyDown={onKeyDown} onClick={updateSuggest}
+            placeholder="Write in markdown… # heading, - list, **bold**, [[WikiLink]]"
+            spellCheck
+            style={{
+              width:'100%',minHeight:168,padding:'10px 12px',
+              background:'transparent',border:'none',
+              color:'var(--tx)',fontFamily:'var(--fn)',fontSize:13,lineHeight:1.7,
+              resize:'vertical',outline:'none',boxSizing:'border-box',
+            }}
+          />
+        </div>
+      )}
       {suggest&&suggestCandidates.length>0&&(
         <div role="listbox" aria-label="Wiki-link suggestions"
           style={{
@@ -179,12 +302,18 @@ export function NoteBody({entry,entries,onUpdate,onOpenEntry}){
           ))}
         </div>
       )}
-      <div style={{display:'flex',alignItems:'center',gap:10,marginTop:4,fontSize:10,color:'var(--t3)'}}>
-        <span>markdown · [[wiki]] · saves as you type</span>
+      <div style={{display:'flex',alignItems:'center',gap:10,padding:'6px 10px',borderTop:'1px solid var(--br)',fontSize:10,color:'var(--t3)',flexWrap:'wrap'}}>
+        <span>Markdown</span>
+        <span>{countWords(draft)} words</span>
+        <span>{countLines(draft)} lines</span>
+        <span>{formatBytes(draft)}</span>
+        <span>Spaces: {countSpaces(draft)}</span>
+        <span>Live</span>
+        <span>[[wiki]]</span>
         {savedAt&&<span style={{color:'var(--t2)'}}>· saved</span>}
         <button type="button" onMouseDown={e=>{e.preventDefault();if(draft!==(entry.notes||''))commitNotes(draft);setEditing(false)}}
           style={{marginLeft:'auto',background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',fontSize:10,padding:'2px 8px',cursor:'pointer',fontFamily:'var(--fn)'}}>
-          done
+          Done
         </button>
       </div>
     </div>

@@ -1,17 +1,18 @@
 /*
- * JotFolio design tokens — semantic layer.
+ * JotFolio design tokens - semantic layer.
  *
  * These tokens are theme-agnostic. Colors live in the theme layer
  * (see src/lib/theme/themes.js, exposed as --bg, --b2, --sb, --cd,
  * --ac, --act, --tx, --t2, --t3, --br, --rd, --fn). Everything here
- * is spacing, sizing, transitions, typography scale, shadows, z-index.
+ * is spacing, sizing, transitions, typography scale, shadows, z-index,
+ * density, and interaction language.
  *
  * Import site: src/main.jsx → `import './design/tokens.css'` before
  * any feature CSS so tokens are available globally.
  *
  * Usage: in inline styles, read via `var(--jf-space-3)`. When migrating
  * existing inline styles, prefer tokens over magic numbers. New UI
- * should never use raw px for spacing/sizing — use the scale.
+ * should use the scale unless an external format requires an exact size.
  *
  * Why semantic + theme are separate:
  * - Theme change (user picks Sakura → Broadsheet) must not restart
@@ -23,6 +24,46 @@
  */
 
 :root {
+  /*
+   * Color foundation
+   * The app still consumes the legacy theme variables directly. These
+   * aliases let new surfaces describe intent without breaking old ones.
+   */
+  --jf-color-app: var(--bg, #0b1118);
+  --b1: var(--cd, #151d26);
+  --jf-color-panel: var(--b1, #101720);
+  --jf-color-surface: var(--b2, #121922);
+  --jf-color-sidebar: var(--sb, #080d13);
+  --jf-color-card: var(--cd, #151d26);
+  --jf-color-accent: var(--ac, #3b82f6);
+  --jf-color-accent-text: var(--act, #f8fbff);
+  --jf-color-text: var(--tx, #f2f5fb);
+  --jf-color-text-muted: var(--t2, #c6cfdd);
+  --jf-color-text-faint: var(--t3, #7a8697);
+  --jf-color-border: var(--br, #2a3442);
+  --jf-color-danger: #dc3f4f;
+  --jf-color-warning: #c78318;
+  --jf-color-success: #2b9464;
+  --jf-color-info: #3b82f6;
+
+  /*
+   * OKLCH reference ramps. Theme objects keep hex for color-picker
+   * compatibility; these are the authored foundation for new CSS.
+   */
+  --jf-oklch-ink-950: oklch(18% 0.018 250);
+  --jf-oklch-ink-900: oklch(23% 0.018 250);
+  --jf-oklch-ink-800: oklch(29% 0.018 250);
+  --jf-oklch-ink-700: oklch(38% 0.018 250);
+  --jf-oklch-ink-500: oklch(57% 0.018 250);
+  --jf-oklch-ink-300: oklch(78% 0.018 250);
+  --jf-oklch-paper-100: oklch(96% 0.01 92);
+  --jf-oklch-paper-050: oklch(98% 0.006 92);
+  --jf-oklch-blue-600: oklch(57% 0.19 258);
+  --jf-oklch-blue-500: oklch(64% 0.17 258);
+  --jf-oklch-green-500: oklch(62% 0.13 155);
+  --jf-oklch-amber-500: oklch(69% 0.14 72);
+  --jf-oklch-red-500: oklch(58% 0.18 28);
+
   /* ─── Spacing scale ───────────────────────────────────────── */
   --jf-space-0: 0px;
   --jf-space-1: 4px;
@@ -34,18 +75,30 @@
   --jf-space-7: 32px;
   --jf-space-8: 48px;
 
+  /* Density adjusts rhythm without changing the base contract. */
+  --jf-density: comfortable;
+  --jf-density-scale: 1;
+  --jf-density-row: 36px;
+  --jf-density-row-compact: 30px;
+  --jf-density-panel-pad: var(--jf-space-5);
+
   /* ─── Control heights ─────────────────────────────────────── */
   --jf-control-sm: 24px;      /* compact chips, filter pills */
   --jf-control-md: 32px;      /* default buttons, inputs */
   --jf-control-lg: 40px;      /* primary CTAs, toolbar search */
+  --jf-control-xl: 48px;      /* major capture/search controls */
 
   /* ─── Radii ───────────────────────────────────────────────────
    * Compose with theme's --rd for theme-specific base shape.
    * Tokens here are semantic: how "round" should this element be
    * relative to the theme's baseline? */
   --jf-radius-sm: 3px;
-  --jf-radius-md: 6px;
-  --jf-radius-lg: 12px;
+  --jf-radius-md: 5px;
+  --jf-radius-lg: 9px;
+  --jf-radius-surface: var(--rd, 6px);
+  --jf-radius-control: calc(var(--jf-radius-surface) + 1px);
+  --jf-radius-popover: calc(var(--jf-radius-surface) + 3px);
+  --jf-radius-window: 0px;
   --jf-radius-pill: 9999px;
 
   /* ─── Shadows ─────────────────────────────────────────────────
@@ -55,13 +108,19 @@
   --jf-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
   --jf-shadow-popover: 0 6px 24px rgba(0, 0, 0, 0.18);
   --jf-shadow-focus: 0 0 0 2px var(--ac, #3b82f6);
+  --jf-shadow-shell: 0 18px 44px rgba(0, 0, 0, 0.28);
 
   /* ─── Transitions ─────────────────────────────────────────── */
-  --jf-t-fast: 80ms;
-  --jf-t-med: 180ms;
-  --jf-t-slow: 320ms;
+  --jf-t-instant: 0ms;
+  --jf-t-fast: 90ms;
+  --jf-t-med: 170ms;
+  --jf-t-slow: 280ms;
   --jf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --jf-ease-in-out: cubic-bezier(0.83, 0, 0.17, 1);
+  --jf-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --jf-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --jf-motion-enter: opacity var(--jf-t-med) var(--jf-ease-out), transform var(--jf-t-med) var(--jf-ease-out);
+  --jf-motion-control: background-color var(--jf-t-fast) var(--jf-ease-standard), border-color var(--jf-t-fast) var(--jf-ease-standard), color var(--jf-t-fast) var(--jf-ease-standard);
 
   /* ─── Z-index layers ─────────────────────────────────────── */
   --jf-z-sidebar: 10;
@@ -93,14 +152,15 @@
   --jf-lh-tight: 1.25;
   --jf-lh-normal: 1.55;
   --jf-lh-loose: 1.8;
+  --jf-tracking-ui: 0;
 
   --jf-weight-regular: 400;
   --jf-weight-medium: 500;
   --jf-weight-bold: 700;
 
   /* ─── Focus ring ─────────────────────────────────────────── */
-  --jf-focus-ring: 0 0 0 2px var(--ac);
-  --jf-focus-ring-offset: 0 0 0 3px var(--bg), 0 0 0 5px var(--ac);
+  --jf-focus-ring: 0 0 0 2px color-mix(in oklch, var(--jf-color-accent) 70%, transparent);
+  --jf-focus-ring-offset: 0 0 0 2px var(--jf-color-app), 0 0 0 4px color-mix(in oklch, var(--jf-color-accent) 72%, transparent);
 
   /* ─── Platform flags ────────────────────────────────────────
    * Set by main.jsx on boot based on window.electron.platform.
@@ -118,6 +178,9 @@
   --jf-sidebar-width: 240px;
   --jf-sidebar-width-collapsed: 56px;
   --jf-detail-width: 380px;
+  --jf-topbar-height: 64px;
+  --jf-statusbar-height: 28px;
+  --jf-context-rail-width: 360px;
 
   /* ─── Scrollbar ───────────────────────────────────────────── */
   --jf-scrollbar-w: 8px;
@@ -125,11 +188,41 @@
   --jf-scrollbar-track: transparent;
 }
 
+html[data-jf-density="compact"] {
+  --jf-density: compact;
+  --jf-density-scale: 0.86;
+  --jf-density-row: 30px;
+  --jf-density-panel-pad: var(--jf-space-4);
+  --jf-control-sm: 22px;
+  --jf-control-md: 28px;
+  --jf-control-lg: 36px;
+}
+
+html[data-jf-density="spacious"] {
+  --jf-density: spacious;
+  --jf-density-scale: 1.12;
+  --jf-density-row: 42px;
+  --jf-density-panel-pad: var(--jf-space-6);
+  --jf-control-sm: 28px;
+  --jf-control-md: 36px;
+  --jf-control-lg: 44px;
+}
+
 /* Platform branches — added via <html data-jf-platform="..."> in main.jsx */
 html[data-jf-platform="mac"] {
   --jf-control-sm: 22px;        /* slightly tighter on Mac */
   --jf-control-md: 28px;
   --jf-focus-ring: 0 0 0 3px color-mix(in srgb, var(--ac) 40%, transparent);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--jf-focus-ring-offset);
+}
+
+::selection {
+  background: color-mix(in oklch, var(--jf-color-accent) 32%, transparent);
+  color: var(--jf-color-text);
 }
 
 html[data-jf-platform="win"] {
@@ -147,8 +240,38 @@ html[data-jf-platform="linux"] {
  * --jf-t-* should fall back to instant. */
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --jf-t-instant: 0ms;
     --jf-t-fast: 0ms;
     --jf-t-med: 0ms;
     --jf-t-slow: 0ms;
+    --jf-motion-enter: none;
+    --jf-motion-control: none;
   }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg, #080d12);
+}
+
+.mgn-app {
+  box-sizing: border-box;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0;
 }

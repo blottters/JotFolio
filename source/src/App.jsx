@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useDeferredValue, useCallback, useRef } from "react";
+import { Suspense, lazy, useState, useEffect, useMemo, useDeferredValue, useCallback, useRef } from "react";
 import { updateLastSeen, logEvent, isOnboarded, useActivation, recordEntryAdded } from './onboarding/activation.js';
 import { WelcomePanel } from './onboarding/WelcomePanel.jsx';
-import { ProgressPill, FirstSaveBanner, Day2ReturnCard, ActivationToast } from './onboarding/nudges.jsx';
-import { ALL_ENTRY_TYPES, ICON, LABEL } from './lib/types.js';
+import { ActivationToast } from './onboarding/nudges.jsx';
+import { ALL_ENTRY_TYPES, ICON } from './lib/types.js';
 import { DEFAULT_FEATURE_FLAGS, filterEntriesForUI, normalizeFeatureFlags } from './lib/featureFlags.js';
 import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
@@ -14,31 +14,36 @@ import { useSystemDark } from './lib/hooks.js';
 import { useOpenRouterCallback, useAppShortcuts } from './lib/appHooks.js';
 import { Toasts } from './features/primitives/Toasts.jsx';
 import { Sidebar } from './features/sidebar/Sidebar.jsx';
-import { Toolbar } from './features/toolbar/Toolbar.jsx';
-import { EmptyState } from './features/emptystate/EmptyState.jsx';
-import { Card } from './features/card/Card.jsx';
-import { Row } from './features/card/Row.jsx';
-import { AddModal } from './features/add/AddModal.jsx';
-import { DetailPanel } from './features/detail/DetailPanel.jsx';
-import { ConstellationView } from './features/constellation/ConstellationView.jsx';
-import { SettingsPanel } from './features/settings/SettingsPanel.jsx';
 import { useVault } from './features/vault/useVault.js';
-import { CommandPalette } from './features/commandPalette/CommandPalette.jsx';
 import { createCommandRegistry } from './lib/command/commandRegistry.js';
 import { registerBuiltinCommands } from './features/commandPalette/builtinCommands.js';
-import { parseSearchQuery, matchesQuery } from './lib/search/searchVault.js';
-import { BaseExplorer } from './features/bases/BaseExplorer.jsx';
+import { parseSearchQuery } from './lib/search/searchVault.js';
 import { normalizeBase, serializeBase, basePath, BASE_FILE_EXT, BASE_DIR } from './lib/base/baseTypes.js';
-import { CanvasExplorer } from './features/canvas/CanvasExplorer.jsx';
 import { normalizeCanvas, serializeCanvas, canvasPath, CANVAS_DIR, CANVAS_FILE_EXT } from './lib/canvas/canvasTypes.js';
 import { vault as vaultAdapter } from './adapters/index.js';
 import { createPluginHost } from './lib/plugin/pluginHost.js';
-import { Ribbon } from './features/ribbon/Ribbon.jsx';
 import { UpdateBanner } from './features/updater/UpdateBanner.jsx';
-import { TemplatesPanel } from './features/templates/TemplatesPanel.jsx';
-import { InsertTemplateModal } from './features/templates/InsertTemplateModal.jsx';
-import { QuickSwitcher } from './features/quickSwitcher/QuickSwitcher.jsx';
-import { TrashView } from './features/trash/TrashView.jsx';
+import {
+  WorkspaceContextRail,
+  VaultStatusBar,
+} from './features/workstation/WorkstationViews.jsx';
+import { WorkspaceTopBar } from './features/workstation/WorkspaceTopBar.jsx';
+import { AppConfirmDialog } from './features/shell/AppConfirmDialog.jsx';
+import { AppRouteContent } from './features/shell/AppRouteContent.jsx';
+import {
+  HOME_SECTION,
+  filterShellEntries,
+  getShellSectionTitle,
+} from './features/shell/appShellState.js';
+import {
+  buildCalendarDays,
+  buildCommandCenterModel,
+  buildGlobalSearchResults,
+  buildProjectRows,
+  buildSpaceRows,
+  buildTagRows,
+  buildTaskRows,
+} from './lib/workstation/workstationData.js';
 import { loadTemplates, applyTemplateToNote, TEMPLATE_DIR, TEMPLATE_EXT } from './lib/templates/templateStore.js';
 import { addTemplateUsageToEntry } from './lib/templates/templateBacklinks.js';
 import { pickRandomEntry } from './lib/random/randomNote.js';
@@ -53,13 +58,33 @@ import { splitMemory } from './lib/memory/splitMemory.js';
 import { graduateTied } from './lib/memory/graduateTied.js';
 import { compile, loadManifest } from './lib/compile/index.js';
 import { buildVaultIndex } from './lib/index/vaultIndex.js';
-import { MemoryDetailPanel } from './features/constellation/MemoryDetailPanel.jsx';
-import { SplitMemoryModal } from './features/constellation/SplitMemoryModal.jsx';
-import { CompilePreviewModal } from './features/constellation/CompilePreviewModal.jsx';
+
+const AddModal = lazy(() => import('./features/add/AddModal.jsx').then(mod => ({ default: mod.AddModal })));
+const CommandPalette = lazy(() => import('./features/commandPalette/CommandPalette.jsx').then(mod => ({ default: mod.CommandPalette })));
+const CompilePreviewModal = lazy(() => import('./features/constellation/CompilePreviewModal.jsx').then(mod => ({ default: mod.CompilePreviewModal })));
+const DetailPanel = lazy(() => import('./features/detail/DetailPanel.jsx').then(mod => ({ default: mod.DetailPanel })));
+const InsertTemplateModal = lazy(() => import('./features/templates/InsertTemplateModal.jsx').then(mod => ({ default: mod.InsertTemplateModal })));
+const MemoryDetailPanel = lazy(() => import('./features/constellation/MemoryDetailPanel.jsx').then(mod => ({ default: mod.MemoryDetailPanel })));
+const QuickSwitcher = lazy(() => import('./features/quickSwitcher/QuickSwitcher.jsx').then(mod => ({ default: mod.QuickSwitcher })));
+const SettingsPanel = lazy(() => import('./features/settings/SettingsPanel.jsx').then(mod => ({ default: mod.SettingsPanel })));
+const SplitMemoryModal = lazy(() => import('./features/constellation/SplitMemoryModal.jsx').then(mod => ({ default: mod.SplitMemoryModal })));
+const FOCUS_MODE_KEY = 'jf-command-center-focus-mode';
+
+function LazyOverlay({ children, label = 'Loading...' }) {
+  return (
+    <Suspense fallback={
+      <div style={{ position: 'fixed', inset: 0, zIndex: 120, display: 'grid', placeItems: 'center', background: 'rgba(8,13,19,.52)', color: 'var(--t2)', fontSize: 13 }}>
+        {label}
+      </div>
+    }>
+      {children}
+    </Suspense>
+  );
+}
 
 // ── App ────────────────────────────────────────────────────────────────────
 export default function App(){
-  const[theme,setTheme]=useState('minimal');
+  const[theme,setTheme]=useState('workstation');
   const[prefsLoaded,setPrefsLoaded]=useState(false);
   const[storageError,setStorageError]=useState(null);
   const[migratingLegacy,setMigratingLegacy]=useState(false);
@@ -79,9 +104,9 @@ export default function App(){
   }=useVault();
   const loaded=prefsLoaded&&!vaultLoading&&!migratingLegacy;
   const isBrowserVault=typeof window!=='undefined'&&!window.electron?.vault;
-  const[darkMode,setDarkMode]=useState('system');
+  const[darkMode,setDarkMode]=useState('dark');
   const[customColors,setCustomColors]=useState({});
-  const DEFAULT_PREFS={fontSize:13,fontFamily:'',cardDensity:'comfortable',sidebarWidth:240,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,defaultLayoutMode:'messy',constellationStyle:'star',typeSaturation:'bone',constellationBg:'solid',featureFlags:DEFAULT_FEATURE_FLAGS};
+  const DEFAULT_PREFS={fontSize:13,fontFamily:'',userName:'Gavin',cardDensity:'comfortable',sidebarWidth:272,defaultView:'grid',defaultSort:'date',showNotesPreview:true,showDateOnCards:true,showTagsOnCards:true,defaultLayoutMode:'messy',constellationStyle:'star',typeSaturation:'signal',constellationBg:'atlas',featureFlags:DEFAULT_FEATURE_FLAGS};
   const[prefs,setPrefs]=useState(DEFAULT_PREFS);
   const[toasts,setToasts]=useState([]);
   const toast=useCallback((msg,type='success')=>{
@@ -98,27 +123,60 @@ export default function App(){
   },[toast]);
   const systemDark=useSystemDark();
   const isDark=resolveColorScheme(darkMode,systemDark)==='dark';
-  const[section,setSection]=useState('all');
+  const[section,setSection]=useState(HOME_SECTION);
+  const[focusMode,setFocusMode]=useState(()=>{
+    try{return localStorage.getItem(FOCUS_MODE_KEY)||'deep-work'}
+    catch{return'deep-work'}
+  });
   const[view,setView]=useState('grid');
   const[query,setQuery]=useState('');
   const deferredQuery=useDeferredValue(query);
   const[filterStatus,setFilterStatus]=useState('');
   const[filterTag,setFilterTag]=useState('');
   const[sort,setSort]=useState('date');
+  const[navBackStack,setNavBackStack]=useState([]);
+  const[navForwardStack,setNavForwardStack]=useState([]);
   const[selectedIds,setSelectedIds]=useState(()=>new Set());
   // FIX: addInitialType tracks the type to pre-select when modal opens
   const[showAddModal,setShowAddModal]=useState(false);
   const[addInitialType,setAddInitialType]=useState('note');
   const[sidebarOpen,setSidebarOpen]=useState(true);
   const[detailId,setDetailId]=useState(null);
+  const[constellationFocusId,setConstellationFocusId]=useState(null);
   const[splitMemoryTarget,setSplitMemoryTarget]=useState(null);
   const detail=useMemo(()=>entries.find(e=>e.id===detailId)||null,[entries,detailId]);
   const[settingsOpen,setSettingsOpen]=useState(false);
+  const[settingsInitialTab,setSettingsInitialTab]=useState('appearance');
   const[folderDialogOpen,setFolderDialogOpen]=useState(false);
   const[folderDraft,setFolderDraft]=useState('');
   const[trashItems,setTrashItems]=useState([]);
   const[trashBusy,setTrashBusy]=useState(false);
   const[trashError,setTrashError]=useState('');
+  const[confirmRequest,setConfirmRequest]=useState(null);
+  const confirmResolverRef=useRef(null);
+  const requestConfirm=useCallback((options={})=>new Promise(resolve=>{
+    if(confirmResolverRef.current)confirmResolverRef.current(false);
+    confirmResolverRef.current=resolve;
+    setConfirmRequest({
+      title:'Confirm action',
+      message:'',
+      confirmLabel:'Continue',
+      cancelLabel:'Cancel',
+      tone:'danger',
+      ...options,
+    });
+  }),[]);
+  const settleConfirm=useCallback(result=>{
+    const resolve=confirmResolverRef.current;
+    confirmResolverRef.current=null;
+    setConfirmRequest(null);
+    if(resolve)resolve(result);
+  },[]);
+  useEffect(()=>()=>{if(confirmResolverRef.current)confirmResolverRef.current(false)},[]);
+  useEffect(()=>{
+    try{localStorage.setItem(FOCUS_MODE_KEY,focusMode)}
+    catch{ /* local persistence is optional */ }
+  },[focusMode]);
 
   // Bases — declared up here (above useActivation + the big effects below)
   // because the load effect runs once vault is ready, and the sidebar reads
@@ -171,16 +229,58 @@ export default function App(){
   // Also closes other dialogs so we never stack (Detail + Modal, Settings + Modal).
   // `quickCapture` skips type picker + focuses title + hides URL (for notes).
   const[addQuickCapture,setAddQuickCapture]=useState(false);
+  const[addProjectContext,setAddProjectContext]=useState(null);
+  const[addInitialFolder,setAddInitialFolder]=useState('');
+  const closeAddModal=useCallback(()=>{
+    setShowAddModal(false);
+    setAddProjectContext(null);
+    setAddInitialFolder('');
+  },[]);
   const openAdd=useCallback((arg)=>{
     const opts=typeof arg==='string'?{type:arg}:(arg||{});
     setDetailId(null);
     setSettingsOpen(false);
     setAddInitialType(opts.type??(ALL_ENTRY_TYPES.includes(section)?section:'note'));
     setAddQuickCapture(!!opts.quickCapture);
+    setAddProjectContext(opts.projectContext || null);
+    setAddInitialFolder(opts.folder || '');
     setShowAddModal(true);
   },[section]);
 
-  const handleSection=(next)=>{setSection(next);setFilterStatus('')};
+  const handleSection=useCallback((next)=>{
+    if(!next)return;
+    setFilterStatus('');
+    if(next==='graph')setConstellationFocusId(null);
+    if(next===section)return;
+    setNavBackStack(prev=>[...prev,section].slice(-50));
+    setNavForwardStack([]);
+    setSection(next);
+  },[section]);
+  const openSettingsTab=useCallback((tab='appearance')=>{
+    setSettingsInitialTab(tab);
+    setSettingsOpen(false);
+    handleSection('settings');
+  },[handleSection]);
+  const goBackSection=useCallback(()=>{
+    setNavBackStack(prev=>{
+      if(!prev.length)return prev;
+      const next=prev[prev.length-1];
+      setNavForwardStack(current=>[section,...current].slice(0,50));
+      setFilterStatus('');
+      setSection(next);
+      return prev.slice(0,-1);
+    });
+  },[section]);
+  const goForwardSection=useCallback(()=>{
+    setNavForwardStack(prev=>{
+      if(!prev.length)return prev;
+      const next=prev[0];
+      setNavBackStack(current=>[...current,section].slice(-50));
+      setFilterStatus('');
+      setSection(next);
+      return prev.slice(1);
+    });
+  },[section]);
   const hasFilters=!!(query||filterStatus||filterTag);
   const clearFilters=()=>{setQuery('');setFilterStatus('');setFilterTag('')};
   const folderTree=useMemo(()=>buildFolderTree(entries,folders),[entries,folders]);
@@ -273,9 +373,15 @@ export default function App(){
       const fileCount=affectedFiles.length;
       const folderCount=Math.max(affectedFolders.length,1);
       const message=fileCount>0
-        ? `Delete folder "${clean}"?\n\nThis moves ${fileCount} file${fileCount===1?'':'s'} inside it to JotFolio Trash and removes ${folderCount} folder shell${folderCount===1?'':'s'}.\n\nYou can restore the files from Trash.`
-        : `Delete empty folder "${clean}"?\n\nThis removes the folder shell only.`;
-      if(!window.confirm(message))return;
+        ? `This moves ${fileCount} file${fileCount===1?'':'s'} inside it to JotFolio Trash and removes ${folderCount} folder shell${folderCount===1?'':'s'}.\n\nYou can restore the files from Trash.`
+        : 'This removes the folder shell only.';
+      const ok=await requestConfirm({
+        title:fileCount>0?`Delete folder "${clean}"?`:`Delete empty folder "${clean}"?`,
+        message,
+        confirmLabel:fileCount>0?'Move to Trash':'Delete Folder',
+        tone:fileCount>0?'danger':'warning',
+      });
+      if(!ok)return;
       const nonce=uid();
       for(const item of affectedFiles)await moveToTrash(vaultAdapter,item.path,{nonce});
       const foldersToRemove=affectedFolders.length?affectedFolders:[{path:clean}];
@@ -298,7 +404,7 @@ export default function App(){
       await loadTrashItems();
       toast(fileCount>0?`Folder moved to trash: ${clean}`:`Folder deleted: ${clean}`,'info');
     }catch(err){reportError(err,'Folder delete failed')}
-  },[section,detail,currentBaseId,currentCanvasId,refreshVault,loadTrashItems,toast,reportError]);
+  },[section,detail,currentBaseId,currentCanvasId,refreshVault,loadTrashItems,toast,reportError,requestConfirm]);
   const handleNewFolder=useCallback(()=>{
     setFolderDraft('');
     setFolderDialogOpen(true);
@@ -324,7 +430,12 @@ export default function App(){
   const restoreTrashItem=useCallback(async(path)=>{
     let target=path;
     try{target=originalPathFromTrashPath(path)}catch{ /* keep fallback */ }
-    const ok=window.confirm(`Restore "${target}" from JotFolio Trash? Restore will fail safely if a file already exists there.`);
+    const ok=await requestConfirm({
+      title:'Restore from Trash',
+      message:`Restore "${target}" from JotFolio Trash?\n\nRestore will fail safely if a file already exists there.`,
+      confirmLabel:'Restore',
+      tone:'info',
+    });
     if(!ok)return;
     setTrashBusy(true);setTrashError('');
     try{
@@ -334,11 +445,16 @@ export default function App(){
       toast(`Restored ${target}`,'info');
     }catch(err){setTrashError(err?.message||'Restore failed');reportError(err,'Restore failed')}
     finally{setTrashBusy(false)}
-  },[refreshVault,loadTrashItems,toast,reportError]);
+  },[refreshVault,loadTrashItems,toast,reportError,requestConfirm]);
   const permanentlyDeleteTrashItem=useCallback(async(path)=>{
     let target=path;
     try{target=originalPathFromTrashPath(path)}catch{ /* keep fallback */ }
-    const ok=window.confirm(`Permanently delete "${target}"? This cannot be undone.`);
+    const ok=await requestConfirm({
+      title:'Permanently delete file?',
+      message:`Permanently delete "${target}"?\n\nThis cannot be undone.`,
+      confirmLabel:'Delete Forever',
+      tone:'danger',
+    });
     if(!ok)return;
     setTrashBusy(true);setTrashError('');
     try{
@@ -347,10 +463,15 @@ export default function App(){
       toast('File permanently deleted','info');
     }catch(err){setTrashError(err?.message||'Permanent delete failed');reportError(err,'Permanent delete failed')}
     finally{setTrashBusy(false)}
-  },[loadTrashItems,toast,reportError]);
+  },[loadTrashItems,toast,reportError,requestConfirm]);
   const emptyTrash=useCallback(async()=>{
     if(trashItems.length===0)return;
-    const ok=window.confirm(`Permanently delete all ${trashItems.length} file${trashItems.length===1?'':'s'} in JotFolio Trash? This cannot be undone.`);
+    const ok=await requestConfirm({
+      title:'Empty Trash?',
+      message:`Permanently delete all ${trashItems.length} file${trashItems.length===1?'':'s'} in JotFolio Trash?\n\nThis cannot be undone.`,
+      confirmLabel:'Empty Trash',
+      tone:'danger',
+    });
     if(!ok)return;
     setTrashBusy(true);setTrashError('');
     try{
@@ -359,7 +480,7 @@ export default function App(){
       toast('Trash emptied','info');
     }catch(err){setTrashError(err?.message||'Empty trash failed');reportError(err,'Empty trash failed')}
     finally{setTrashBusy(false)}
-  },[trashItems,loadTrashItems,toast,reportError]);
+  },[trashItems,loadTrashItems,toast,reportError,requestConfirm]);
   const moveEntryFile=useCallback(async(entry)=>{
     if(!entry?._path){toast('No file path for this entry','error');return}
     const currentFolder=folderFromPath(entry._path);
@@ -458,6 +579,16 @@ export default function App(){
       if(typeof sp?.sidebarOpen==='boolean')setSidebarOpen(sp.sidebarOpen);
       if(sp?.prefs){
         let p={...DEFAULT_PREFS,...sp.prefs,featureFlags:normalizeFeatureFlags(sp.prefs?.featureFlags)};
+        // alpha.26 migration: Constellation gets its own clearer signal layer.
+        // Only old defaults move forward; explicit sepia/cool/mono choices stay.
+        if(sp.prefs.constellationSignalDefaultAlpha26!==true){
+          p={
+            ...p,
+            typeSaturation:(p.typeSaturation==null||p.typeSaturation==='bone'||p.typeSaturation==='full')?'signal':p.typeSaturation,
+            constellationBg:(p.constellationBg==null||p.constellationBg==='solid')?'atlas':p.constellationBg,
+            constellationSignalDefaultAlpha26:true,
+          };
+        }
         // alpha.18 migration: knowledge types graduated from dark to default-on
         // because the compile button now exists. If a user was force-disabled
         // by the alpha.17 migration (featureFlagsResetAlpha17:true) AND has
@@ -569,7 +700,12 @@ export default function App(){
   const handleDeleteBase=useCallback(async(id)=>{
     const target=bases.find(b=>b.id===id);
     if(!target)return;
-    const ok=window.confirm(`Delete base "${target.name}"? This moves the saved base file to JotFolio Trash. Entries will not be deleted.`);
+    const ok=await requestConfirm({
+      title:`Delete base "${target.name}"?`,
+      message:'This moves the saved base file to JotFolio Trash. Entries will not be deleted.',
+      confirmLabel:'Move to Trash',
+      tone:'danger',
+    });
     if(!ok)return;
     setBases(list=>list.filter(b=>b.id!==id));
     if(section===`base:${id}`)setSection('all');
@@ -584,7 +720,7 @@ export default function App(){
         setBases(list=>list.some(b=>b.id===id)?list:[...list,normalizeBase(JSON.parse(content))]);
       }catch{ /* leave UI optimistic if restore fails */ }
     }
-  },[bases,section,toast,reportError,loadTrashItems]);
+  },[bases,section,toast,reportError,loadTrashItems,requestConfirm]);
 
   // Load all .canvas.json files from the vault. Same skip-on-malformed
   // convention as bases — a hand-edit typo in one canvas shouldn't keep
@@ -626,21 +762,29 @@ export default function App(){
       await vaultAdapter.write(canvasPath(normalized.id),JSON.stringify(serializeCanvas(normalized),null,2));
     }catch(err){reportError(err,'Canvas save failed')}
   },[reportError]);
-  const handleNewCanvas=useCallback(async()=>{
+  const handleNewCanvas=useCallback(async(input='New Canvas')=>{
+    const opts=input && typeof input==='object' && !Array.isArray(input) ? input : { name: input };
+    const cleanName=String(opts.name||'New Canvas').trim()||'New Canvas';
     const created={
       version:1,
       id:`canvas-${Date.now().toString(36)}`,
-      name:'New Canvas',
-      nodes:[],
-      edges:[],
+      name:cleanName,
+      nodes:Array.isArray(opts.nodes)?opts.nodes:[],
+      edges:Array.isArray(opts.edges)?opts.edges:[],
     };
     await persistCanvas(created);
-    setSection(`canvas:${created.id}`);
-  },[persistCanvas]);
+    handleSection(`canvas:${created.id}`);
+    return created;
+  },[handleSection,persistCanvas]);
   const handleDeleteCanvas=useCallback(async(id)=>{
     const target=canvases.find(c=>c.id===id);
     if(!target)return;
-    const ok=window.confirm(`Delete canvas "${target.name}"? This moves the canvas file to JotFolio Trash.`);
+    const ok=await requestConfirm({
+      title:`Delete canvas "${target.name}"?`,
+      message:'This moves the canvas file to JotFolio Trash.',
+      confirmLabel:'Move to Trash',
+      tone:'danger',
+    });
     if(!ok)return;
     setCanvases(list=>list.filter(c=>c.id!==id));
     if(section===`canvas:${id}`)setSection('all');
@@ -655,7 +799,7 @@ export default function App(){
         setCanvases(list=>list.some(c=>c.id===id)?list:[...list,normalizeCanvas(JSON.parse(content))]);
       }catch{ /* leave UI optimistic if restore fails */ }
     }
-  },[canvases,section,toast,reportError,loadTrashItems]);
+  },[canvases,section,toast,reportError,loadTrashItems,requestConfirm]);
 
   // Load templates from <vault>/templates/ on vault ready. Same
   // skip-on-malformed convention as bases + canvases.
@@ -680,7 +824,7 @@ export default function App(){
   // Apply font size preference to document root
   // UI scale: `zoom` on body scales the whole app (fonts, spacing, icons).
   // True font-only scaling would require a px→em refactor across ~100 inline styles.
-  useEffect(()=>{document.body.style.zoom=String(prefs.fontSize/13)},[prefs.fontSize]);
+  useEffect(()=>{document.body.style.zoom='1'},[prefs.fontSize]);
 
   // Celebration state for 3-entry activation
   const [celebrating,setCelebrating]=useState(false);
@@ -787,7 +931,12 @@ export default function App(){
   const handleDeleteTemplate=useCallback(async(templateId)=>{
     const target=templates.find(t=>t.id===templateId||t.path===templateId);
     if(!target)return;
-    const ok=window.confirm(`Delete template "${target.name}.md"? This moves the template file to JotFolio Trash.`);
+    const ok=await requestConfirm({
+      title:`Delete template "${target.name}.md"?`,
+      message:'This moves the template file to JotFolio Trash.',
+      confirmLabel:'Move to Trash',
+      tone:'danger',
+    });
     if(!ok)return;
     try{
       await moveToTrash(vaultAdapter,target.path);
@@ -798,7 +947,7 @@ export default function App(){
       toast('Template moved to trash','info');
       await loadTrashItems();
     }catch(err){reportError(err,'Template delete failed');}
-  },[templates,selectedTemplateId,section,toast,reportError,loadTrashItems]);
+  },[templates,selectedTemplateId,section,toast,reportError,loadTrashItems,requestConfirm]);
 
   // Register builtin commands once the dependent callbacks are stable.
   // The disposer cleans up if the App ever unmounts (test environments).
@@ -911,14 +1060,19 @@ export default function App(){
     }catch(err){reportError(err,'Entry delete failed')}
   },[entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,toast,reportError,loadTrashItems]);
 
-  const confirmDeleteEntry=useCallback((id)=>{
+  const confirmDeleteEntry=useCallback(async(id)=>{
     const target=entries.find(e=>e.id===id);
     if(!target)return;
     const label=target.title?.trim()||'Untitled entry';
-    const ok=window.confirm(`Delete "${label}"? This moves the entry file to JotFolio Trash.`);
+    const ok=await requestConfirm({
+      title:`Delete "${label}"?`,
+      message:'This moves the entry file to JotFolio Trash.',
+      confirmLabel:'Move to Trash',
+      tone:'danger',
+    });
     if(!ok)return;
-    deleteEntry(id);
-  },[entries,deleteEntry]);
+    await deleteEntry(id);
+  },[entries,deleteEntry,requestConfirm]);
   const handleDeleteFolderFile=useCallback((file)=>{
     if(!file)return;
     if(file.kind==='entry'&&file.entryId){confirmDeleteEntry(file.entryId);return}
@@ -934,10 +1088,16 @@ export default function App(){
     });
   },[]);
   const clearSelection=useCallback(()=>setSelectedIds(new Set()),[]);
-  const bulkTrashSelected=useCallback(async()=>{
-    const ids=[...selectedIds].filter(id=>entries.some(e=>e.id===id));
+  const bulkTrashSelected=useCallback(async(explicitIds)=>{
+    const requestedIds=explicitIds ? new Set(explicitIds) : selectedIds;
+    const ids=[...requestedIds].filter(id=>entries.some(e=>e.id===id));
     if(ids.length===0)return;
-    const ok=window.confirm(`Move ${ids.length} selected entr${ids.length===1?'y':'ies'} to JotFolio Trash?`);
+    const ok=await requestConfirm({
+      title:'Move selected entries to Trash?',
+      message:`Move ${ids.length} selected entr${ids.length===1?'y':'ies'} to JotFolio Trash?`,
+      confirmLabel:'Move to Trash',
+      tone:'danger',
+    });
     if(!ok)return;
     const idSet=new Set(ids);
     const affected=entries.filter(e=>!idSet.has(e.id)&&e.links?.some(linkId=>idSet.has(linkId)));
@@ -952,26 +1112,62 @@ export default function App(){
       toast(`${ids.length} entr${ids.length===1?'y':'ies'} moved to trash`,'info');
       await loadTrashItems();
     }catch(err){reportError(err,'Bulk delete failed');}
-  },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError,loadTrashItems]);
+  },[selectedIds,entries,detailId,saveEntryWithRules,deleteVaultEntry,clearProvenance,clearSelection,toast,reportError,loadTrashItems,requestConfirm]);
 
   // FIX: existingUrls passed to AddModal so it can show inline dup warning
   const existingUrls=useMemo(()=>new Set(entries.map(e=>e.url).filter(Boolean)),[entries]);
 
   const parsedQuery=useMemo(()=>parseSearchQuery(deferredQuery),[deferredQuery]);
-  const filtered=useMemo(()=>{
-    let r=visibleEntries;
-    if(section==='starred')r=r.filter(e=>e.starred);
-    else if(section.startsWith('folder:')){
-      const folder=section.slice(7);
-      r=r.filter(e=>folderContainsPath(folder,e._path||''));
-    }else if(section!=='all')r=r.filter(e=>e.type===section);
-    if(deferredQuery)r=r.filter(e=>matchesQuery(e,parsedQuery));
-    if(filterStatus)r=r.filter(e=>e.status===filterStatus);
-    if(filterTag)r=r.filter(e=>(e.tags||[]).includes(filterTag));
-    const dec=r.map(e=>({e,ts:Date.parse(e.date)||0}));
-    dec.sort((a,b)=>sort==='title'?(a.e.title||'').localeCompare(b.e.title||''):sort==='starred'?(b.e.starred?1:0)-(a.e.starred?1:0):b.ts-a.ts);
-    return dec.map(x=>x.e);
-  },[visibleEntries,section,deferredQuery,parsedQuery,filterStatus,filterTag,sort]);
+  const workstationModel=useMemo(()=>buildCommandCenterModel({
+    entries:visibleEntries,
+    bases,
+    canvases,
+    templates,
+    trashItems,
+  }),[visibleEntries,bases,canvases,templates,trashItems]);
+  const projectRows=useMemo(()=>buildProjectRows(visibleEntries),[visibleEntries]);
+  const taskRows=useMemo(()=>buildTaskRows(visibleEntries),[visibleEntries]);
+  const calendarDays=useMemo(()=>buildCalendarDays(visibleEntries),[visibleEntries]);
+  const tagRows=useMemo(()=>buildTagRows(visibleEntries),[visibleEntries]);
+  const spaces=useMemo(()=>buildSpaceRows(visibleEntries),[visibleEntries]);
+  const searchResults=useMemo(()=>buildGlobalSearchResults({
+    entries:visibleEntries,
+    bases,
+    canvases,
+    templates,
+    tagMetadata:tagRows,
+    spaces,
+    query:deferredQuery,
+  }),[visibleEntries,bases,canvases,templates,tagRows,spaces,deferredQuery]);
+  const handleWorkstationNavigate=useCallback((next)=>{
+    if(!next)return;
+    if(next==='inbox'){
+      handleSection('raw');
+      return;
+    }
+    if(next.startsWith('tag:')){
+      setFilterTag(next.slice(4));
+      handleSection('all');
+      return;
+    }
+    handleSection(next);
+  },[handleSection]);
+  const openInConstellation=useCallback(entry=>{
+    const id=typeof entry==='string'?entry:entry?.id;
+    handleSection('graph');
+    if(id)setConstellationFocusId(id);
+  },[handleSection]);
+  const filtered=useMemo(()=>filterShellEntries({
+    entries:visibleEntries,
+    section,
+    query:deferredQuery,
+    parsedQuery,
+    filterStatus,
+    filterTag,
+    sort,
+  }),[visibleEntries,section,deferredQuery,parsedQuery,filterStatus,filterTag,sort]);
+
+  const sectionTitle=getShellSectionTitle(section);
 
   const allTags=useMemo(()=>[...new Set(visibleEntries.flatMap(e=>e.tags||[]))]  ,[visibleEntries]);
   const tagCounts=useMemo(()=>{const m={};visibleEntries.forEach(e=>(e.tags||[]).forEach(t=>{m[t]=(m[t]||0)+1}));return m},[visibleEntries]);
@@ -1116,186 +1312,19 @@ export default function App(){
       toast(compiledEntry.type==='wiki'?'Saved as wiki entry':'Saved as review entry');
     }catch(err){reportError(err,'Save compiled entry failed');}
   }
-
-  return(
-    <div className="mgn-app" style={{display:'flex',height:'100%',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',overflow:'hidden',position:'relative'}}>
-      <Ribbon
-        activeRoute={section==='graph'?'graph':section==='templates'?'templates':section==='trash'?'trash':paletteOpen?'palette':quickSwitcherOpen?'quickswitch':insertTemplateOpen?'insertTemplate':null}
-        onTemplates={()=>setSection('templates')}
-        onQuickSwitcher={openQuickSwitcher}
-        onNewCanvas={handleNewCanvas}
-        onPalette={()=>setPaletteOpen(o=>!o)}
-        onDailyNote={createDailyNote}
-        onGraphView={()=>setSection('graph')}
-        onSettings={()=>setSettingsOpen(s=>!s)}
-        onTrash={()=>setSection('trash')}
-        trashCount={counts.trash}/>
-      <Sidebar open={sidebarOpen} width={sidebarOpen?prefs.sidebarWidth:58} onToggle={()=>setSidebarOpen(o=>!o)}
-        section={section} setSection={handleSection} counts={counts}
-        allTags={allTags} tagCounts={tagCounts} filterTag={filterTag} setFilterTag={setFilterTag}
-        theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
-        onAdd={openAdd} onExportJSON={exportJSON} onExportMD={exportMD}
-        victoryColors={customColors} setVictoryColors={setCustomColors}
-        onOpenSettings={()=>setSettingsOpen(s=>!s)}
-        folders={folderTree}
-        folderFiles={folderFiles}
-        activeFolderFilePath={section==='templates'?selectedTemplateId:currentBaseId?basePath(currentBaseId):currentCanvasId?canvasPath(currentCanvasId):(detail?._path||'')}
-        onSelectFolder={handleSelectFolder}
-        onOpenFolderFile={handleOpenFolderFile}
-        onDeleteFolderFile={handleDeleteFolderFile}
-        onDeleteFolder={handleDeleteFolder}
-        onNewFolder={handleNewFolder}
-        bases={bases}
-        onSelectBase={id=>setSection(`base:${id}`)}
-        onNewBase={handleNewBase}
-        onDeleteBase={handleDeleteBase}
-        canvases={canvases}
-        onSelectCanvas={id=>setSection(`canvas:${id}`)}
-        onNewCanvas={handleNewCanvas}
-        onDeleteCanvas={handleDeleteCanvas}
-        pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}
-        flags={prefs.featureFlags}/>
-
-      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
-        {section==='templates'?(
-          <div style={{flex:1,overflow:'hidden'}}>
-            <TemplatesPanel
-              templates={templates}
-              onCreate={handleCreateTemplate}
-              onApplyToActive={handleInsertTemplate}
-              onSave={handleSaveTemplate}
-              activeEntryId={detailId}
-              entries={entries}
-              selectedTemplateId={selectedTemplateId}
-              onSelectedTemplateChange={setSelectedTemplateId}
-              onOpenEntry={setDetailId}/>
-          </div>
-        ):section==='trash'?(
-          <TrashView
-            items={trashItems}
-            busy={trashBusy}
-            error={trashError}
-            onRefresh={loadTrashItems}
-            onRestore={restoreTrashItem}
-            onPermanentDelete={permanentlyDeleteTrashItem}
-            onEmptyTrash={emptyTrash}/>
-        ):currentCanvasId?(
-          <CanvasExplorer
-            canvases={canvases}
-            canvasId={currentCanvasId}
-            entries={visibleEntries}
-            onSelect={id=>setSection(`canvas:${id}`)}
-            onCreate={persistCanvas}
-            onCanvasChange={persistCanvas}
-            onOpenEntry={id=>setDetailId(id)}
-            onClose={()=>setSection('all')}/>
-        ):currentBaseId?(
-          <BaseExplorer
-            entries={visibleEntries}
-            base={currentBase}
-            onBaseChange={persistBase}
-            onCreateBase={persistBase}
-            onOpenEntry={id=>setDetailId(id)}
-            onDeleteEntry={confirmDeleteEntry}/>
-        ):section==='graph'?(
-          <ConstellationView entries={visibleEntries} onOpen={id=>setDetailId(id)} onBack={()=>setSection('all')} onAdd={openAdd}
-            layoutMode={prefs.defaultLayoutMode||'messy'}
-            onLayoutModeChange={mode=>setPrefs(p=>({...p,defaultLayoutMode:mode}))}
-            onCreateFromMissing={createFromMissing}
-            flags={prefs.featureFlags}
-            style={prefs.constellationStyle||'star'}
-            saturation={prefs.typeSaturation||'full'}
-            bg={prefs.constellationBg||'solid'}/>
-        ):(<>
-          <Toolbar query={query} setQuery={setQuery} section={section}
-            filterStatus={filterStatus} setFilterStatus={setFilterStatus}
-            sort={sort} setSort={setSort} view={view} setView={setView}
-            hasFilters={hasFilters} onClear={clearFilters}
-            onOpenSettings={()=>setSettingsOpen(s=>!s)}/>
-          <div style={{padding:'10px 14px 0',flexShrink:0}}>
-            <div style={{display:'flex',alignItems:'baseline',gap:8}}>
-              <h2 style={{margin:0,fontSize:17,fontWeight:700}}>{section==='all'?'All Entries':section==='starred'?'★ Starred':section.startsWith('folder:')?`▸ ${section.slice(7)}`:ICON[section]+' '+LABEL[section]}</h2>
-              <span style={{fontSize:12,color:'var(--t3)'}}>{filtered.length} item{filtered.length!==1?'s':''}</span>
-              {section==='all'&&<ProgressPill count={visibleEntries.length}/>}
-            </div>
-          </div>
-          {section==='all'&&visibleEntries.length<3&&activation.showDay2&&(
-            <Day2ReturnCard count={visibleEntries.length} onAdd={openAdd} lastEntryTitle={visibleEntries[0]?.title}/>
-          )}
-          {section==='all'&&visibleEntries.length===1&&!activation.showDay2&&(
-            <FirstSaveBanner count={visibleEntries.length} onAdd={openAdd}/>
-          )}
-          <div style={{flex:1,overflowY:'auto',padding:14}}>
-            {storageError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13,lineHeight:1.5}}>
-              <div style={{fontWeight:700,marginBottom:4}}>Storage recovery needed</div>
-              <div>JotFolio found corrupt browser storage at <code>{storageError.key}</code>. A quarantine copy was written to <code>{storageError.quarantineKey||'a quarantine key'}</code>, and writes are blocked until that data is recovered or cleared.</div>
-            </div>)
-            :vaultError?(<div role="alert" style={{margin:14,padding:14,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'rgba(239,68,68,0.08)',color:'#ef4444',fontSize:13}}>Vault error: {vaultError.message}</div>)
-            :!loaded?(<div style={{textAlign:'center',padding:'80px 20px',color:'var(--t3)'}}>Loading…</div>)
-            :filtered.length===0?(<EmptyState section={section} onAdd={openAdd} hasFilters={hasFilters} onClear={clearFilters} query={query} flags={prefs.featureFlags}/>)
-            :(<>
-              {selectedIds.size>0&&(
-                <div style={{position:'sticky',top:0,zIndex:2,marginBottom:10,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:12,fontWeight:700,color:'var(--tx)',flex:1}}>{selectedIds.size} selected</span>
-                  <button type="button" onClick={()=>setSelectedIds(new Set(filtered.map(e=>e.id)))} style={{padding:'5px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Select view</button>
-                  <button type="button" onClick={bulkTrashSelected} style={{padding:'5px 10px',fontSize:11,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>Move to trash</button>
-                  <button type="button" onClick={clearSelection} style={{padding:'5px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Clear</button>
-                </div>
-              )}
-              {view==='grid'?(
-                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:12}}>
-                  {filtered.map(e=><Card key={e.id} entry={e} prefs={prefs} selected={selectedIds.has(e.id)} onSelectChange={on=>toggleSelected(e.id,on)} onStar={()=>updateEntry(e.id,{starred:!e.starred})} onOpen={()=>setDetailId(e.id)} onDelete={()=>confirmDeleteEntry(e.id)}/>)}
-                </div>
-              ):(
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  {filtered.map(e=><Row key={e.id} entry={e} prefs={prefs} selected={selectedIds.has(e.id)} onSelectChange={on=>toggleSelected(e.id,on)} onStar={()=>updateEntry(e.id,{starred:!e.starred})} onOpen={()=>setDetailId(e.id)} onDelete={()=>confirmDeleteEntry(e.id)}/>)}
-                </div>
-              )}
-            </>)}
-          </div>
-        </>)}
+  const renderSettingsPanel=(embedded=false,initialTab=settingsInitialTab)=>(
+    <Suspense fallback={
+      <div
+        role={embedded?'region':'dialog'}
+        aria-label="Settings"
+        aria-modal={embedded?undefined:true}
+        style={{padding:18,color:'var(--t3)',fontSize:13}}>
+        Loading settings...
       </div>
-
-      {detail&&(detail.type==='wiki'||detail.type==='review')?(
-        <MemoryDetailPanel
-          entry={detail}
-          vaultIndex={buildVaultIndex(entries)}
-          onConfirm={handleConfirmMemory}
-          onSplit={handleSplitMemory}
-          onTraceToSources={handleTraceToSources}/>
-      ):detail&&<DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onCompile={()=>handleCompileRaw(detail.id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>}
-      {compilePreview&&(
-        <CompilePreviewModal
-          result={compilePreview.result}
-          sourceEntries={compilePreview.sourceEntries}
-          onClose={()=>setCompilePreview(null)}
-          onAccept={handleAcceptCompile}/>
-      )}
-      {splitMemoryTarget&&(
-        <SplitMemoryModal
-          original={splitMemoryTarget}
-          originalSources={(splitMemoryTarget.provenance||[]).map(id=>entries.find(e=>e.id===id)).filter(Boolean)}
-          onClose={()=>setSplitMemoryTarget(null)}
-          onSubmit={handleSplitSubmit}/>
-      )}
-      {folderDialogOpen&&<FolderCreateDialog
-        value={folderDraft}
-        onChange={setFolderDraft}
-        onSubmit={()=>submitNewFolder(folderDraft)}
-        onClose={()=>setFolderDialogOpen(false)}/>}
-      {showAddModal&&<AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} onImportFile={handleImportAttachment} onClose={()=>setShowAddModal(false)} onAdd={e=>{addEntry(e);setShowAddModal(false)}} flags={prefs.featureFlags}/>}
-      {loaded&&!isOnboarded()&&visibleEntries.length===0&&(
-        <WelcomePanel
-          onImport={async items=>{await Promise.all(items.map(e=>saveEntryWithRules(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}
-          onPickTheme={()=>{setSettingsOpen(true);bumpOnboarding()}}
-          onOpenAdd={()=>{openAdd();bumpOnboarding()}}
-          onOpenGraph={()=>{setSection('graph');bumpOnboarding()}}
-          onClose={bumpOnboarding}
-        />
-      )}
-      {/* onboardingTick reference keeps isOnboarded() fresh across localStorage writes */}
-      {onboardingTick >= 0 ? null : null}
-      {settingsOpen&&<SettingsPanel
+    }>
+      <SettingsPanel
+        embedded={embedded}
+        initialTab={initialTab}
         theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
         victoryColors={customColors} setVictoryColors={setCustomColors}
         onExportJSON={exportJSON} onExportMD={exportMD} onImportJSON={importJSON} entries={visibleEntries}
@@ -1312,25 +1341,243 @@ export default function App(){
         vaultError={vaultError}
         vaultIssues={vaultIssues}
         refreshVault={refreshVault}
-        onClose={()=>setSettingsOpen(false)}/>}
-      <CommandPalette
-        open={paletteOpen}
-        registry={commandRegistry}
-        onExecute={executeCommand}
-        onClose={()=>setPaletteOpen(false)}
-        onError={(err,cmd)=>reportError(err,`Command "${cmd?.name||'?'}" failed`)}/>
-      <QuickSwitcher
-        open={quickSwitcherOpen}
-        entries={visibleEntries}
-        onOpenEntry={id=>{setQuickSwitcherOpen(false);setDetailId(id);}}
-        onCreateNote={async title=>{setQuickSwitcherOpen(false);await createFromMissing(title);}}
-        onClose={()=>setQuickSwitcherOpen(false)}/>
-      <InsertTemplateModal
-        open={insertTemplateOpen}
-        templates={templates}
-        activeNoteTitle={detail?.title||''}
-        onInsert={handleInsertTemplate}
-        onClose={()=>setInsertTemplateOpen(false)}/>
+        onClose={()=>embedded?handleSection(HOME_SECTION):setSettingsOpen(false)}/>
+    </Suspense>
+  );
+
+  return(
+    <div className="mgn-app" style={{display:'flex',flexDirection:'column',height:'100%',background:'var(--bg)',color:'var(--tx)',fontFamily:'var(--fn)',WebkitFontSmoothing:'antialiased',MozOsxFontSmoothing:'grayscale',textRendering:'optimizeLegibility',overflow:'hidden',position:'relative'}}>
+      <WorkspaceTopBar
+        query={query}
+        setQuery={setQuery}
+        onCapture={()=>openAdd({type:'note'})}
+        onQuickSwitcher={openQuickSwitcher}
+        onCommandPalette={()=>setPaletteOpen(o=>!o)}
+        onSearchActivate={()=>handleSection('search')}
+        onNotifications={()=>handleSection('raw')}
+        onSettings={()=>openSettingsTab('appearance')}
+        onBack={goBackSection}
+        onForward={goForwardSection}
+        canGoBack={navBackStack.length>0}
+        canGoForward={navForwardStack.length>0}
+        userName={prefs.userName || 'Gavin'}/>
+
+      <div style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>
+        <Sidebar open={sidebarOpen} width={sidebarOpen?Math.max(prefs.sidebarWidth,260):58} onToggle={()=>setSidebarOpen(o=>!o)}
+          section={section} setSection={handleSection} counts={counts}
+          allTags={allTags} tagCounts={tagCounts} filterTag={filterTag} setFilterTag={setFilterTag}
+          spaces={spaces}
+          theme={theme} setTheme={setTheme} darkMode={darkMode} setDarkMode={setDarkMode} isDark={isDark}
+          onAdd={openAdd} onExportJSON={exportJSON} onExportMD={exportMD}
+          victoryColors={customColors} setVictoryColors={setCustomColors}
+          onOpenSettings={()=>openSettingsTab('appearance')}
+          folders={folderTree}
+          folderFiles={folderFiles}
+          activeFolderFilePath={section==='templates'?selectedTemplateId:currentBaseId?basePath(currentBaseId):currentCanvasId?canvasPath(currentCanvasId):(detail?._path||'')}
+          onSelectFolder={handleSelectFolder}
+          onOpenFolderFile={handleOpenFolderFile}
+          onDeleteFolderFile={handleDeleteFolderFile}
+          onDeleteFolder={handleDeleteFolder}
+          onNewFolder={handleNewFolder}
+          bases={bases}
+          onSelectBase={id=>handleSection(`base:${id}`)}
+          onNewBase={handleNewBase}
+          onDeleteBase={handleDeleteBase}
+          canvases={canvases}
+          onSelectCanvas={id=>handleSection(`canvas:${id}`)}
+          onNewCanvas={handleNewCanvas}
+          onDeleteCanvas={handleDeleteCanvas}
+          pluginPanelsSlot={<PluginPanelSlot panelStore={panelStore} entries={visibleEntries}/>}
+          flags={prefs.featureFlags}/>
+
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+          <div style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>
+          <div style={{flex:1,minWidth:0,minHeight:0,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            <AppRouteContent
+              section={section}
+              currentCanvasId={currentCanvasId}
+              currentBaseId={currentBaseId}
+              currentBase={currentBase}
+              templates={templates}
+              handleCreateTemplate={handleCreateTemplate}
+              handleInsertTemplate={handleInsertTemplate}
+              handleSaveTemplate={handleSaveTemplate}
+              detailId={detailId}
+              entries={entries}
+              selectedTemplateId={selectedTemplateId}
+              setSelectedTemplateId={setSelectedTemplateId}
+              setDetailId={setDetailId}
+              trashItems={trashItems}
+              trashBusy={trashBusy}
+              trashError={trashError}
+              loadTrashItems={loadTrashItems}
+              restoreTrashItem={restoreTrashItem}
+              permanentlyDeleteTrashItem={permanentlyDeleteTrashItem}
+              emptyTrash={emptyTrash}
+              workstationModel={workstationModel}
+              userName={prefs.userName || 'Gavin'}
+              focusMode={focusMode}
+              onFocusModeChange={setFocusMode}
+              handleWorkstationNavigate={handleWorkstationNavigate}
+              openAdd={openAdd}
+              onQuickCapture={addEntry}
+              query={query}
+              setQuery={setQuery}
+              searchResults={searchResults}
+              onQuickSwitcher={openQuickSwitcher}
+              onCommandPalette={()=>setPaletteOpen(o=>!o)}
+              onRevealEntry={revealEntryFile}
+              onOpenInConstellation={openInConstellation}
+              projectRows={projectRows}
+              taskRows={taskRows}
+              calendarDays={calendarDays}
+              spaces={spaces}
+              setSection={handleSection}
+              openSettingsTab={openSettingsTab}
+              setFilterTag={setFilterTag}
+              tagRows={tagRows}
+              renderSettingsPanel={renderSettingsPanel}
+              canvases={canvases}
+              bases={bases}
+              visibleEntries={visibleEntries}
+              persistCanvas={persistCanvas}
+              persistBase={persistBase}
+              onNewCanvas={handleNewCanvas}
+              confirmDeleteEntry={confirmDeleteEntry}
+              prefs={prefs}
+              setPrefs={setPrefs}
+              createFromMissing={createFromMissing}
+              constellationFocusId={constellationFocusId}
+              filterStatus={filterStatus}
+              setFilterStatus={setFilterStatus}
+              sort={sort}
+              setSort={setSort}
+              view={view}
+              setView={setView}
+              hasFilters={hasFilters}
+              clearFilters={clearFilters}
+              sectionTitle={sectionTitle}
+              filtered={filtered}
+              storageError={storageError}
+              vaultError={vaultError}
+              loaded={loaded}
+              activation={activation}
+              selectedIds={selectedIds}
+              setSelectedIds={setSelectedIds}
+              toggleSelected={toggleSelected}
+              updateEntry={updateEntry}
+              handleCompileRaw={handleCompileRaw}
+              bulkTrashSelected={bulkTrashSelected}
+              clearSelection={clearSelection}/>
+          </div>
+          {!['calendar','raw','search','projects','note'].includes(section) && <WorkspaceContextRail
+            selectedEntry={detail}
+            model={workstationModel}
+            entries={visibleEntries}
+            onOpenEntry={setDetailId}
+            onUpdateEntry={updateEntry}
+            onCreateFromMissing={createFromMissing}
+            onRevealEntry={revealEntryFile}
+            onNavigate={handleWorkstationNavigate}
+            focusMode={focusMode}
+            showSelected={section!=='command'}/>}
+        </div>
+        <VaultStatusBar
+          vaultInfo={vaultInfo}
+          entryCount={visibleEntries.length}
+          trashCount={trashItems.length}
+          issueCount={Array.isArray(vaultIssues)?vaultIssues.length:0}/>
+        </div>
+      </div>
+
+      {detail&&(detail.type==='wiki'||detail.type==='review')?(
+        <LazyOverlay label="Loading memory detail...">
+          <MemoryDetailPanel
+            entry={detail}
+            vaultIndex={buildVaultIndex(entries)}
+            onConfirm={handleConfirmMemory}
+            onSplit={handleSplitMemory}
+            onTraceToSources={handleTraceToSources}/>
+        </LazyOverlay>
+      ):detail&&(
+        <LazyOverlay label="Loading entry detail...">
+          <DetailPanel entry={detail} entries={visibleEntries} navEntries={filtered} allTags={allTags} onClose={()=>setDetailId(null)} onUpdate={p=>updateEntry(detail.id,p)} onDelete={()=>deleteEntry(detail.id)} onToast={toast} onLink={b=>linkEntries(detail.id,b)} onUnlink={b=>unlinkEntries(detail.id,b)} onOpenEntry={id=>setDetailId(id)} onCreateFromMissing={createFromMissing} onRevealFile={revealEntryFile} onMoveFile={moveEntryFile} onRenameFile={renameEntryFile} onCompile={()=>handleCompileRaw(detail.id)} onNavigate={dir=>{const i=filtered.findIndex(e=>e.id===detail.id);const nx=filtered[i+dir];if(nx)setDetailId(nx.id)}}/>
+        </LazyOverlay>
+      )}
+      {compilePreview&&(
+        <LazyOverlay label="Loading compile preview...">
+          <CompilePreviewModal
+            result={compilePreview.result}
+            sourceEntries={compilePreview.sourceEntries}
+            onClose={()=>setCompilePreview(null)}
+            onAccept={handleAcceptCompile}/>
+        </LazyOverlay>
+      )}
+      {splitMemoryTarget&&(
+        <LazyOverlay label="Loading split tool...">
+          <SplitMemoryModal
+            original={splitMemoryTarget}
+            originalSources={(splitMemoryTarget.provenance||[]).map(id=>entries.find(e=>e.id===id)).filter(Boolean)}
+            onClose={()=>setSplitMemoryTarget(null)}
+            onSubmit={handleSplitSubmit}/>
+        </LazyOverlay>
+      )}
+      {folderDialogOpen&&<FolderCreateDialog
+        value={folderDraft}
+        onChange={setFolderDraft}
+        onSubmit={()=>submitNewFolder(folderDraft)}
+        onClose={()=>setFolderDialogOpen(false)}/>}
+      {showAddModal&&(
+        <LazyOverlay label="Loading capture...">
+          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={e=>{addEntry(e);closeAddModal()}} flags={prefs.featureFlags}/>
+        </LazyOverlay>
+      )}
+      {section==='welcome'&&loaded&&!isOnboarded()&&visibleEntries.length===0&&(
+        <WelcomePanel
+          onImport={async items=>{await Promise.all(items.map(e=>saveEntryWithRules(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}
+          onPickTheme={()=>{setSettingsInitialTab('appearance');setSettingsOpen(true);bumpOnboarding()}}
+          onOpenAdd={()=>{openAdd();bumpOnboarding()}}
+          onOpenGraph={()=>{setSection('graph');bumpOnboarding()}}
+          onClose={bumpOnboarding}
+        />
+      )}
+      {/* onboardingTick reference keeps isOnboarded() fresh across localStorage writes */}
+      {onboardingTick >= 0 ? null : null}
+      {settingsOpen&&renderSettingsPanel(false)}
+      {paletteOpen&&(
+        <LazyOverlay label="Loading command palette...">
+          <CommandPalette
+            open={paletteOpen}
+            registry={commandRegistry}
+            onExecute={executeCommand}
+            onClose={()=>setPaletteOpen(false)}
+            onError={(err,cmd)=>reportError(err,`Command "${cmd?.name||'?'}" failed`)}/>
+        </LazyOverlay>
+      )}
+      {quickSwitcherOpen&&(
+        <LazyOverlay label="Loading quick switcher...">
+          <QuickSwitcher
+            open={quickSwitcherOpen}
+            entries={visibleEntries}
+            onOpenEntry={id=>{setQuickSwitcherOpen(false);setDetailId(id);}}
+            onCreateNote={async title=>{setQuickSwitcherOpen(false);await createFromMissing(title);}}
+            onClose={()=>setQuickSwitcherOpen(false)}/>
+        </LazyOverlay>
+      )}
+      {insertTemplateOpen&&(
+        <LazyOverlay label="Loading templates...">
+          <InsertTemplateModal
+            open={insertTemplateOpen}
+            templates={templates}
+            activeNoteTitle={detail?.title||''}
+            onInsert={handleInsertTemplate}
+            onClose={()=>setInsertTemplateOpen(false)}/>
+        </LazyOverlay>
+      )}
+      <AppConfirmDialog
+        request={confirmRequest}
+        onCancel={()=>settleConfirm(false)}
+        onConfirm={()=>settleConfirm(true)}/>
       <Toasts toasts={toasts}/>
       <UpdateBanner/>
       <ActivationToast visible={celebrating} onDone={()=>{setCelebrating(false);setSection('graph')}}/>

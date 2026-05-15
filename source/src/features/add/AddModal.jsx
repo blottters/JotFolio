@@ -1,303 +1,750 @@
-import { useState, useRef, useId, useEffect, useMemo } from "react";
-import { marked } from 'marked';
-import { ALL_ENTRY_TYPES, ICON, LABEL, STATUSES, NO_URL_TYPES, today, displayStatus } from '../../lib/types.js';
+import { useMemo, useRef, useState } from "react";
+import { STATUSES, today } from '../../lib/types.js';
 import { isSafeUrl, normalizeTags, pickEntryFields, withAlpha } from '../../lib/storage.js';
-import { countWords } from '../../lib/plugin/builtinPlugins/wordCountStats.js';
 import { useEscapeKey, useAutoFocus } from '../../lib/hooks.js';
-import { injectNoteCss, sanitizeHtml } from '../../lib/markdown.js';
-import { IconButton } from '../primitives/IconButton.jsx';
-import { TagSuggestions } from '../primitives/TagSuggestions.jsx';
-import { Select } from '../dropdowns/Select.jsx';
 
-// ── Add Modal ─────────────────────────────────────────────────────────────
-// FIX: initialType prop pre-selects the type; existingUrls enables inline dup warning
-// FIX: ids.journalDate and ids.consumedDate are two distinct IDs — no collision
-// FIX: window.confirm replaced with inline amber banner + "Save anyway" button
-export function AddModal({initialType='video',quickCapture=false,existingUrls,allTags,onImportFile,onClose,onAdd,flags={}}){
-  const knowledgeFlagMap={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
-  const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!knowledgeFlagMap[t]||flags[knowledgeFlagMap[t]]===true);
-  const[type,setType]=useState(initialType);
-  const[form,setForm]=useState({
-    title:'',url:'',notes:'',tags:'',
-    status:STATUSES[initialType]?.[0]??STATUSES.video[0],
-    channel:'',duration:'',guest:'',episode:'',highlight:'',
-    entry_date:initialType==='journal'?today():''
+const ASSET_ROOT = '/jotfolio-assets/icons';
+
+const CAPTURE_TYPES = [
+  { id: 'note', label: 'Note', asset: 'entry-note.svg', accent: '#5aa7ff' },
+  { id: 'journal', label: 'Journal', asset: 'entry-journal.svg', accent: '#4ade80' },
+  { id: 'article', label: 'Article', asset: 'entry-article.svg', accent: '#f59e0b' },
+  { id: 'podcast', label: 'Podcast', asset: 'entry-podcast.svg', accent: '#a855f7' },
+  { id: 'video', label: 'Video', asset: 'entry-video.svg', accent: '#ef4444' },
+  { id: 'link', label: 'Link', asset: 'entry-link.svg', accent: '#22c55e' },
+  { id: 'canvas', label: 'Canvas', asset: 'entry-canvas.svg', accent: '#f97316' },
+  { id: 'raw', label: 'Raw', asset: 'entry-raw.svg', accent: '#94a3b8' },
+];
+
+const CONTENT_TABS = ['Markdown', 'Link', 'Transcript', 'Attachment', 'Canvas'];
+
+const TEMPLATE_OPTIONS = {
+  'Research Note': title => `# ${title || 'Research Note'}\n\n## Summary\n\n\n## Key points\n- \n\n## Source\n\n\n## Next action\n- `,
+  'Meeting Notes': title => `# ${title || 'Meeting Notes'}\n\n## Attendees\n- \n\n## Decisions\n- \n\n## Follow-ups\n- [ ] `,
+  'Project Brief': title => `# ${title || 'Project Brief'}\n\n## Goal\n\n\n## Scope\n\n\n## Milestones\n- `,
+  'Daily Journal': title => `# ${title || 'Daily Journal'}\n\n## Wins\n- \n\n## Notes\n\n\n## Tomorrow\n- `,
+};
+
+const DEFAULT_TAGS = ['research', 'local-first', 'productivity'];
+const DEFAULT_TAG_SUGGESTIONS = ['research', 'local-first', 'productivity', 'design', 'planning', 'ideas', 'capture'];
+const FOLDERS = ['Inbox', 'Projects', 'Notes', 'Research', 'Work', 'Writing', 'Personal'];
+
+function supportedType(type) {
+  return CAPTURE_TYPES.some(item => item.id === type) ? type : 'note';
+}
+
+function sanitizeFileName(value) {
+  const clean = String(value || 'New Research Entry')
+    .replace(/[<>:"/\\|?*]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean || 'New Research Entry';
+}
+
+function pathFor(folder, title, type) {
+  const extension = type === 'canvas' ? '.canvas.json' : '.md';
+  return `/Vault/${folder}/${sanitizeFileName(title)}${extension}`;
+}
+
+function normalizeProjectContext(projectContext) {
+  if (!projectContext) return null;
+  if (typeof projectContext === 'string') return { id: projectContext, title: projectContext, path: '' };
+  const id = String(projectContext.id || projectContext.title || '').trim();
+  const title = String(projectContext.title || projectContext.id || '').trim();
+  if (!id && !title) return null;
+  return {
+    id: id || title,
+    title: title || id,
+    path: projectContext.path || projectContext._path || '',
+    tags: Array.isArray(projectContext.tags) ? projectContext.tags : [],
+  };
+}
+
+function inputStyle(extra = {}) {
+  return {
+    width: '100%',
+    minHeight: 42,
+    boxSizing: 'border-box',
+    border: '1px solid rgba(118, 137, 160, 0.22)',
+    borderRadius: 7,
+    background: 'rgba(12, 17, 23, 0.46)',
+    color: 'var(--tx)',
+    fontFamily: 'var(--fn)',
+    fontSize: 13,
+    outline: 'none',
+    padding: '9px 12px',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.025)',
+    ...extra,
+  };
+}
+
+function fieldLabelStyle(extra = {}) {
+  return {
+    display: 'block',
+    marginBottom: 6,
+    color: 'var(--t2)',
+    fontSize: 12,
+    fontWeight: 700,
+    ...extra,
+  };
+}
+
+function modalButtonStyle(kind = 'quiet') {
+  const isPrimary = kind === 'primary';
+  return {
+    minHeight: 40,
+    padding: '0 18px',
+    borderRadius: 7,
+    border: isPrimary ? '1px solid rgba(76, 150, 255, 0.72)' : '1px solid rgba(118, 137, 160, 0.22)',
+    background: isPrimary
+      ? 'linear-gradient(180deg, #3f8ff2 0%, #2f73c8 100%)'
+      : 'rgba(16, 23, 31, 0.62)',
+    color: isPrimary ? '#fff' : 'var(--tx)',
+    cursor: 'pointer',
+    fontFamily: 'var(--fn)',
+    fontSize: 13,
+    fontWeight: isPrimary ? 800 : 650,
+    boxShadow: isPrimary ? '0 14px 26px rgba(47, 115, 200, 0.22)' : 'none',
+  };
+}
+
+function iconPath(asset) {
+  return `${ASSET_ROOT}/entry-types/${asset}`;
+}
+
+export function AddModal({
+  initialType = 'note',
+  existingUrls,
+  allTags,
+  initialFolder,
+  projectContext,
+  quickCapture = false,
+  onImportFile,
+  onClose,
+  onAdd,
+  onCreateCanvas,
+}) {
+  const projectTarget = normalizeProjectContext(projectContext);
+  const startingType = supportedType(initialType);
+  const quickNote = quickCapture && startingType === 'note';
+  const [type, setType] = useState(startingType);
+  const [form, setForm] = useState({
+    title: quickNote ? '' : 'New Research Entry',
+    url: quickNote ? '' : 'https://example.com/research',
+    notes: '',
   });
-  const[urlError,setUrlError]=useState('');
-  const[dupWarning,setDupWarning]=useState(false);
-  const[dirty,setDirty]=useState(false);
-  const[confirmDiscard,setConfirmDiscard]=useState(false);
-  const[previewOpen,setPreviewOpen]=useState(false);
-  const titleInputRef=useRef(null);
-  const notesRef=useRef(null);
-  useEscapeKey(true,()=>tryClose());
+  const [tags, setTags] = useState(DEFAULT_TAGS);
+  const [tagDraft, setTagDraft] = useState('');
+  const [template, setTemplate] = useState('Research Note');
+  const [folder, setFolder] = useState(initialFolder || (projectTarget ? 'Projects' : 'Inbox'));
+  const [contentTab, setContentTab] = useState('Markdown');
+  const [urlError, setUrlError] = useState('');
+  const [dupWarning, setDupWarning] = useState(null);
+  const [dirty, setDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const titleInputRef = useRef(null);
+  const contentRef = useRef(null);
+
+  useEscapeKey(true, () => tryClose());
   useAutoFocus(titleInputRef);
-  useEffect(()=>{if(type==='journal')injectNoteCss()},[type]);
-  // No window.confirm — dirty forms show an inline discard banner instead
-  const tryClose=()=>{if(dirty){setConfirmDiscard(true);return;}onClose()};
-  const update=key=>e=>{
-    setDirty(true);setConfirmDiscard(false);
-    if(key==='url'){setUrlError('');setDupWarning(false);}
-    setForm(prev=>({...prev,[key]:e.target.value}));
-  };
-  const onDrop=async e=>{
-    e.preventDefault();
-    const u=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain');
-    if(u){
-      if(isSafeUrl(u)){setForm(p=>({...p,url:u}));setUrlError('');setDupWarning(false);}
-      else setUrlError('Only http(s) URLs are accepted.');
+
+  const tagSuggestions = useMemo(() => {
+    const source = [...DEFAULT_TAG_SUGGESTIONS, ...(allTags || [])];
+    return [...new Set(source.map(tag => String(tag).trim().toLowerCase()).filter(Boolean))];
+  }, [allTags]);
+
+  const localPathPreview = useMemo(
+    () => pathFor(folder, form.title, type),
+    [folder, form.title, type]
+  );
+
+  const setField = key => event => {
+    setDirty(true);
+    setConfirmDiscard(false);
+    if (key === 'url') {
+      setUrlError('');
+      setDupWarning(null);
     }
-    const file=e.dataTransfer.files?.[0];
-    if(file){
-      setDirty(true);
-      const importedPath=onImportFile?await onImportFile(file):null;
-      const attachmentLine=importedPath?`📎 [${file.name}](${importedPath})`:`📎 ${file.name}`;
-      setForm(p=>({...p,title:p.title||file.name.replace(/\.[^.]+$/,''),notes:p.notes?`${p.notes}\n${attachmentLine}`:attachmentLine}));
+    setForm(previous => ({ ...previous, [key]: event.target.value }));
+  };
+
+  const tryClose = () => {
+    if (dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
+    onClose();
+  };
+
+  const chooseType = nextType => {
+    setType(nextType);
+    setDirty(true);
+    setConfirmDiscard(false);
+    setStatusMessage('');
+    if (nextType === 'journal') setTemplate('Daily Journal');
+  };
+
+  const addTag = value => {
+    const clean = String(value || '').trim().replace(/^#/, '').toLowerCase();
+    if (!clean) return;
+    setTags(previous => previous.includes(clean) ? previous : [...previous, clean]);
+    setTagDraft('');
+    setDirty(true);
+  };
+
+  const removeTag = tag => {
+    setTags(previous => previous.filter(item => item !== tag));
+    setDirty(true);
+  };
+
+  const applyTemplate = () => {
+    const templateBody = TEMPLATE_OPTIONS[template]?.(form.title) || '';
+    setForm(previous => ({ ...previous, notes: templateBody }));
+    setContentTab('Markdown');
+    setDirty(true);
+    setStatusMessage(`${template} applied`);
+    requestAnimationFrame(() => contentRef.current?.focus());
+  };
+
+  const openSourceUrl = () => {
+    const url = form.url.trim();
+    if (!url || !isSafeUrl(url)) {
+      setUrlError('Use a full http(s) source URL.');
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyLocalPath = async () => {
+    try {
+      await navigator.clipboard?.writeText(localPathPreview);
+      setStatusMessage('Local path copied');
+    } catch {
+      setStatusMessage(localPathPreview);
     }
   };
 
-  // Shared save logic — bypasses dup check (used by "Save anyway")
-  const doSave=()=>{const cleaned=pickEntryFields(form,type);onAdd({type,...cleaned,tags:normalizeTags(form.tags)})};
+  const onDrop = async event => {
+    event.preventDefault();
+    const droppedUrl = event.dataTransfer.getData('text/uri-list') || event.dataTransfer.getData('text/plain');
+    if (droppedUrl) {
+      if (isSafeUrl(droppedUrl)) {
+        setForm(previous => ({ ...previous, url: droppedUrl }));
+        setUrlError('');
+      } else {
+        setUrlError('Only http(s) URLs are accepted.');
+      }
+    }
 
-  const save=()=>{
-    if(form.url&&!isSafeUrl(form.url)){setUrlError('URL must start with http:// or https://');return;}
-    // FIX: inline warning instead of window.confirm
-    if(form.url&&existingUrls?.has(form.url)){setDupWarning(true);return;}
-    doSave();
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    const importedPath = onImportFile ? await onImportFile(file) : null;
+    const attachmentLine = importedPath ? `[${file.name}](${importedPath})` : file.name;
+    setContentTab('Attachment');
+    setForm(previous => ({
+      ...previous,
+      title: previous.title || file.name.replace(/\.[^.]+$/, ''),
+      notes: previous.notes ? `${previous.notes}\nAttachment: ${attachmentLine}` : `Attachment: ${attachmentLine}`,
+    }));
+    setDirty(true);
+    setStatusMessage('Attachment added');
   };
 
-  const is={padding:'8px 10px',background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--tx)',fontFamily:'var(--fn)',fontSize:13,outline:'none',boxSizing:'border-box',width:'100%'};
-  const ls={fontSize:12,fontWeight:700,color:'var(--t3)',marginBottom:3,display:'block'};
-  const isQuickNote=type==='note';
-  const isJournalEditor=type==='journal';
-  const isRawCapture=type==='raw';
-  const isWikiEntry=type==='wiki';
-  const isReviewEntry=type==='review';
-  const noteWordCount=countWords(form.notes);
-  const noteCharCount=String(form.notes||'').length;
-  const journalPreviewHtml=useMemo(()=>{
-    if(!isJournalEditor||!form.notes)return'';
-    try{return sanitizeHtml(marked.parse(form.notes,{breaks:true,gfm:true}))}
-    catch(err){console.error('marked.parse failed in AddModal preview',err);return sanitizeHtml(form.notes)}
-  },[form.notes,isJournalEditor]);
-  const changeType=t=>{
-    setType(t);setPreviewOpen(false);
-    setForm(p=>({...p,status:STATUSES[t][0],entry_date:t==='journal'&&!p.entry_date?today():p.entry_date}));
+  const buildPayload = destination => {
+    const status = STATUSES[type]?.[0] || 'captured';
+    const sourceLine = form.url.trim() ? `Source: ${form.url.trim()}` : '';
+    const body = [
+      form.notes.trim(),
+      sourceLine,
+      `Template: ${template}`,
+      `Folder: ${folder}`,
+      `Capture mode: ${contentTab}`,
+    ].filter(Boolean).join('\n\n');
+    const projectValue = projectTarget?.id || '';
+    const projectTags = projectTarget ? ['project', ...projectTarget.tags] : [];
+    const safeForm = {
+      title: form.title.trim() || 'New Research Entry',
+      url: form.url.trim(),
+      notes: body,
+      tags: normalizeTags(destination === 'project' || projectTarget ? [...tags, ...projectTags] : tags),
+      status,
+      entry_date: today(),
+      project: projectValue || (destination === 'project' ? 'JotFolio 2.0' : ''),
+    };
+    return {
+      type,
+      ...pickEntryFields(safeForm, type),
+      tags: safeForm.tags,
+      project: safeForm.project,
+      ...(projectTarget ? {
+        project_title: projectTarget.title,
+        project_path: projectTarget.path,
+      } : {}),
+    };
   };
-  const insertMarkdown=(before,after='',placeholder='text')=>{
-    setDirty(true);setConfirmDiscard(false);
-    const ta=notesRef.current;
-    const current=form.notes||'';
-    const start=ta?.selectionStart??current.length;
-    const end=ta?.selectionEnd??current.length;
-    const selected=current.slice(start,end)||placeholder;
-    const next=current.slice(0,start)+before+selected+after+current.slice(end);
-    setForm(p=>({...p,notes:next}));
-    requestAnimationFrame(()=>{
-      if(!ta)return;
-      const caret=start+before.length+selected.length+after.length;
-      ta.focus();ta.setSelectionRange(caret,caret);
-    });
+
+  const saveEntry = async (destination = 'inbox', ignoreDuplicate = false) => {
+    if (type === 'canvas' && onCreateCanvas) {
+      await onCreateCanvas(form.title.trim() || 'New Canvas');
+      onClose();
+      return;
+    }
+
+    const url = form.url.trim();
+    if (url && !isSafeUrl(url)) {
+      setUrlError('URL must start with http:// or https://.');
+      return;
+    }
+    if (!ignoreDuplicate && url && existingUrls?.has(url)) {
+      setDupWarning(destination);
+      return;
+    }
+
+    onAdd(buildPayload(destination));
   };
-  const insertLineMarkdown=(prefix,placeholder='List item')=>{
-    setDirty(true);setConfirmDiscard(false);
-    const ta=notesRef.current;
-    const current=form.notes||'';
-    const start=ta?.selectionStart??current.length;
-    const lineStart=current.lastIndexOf('\n',Math.max(0,start-1))+1;
-    const needsNewline=lineStart!==start&&current[start-1]!=='\n';
-    const insertion=(needsNewline?'\n':'')+prefix+placeholder;
-    const next=current.slice(0,start)+insertion+current.slice(start);
-    setForm(p=>({...p,notes:next}));
-    requestAnimationFrame(()=>{
-      if(!ta)return;
-      const caret=start+insertion.length;
-      ta.focus();ta.setSelectionRange(caret,caret);
-    });
+
+  const onFormKeyDown = event => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      saveEntry('inbox');
+    }
   };
-  const journalTools=[
-    ['Heading 1','H1',()=>insertLineMarkdown('# ','Heading')],
-    ['Heading 2','H2',()=>insertLineMarkdown('## ','Heading')],
-    ['Heading 3','H3',()=>insertLineMarkdown('### ','Heading')],
-    ['Bold','B',()=>insertMarkdown('**','**','bold text')],
-    ['Italic','i',()=>insertMarkdown('*','*','italic text')],
-    ['Strikethrough','S',()=>insertMarkdown('~~','~~','struck text')],
-    ['Underline','U',()=>insertMarkdown('<u>','</u>','underlined text')],
-    ['Bulleted list','• List',()=>insertLineMarkdown('- ')],
-    ['Numbered list','1.',()=>insertLineMarkdown('1. ')],
-    ['Task list','☐ Task',()=>insertLineMarkdown('- [ ] ','Task')],
-    ['Link','🔗 Link',()=>insertMarkdown('[','](https://example.com)','link text')],
-    ['Image','🖼 Image',()=>insertMarkdown('![','](attachments/image.png)','alt text')],
-    ['Table','▦ Table',()=>insertMarkdown('| Column A | Column B |\n| --- | --- |\n| Value | Value |\n','','')],
-    ['Quote','❝ Quote',()=>insertLineMarkdown('> ','Quote')],
-    ['Inline code','{ } Code',()=>insertMarkdown('`','`','code')],
-    ['Code block','Code block',()=>insertMarkdown('```\n','\n```','code block')],
-    ['Wiki link','[[Wiki]]',()=>insertMarkdown('[[',']]','Linked note')],
-    ['Divider','Divider',()=>insertMarkdown('\n---\n','','')],
-    ['Callout','Callout',()=>insertMarkdown('> [!note]\n> ','','Callout text')],
-  ];
-  const modalTitle=quickCapture?'Quick Note':isQuickNote?'New Quick Note':isJournalEditor?'New Journal Entry':`New ${LABEL[type]||'Entry'}`;
-  const dropCopy=isQuickNote
-    ? 'Notes are for quick capture. Keep it fast: title, tags, jot, save.'
-    : isJournalEditor
-      ? 'Journal entries are date-first and writing-heavy. Use the full editor for the daily body.'
-      : isRawCapture
-        ? 'Inbox captures are for unprocessed source material. Save rough input now; process it later.'
-        : isWikiEntry
-          ? 'Wiki entries are durable knowledge notes meant to connect through [[wiki links]].'
-          : isReviewEntry
-            ? 'Review entries track things that need a decision, acceptance, or rejection.'
-            : 'Drop an http(s) URL or file here. Files are copied into attachments/ and linked in notes.';
-  // FIX: two separate IDs — journalDate (top, journal only) and consumedDate (bottom, non-journal)
-  const ids={title:useId(),url:useId(),channel:useId(),duration:useId(),guest:useId(),episode:useId(),highlight:useId(),status:useId(),tags:useId(),notes:useId(),journalDate:useId(),consumedDate:useId()};
-  // Quick-capture: Cmd/Ctrl+Enter saves; Esc closes (handled by useEscapeKey).
-  const onFormKeyDown=e=>{
-    if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();save()}
-  };
-  return(
-    <div role="dialog" aria-modal="true" aria-labelledby="add-modal-title" onClick={e=>{if(e.target===e.currentTarget)tryClose()}}
-      style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div onDrop={onDrop} onDragOver={e=>e.preventDefault()} onKeyDown={onFormKeyDown}
-        style={{background:'var(--bg)',border:'2px solid var(--br)',borderRadius:'var(--rd)',width:isJournalEditor?'min(820px,95vw)':'min(560px,95vw)',maxHeight:'90vh',display:'flex',flexDirection:'column',overflow:'hidden',boxSizing:'border-box'}}>
-        <div style={{display:'flex',alignItems:'center',padding:'20px 24px 14px',borderBottom:'1px solid var(--br)',flexShrink:0}}>
-          <h3 id="add-modal-title" style={{margin:0,fontSize:16,fontWeight:700}}>{modalTitle}</h3>
-          {quickCapture&&<span style={{marginLeft:10,fontSize:10,color:'var(--t3)',letterSpacing:.5}}>Ctrl/⌘+Enter to save</span>}
-          {dirty&&<span aria-live="polite" style={{marginLeft:10,fontSize:10,fontWeight:700,color:'var(--t3)',letterSpacing:.5,textTransform:'uppercase'}}>• unsaved</span>}
-          <IconButton onClick={tryClose} label="Close" style={{marginLeft:'auto',fontSize:22}}>×</IconButton>
+
+  const activeType = CAPTURE_TYPES.find(item => item.id === type) || CAPTURE_TYPES[0];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="capture-modal-title"
+      onClick={event => {
+        if (event.target === event.currentTarget) tryClose();
+      }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 320,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 18,
+        background: 'rgba(3, 7, 11, 0.72)',
+      }}
+    >
+      <div
+        onDrop={onDrop}
+        onDragOver={event => event.preventDefault()}
+        onKeyDown={onFormKeyDown}
+        style={{
+          width: 'min(968px, calc(100vw - 28px))',
+          maxHeight: 'calc(100vh - 36px)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          border: '1px solid rgba(118, 137, 160, 0.26)',
+          borderRadius: 9,
+          background: 'linear-gradient(180deg, #1d242c 0%, #171e25 48%, #151b21 100%)',
+          color: 'var(--tx)',
+          boxShadow: '0 30px 90px rgba(0,0,0,0.46), inset 0 1px 0 rgba(255,255,255,0.035)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            minHeight: 58,
+            padding: '0 30px',
+            borderBottom: '1px solid rgba(118, 137, 160, 0.16)',
+          }}
+        >
+          <h2 id="capture-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: 0 }}>
+            Capture / New Entry
+          </h2>
+          {dirty && (
+            <span aria-live="polite" style={{ marginLeft: 12, fontSize: 11, color: 'var(--t3)', fontWeight: 700 }}>
+              Unsaved
+            </span>
+          )}
+          <button
+            type="button"
+            aria-label="Close capture"
+            onClick={tryClose}
+            style={{
+              marginLeft: 'auto',
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--t2)',
+              cursor: 'pointer',
+              fontSize: 24,
+              lineHeight: 1,
+              fontFamily: 'var(--fn)',
+            }}
+          >
+            ×
+          </button>
         </div>
-        <div style={{overflowY:'auto',padding:'14px 24px 18px',minHeight:0,flex:1}}>
-          {!quickCapture&&(<div role="radiogroup" aria-label="Entry type" style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(6,visibleEntryTypes.length)||1},1fr)`,gap:6,marginBottom:14}}>
-            {visibleEntryTypes.map(t=>(
-              <button key={t} role="radio" aria-checked={type===t}
-                onClick={()=>changeType(t)}
-                style={{padding:'7px 4px',border:`2px solid ${type===t?'var(--ac)':'var(--br)'}`,borderRadius:'var(--rd)',background:type===t?'var(--ac)':'transparent',color:type===t?'var(--act)':'var(--t2)',cursor:'pointer',fontSize:12,fontFamily:'var(--fn)',fontWeight:type===t?700:400}}>
-                {ICON[t]} {LABEL[t]}
-              </button>
-            ))}
-          </div>)}
-          {!quickCapture&&<div style={{padding:10,background:'var(--b2)',border:'2px dashed var(--br)',borderRadius:'var(--rd)',textAlign:'center',fontSize:12,color:'var(--t3)',marginBottom:14}}>{dropCopy}</div>}
-          <div style={{display:'flex',flexDirection:'column',gap:11}}>
-          {type==='journal'&&(
-            <div>
-              <label htmlFor={ids.journalDate} style={{...ls,color:'var(--ac)'}}>Journal Date</label>
-              <input id={ids.journalDate} type="date" style={is} value={form.entry_date} max={today()} onChange={update('entry_date')}/>
-            </div>
+
+        <div style={{ overflowY: 'auto', padding: '20px 32px 22px', minHeight: 0 }}>
+          {!quickNote && (
+            <>
+              <div style={{ marginBottom: 12, color: 'var(--tx)', fontSize: 12, fontWeight: 700 }}>Choose entry type</div>
+              <div
+                role="radiogroup"
+                aria-label="Entry type"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                  gap: 10,
+                  marginBottom: 20,
+                }}
+              >
+                {CAPTURE_TYPES.map(item => {
+                  const selected = item.id === type;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => chooseType(item.id)}
+                      style={{
+                        height: 96,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 9,
+                        border: `1px solid ${selected ? item.accent : 'rgba(118, 137, 160, 0.19)'}`,
+                        borderRadius: 8,
+                        background: selected ? withAlpha(item.accent, 0.08) : 'rgba(14, 20, 27, 0.46)',
+                        color: 'var(--tx)',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--fn)',
+                        fontSize: 13,
+                        fontWeight: 750,
+                        boxShadow: selected ? `0 0 0 1px ${withAlpha(item.accent, 0.16)} inset` : 'none',
+                      }}
+                    >
+                      <img src={iconPath(item.asset)} alt="" aria-hidden="true" style={{ width: 27, height: 27 }} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
-          <div><label htmlFor={ids.title} style={ls}>Title</label><input ref={titleInputRef} id={ids.title} style={is} value={form.title} onChange={update('title')} placeholder="Entry title"/></div>
-          {type!=='journal'&&!NO_URL_TYPES.has(type)&&(
+
+          <div style={{ display: 'grid', gap: 16 }}>
             <div>
-              <label htmlFor={ids.url} style={ls}>URL</label>
-              <input id={ids.url} style={is} value={form.url}
-                onChange={e=>{setForm(p=>({...p,url:e.target.value}));setUrlError('');setDupWarning(false);setDirty(true)}}
-                placeholder="https://…" aria-invalid={!!(urlError||dupWarning)} aria-describedby={urlError?`${ids.url}-error`:dupWarning?`${ids.url}-dup`:undefined}/>
-              {urlError&&<div id={`${ids.url}-error`} style={{fontSize:11,color:'#ef4444',marginTop:4}}>{urlError}</div>}
-              {/* FIX: inline dup warning with dismiss + save-anyway — no window.confirm */}
-              {dupWarning&&(
-                <div id={`${ids.url}-dup`} role="alert"
-                  style={{marginTop:8,padding:'10px 14px',background:withAlpha('#f59e0b',0.1),border:'1px solid #f59e0b',borderRadius:'var(--rd)',fontSize:12,color:'var(--tx)',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-                  <span style={{flex:1}}>⚠️ You already have an entry with this URL.</span>
-                  <div style={{display:'flex',gap:6,flexShrink:0}}>
-                    <button type="button" onClick={()=>setDupWarning(false)}
-                      style={{padding:'3px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
-                      Dismiss
-                    </button>
-                    <button type="button" onClick={doSave}
-                      style={{padding:'3px 10px',fontSize:11,border:'1px solid #f59e0b',borderRadius:'var(--rd)',background:'#f59e0b',color:'#000',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-                      Save anyway
-                    </button>
-                  </div>
+              <label htmlFor="capture-title" style={fieldLabelStyle()}>Title</label>
+              <input
+                ref={titleInputRef}
+                id="capture-title"
+                value={form.title}
+                onChange={setField('title')}
+                style={inputStyle()}
+              />
+            </div>
+
+            {!quickNote && (
+              <div>
+                <label htmlFor="capture-source-url" style={fieldLabelStyle()}>Source URL</label>
+                <div style={{ display: 'flex' }}>
+                  <input
+                    id="capture-source-url"
+                    value={form.url}
+                    onChange={setField('url')}
+                    aria-invalid={!!urlError}
+                    style={inputStyle({ borderTopRightRadius: 0, borderBottomRightRadius: 0 })}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Open source URL"
+                    onClick={openSourceUrl}
+                    style={{
+                      width: 54,
+                      border: '1px solid rgba(118, 137, 160, 0.22)',
+                      borderLeft: 'none',
+                      borderRadius: '0 7px 7px 0',
+                      background: 'rgba(12, 17, 23, 0.46)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <img src={`${ASSET_ROOT}/actions/link-entry.svg`} alt="" aria-hidden="true" style={{ width: 20, height: 20 }} />
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-          {type==='video'&&<><div><label htmlFor={ids.channel} style={ls}>Channel</label><input id={ids.channel} style={is} value={form.channel} onChange={update('channel')} placeholder="Channel or creator"/></div><div><label htmlFor={ids.duration} style={ls}>Duration</label><input id={ids.duration} style={is} value={form.duration} onChange={update('duration')} placeholder="e.g. 45 min"/></div></>}
-          {type==='podcast'&&<><div><label htmlFor={ids.guest} style={ls}>Guest / Host</label><input id={ids.guest} style={is} value={form.guest} onChange={update('guest')} placeholder="Guest or host"/></div><div><label htmlFor={ids.episode} style={ls}>Episode #</label><input id={ids.episode} style={is} value={form.episode} onChange={update('episode')} placeholder="e.g. Ep. 42"/></div><div><label htmlFor={ids.highlight} style={ls}>Key Highlight</label><textarea id={ids.highlight} style={{...is,height:60,resize:'vertical'}} value={form.highlight} onChange={update('highlight')} placeholder="A moment worth remembering…"/></div></>}
-          <div><span style={ls}>Status</span><Select ariaLabel="Status" value={form.status} onChange={v=>update('status')({target:{value:v}})} options={STATUSES[type].map(s=>({value:s,label:displayStatus(s)}))}/></div>
-          <div>
-            <label htmlFor={ids.tags} style={ls}>Tags <span style={{fontWeight:400,color:'var(--t3)'}}>(comma-separated)</span></label>
-            <input id={ids.tags} style={is} value={form.tags} onChange={update('tags')} placeholder="ai, research, dev…"/>
-            <TagSuggestions value={form.tags} onChange={v=>{setForm(p=>({...p,tags:v}));setDirty(true)}} allTags={allTags}/>
-          </div>
-          {isQuickNote?(
-            <div>
-              <div style={{padding:'10px 12px',border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)',fontSize:12,color:'var(--t2)',lineHeight:1.45,marginBottom:8}}>
-                <strong style={{color:'var(--tx)'}}>Quick note mode:</strong> fast scratch capture, idea parking, small reminders, and loose observations. Use Journals for dated long-form writing.
+                {urlError && <div role="alert" style={{ marginTop: 6, color: '#f87171', fontSize: 12 }}>{urlError}</div>}
               </div>
-              <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
-                <label htmlFor={ids.notes} style={{...ls,marginBottom:0}}>Jot it down</label>
-                <span style={{marginLeft:'auto',fontSize:11,color:'var(--t3)'}}>{noteWordCount} words · {noteCharCount} chars</span>
-              </div>
-              <textarea id={ids.notes} style={{...is,height:130,minHeight:110,resize:'vertical',lineHeight:1.55}} value={form.notes} onChange={update('notes')} placeholder="Quick thought, reminder, idea, or snippet..."/>
-            </div>
-          ):isJournalEditor?(
-            <div>
-              <div style={{display:'flex',alignItems:'baseline',gap:8,marginBottom:5}}>
-                <label htmlFor={ids.notes} style={{...ls,marginBottom:0}}>Journal body</label>
-                <span style={{marginLeft:'auto',fontSize:11,color:'var(--t3)'}}>{noteWordCount} words · {noteCharCount} chars</span>
-                <button type="button" onClick={()=>setPreviewOpen(o=>!o)}
-                  style={{padding:'4px 8px',border:'1px solid var(--br)',borderRadius:8,background:'var(--b2)',color:'var(--tx)',fontFamily:'var(--fn)',fontSize:11,fontWeight:700,cursor:'pointer'}}>
-                  {previewOpen?'Hide preview':'Show preview'}
-                </button>
-              </div>
-              <div style={{border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'var(--b2)',overflow:'hidden'}}>
-                <div aria-label="Markdown formatting toolbar" role="toolbar"
-                  style={{display:'flex',gap:4,alignItems:'center',flexWrap:'wrap',padding:'8px 9px',borderBottom:'1px solid var(--br)',background:'var(--bg)'}}>
-                  {journalTools.map(([label,text,action])=>(
-                    <button key={label} type="button" aria-label={label} title={label} onClick={action}
-                      style={{minWidth:26,padding:'4px 7px',border:'1px solid var(--br)',borderRadius:8,background:'transparent',color:'var(--t2)',fontFamily:'var(--fn)',fontSize:11,cursor:'pointer'}}>
-                      {text}
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(240px, 0.9fr)', gap: 14 }}>
+              <div>
+                <label htmlFor="capture-tag-input" style={fieldLabelStyle()}>Tags</label>
+                <div
+                  style={{
+                    minHeight: 44,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    flexWrap: 'wrap',
+                    border: '1px solid rgba(118, 137, 160, 0.22)',
+                    borderRadius: 7,
+                    background: 'rgba(12, 17, 23, 0.46)',
+                    padding: '6px 8px',
+                  }}
+                >
+                  {tags.map(tag => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => removeTag(tag)}
+                      aria-label={`Remove ${tag} tag`}
+                      style={{
+                        minHeight: 25,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        border: '1px solid rgba(118, 137, 160, 0.22)',
+                        borderRadius: 7,
+                        background: 'rgba(35, 45, 57, 0.76)',
+                        color: 'var(--tx)',
+                        fontSize: 12,
+                        fontFamily: 'var(--fn)',
+                        cursor: 'pointer',
+                        padding: '0 9px',
+                      }}
+                    >
+                      {tag} <span style={{ color: 'var(--t3)' }}>x</span>
                     </button>
                   ))}
-                </div>
-                <textarea ref={notesRef} id={ids.notes}
-                  style={{...is,height:200,minHeight:150,maxHeight:280,resize:'vertical',border:'none',borderRadius:0,background:'transparent',lineHeight:1.65,fontFamily:'var(--fn)'}}
-                  value={form.notes} onChange={update('notes')}
-                  placeholder="Write the dated journal entry. Markdown works here: headings, lists, links, quotes, code, and [[wiki links]]."/>
-                {previewOpen&&(
-                  <div className="mgn-md" aria-label="Journal markdown preview"
-                    style={{borderTop:'1px solid var(--br)',padding:'12px 14px',background:'var(--bg)',minHeight:90}}
-                    dangerouslySetInnerHTML={{__html:journalPreviewHtml||'<p style="color:var(--t3);font-style:italic">Nothing to preview yet.</p>'}}
+                  <input
+                    id="capture-tag-input"
+                    value={tagDraft}
+                    list="capture-tag-suggestions"
+                    onChange={event => setTagDraft(event.target.value)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ',') {
+                        event.preventDefault();
+                        addTag(tagDraft);
+                      }
+                    }}
+                    onBlur={() => addTag(tagDraft)}
+                    aria-label="Add tag"
+                    style={{
+                      flex: '1 1 90px',
+                      minWidth: 80,
+                      border: 'none',
+                      outline: 'none',
+                      background: 'transparent',
+                      color: 'var(--tx)',
+                      fontFamily: 'var(--fn)',
+                      fontSize: 13,
+                    }}
                   />
-                )}
+                  <datalist id="capture-tag-suggestions">
+                    {tagSuggestions.map(tag => <option key={tag} value={tag} />)}
+                  </datalist>
+                  <button
+                    type="button"
+                    aria-label="Add suggested tag"
+                    onClick={() => addTag(tagSuggestions.find(tag => !tags.includes(tag)))}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--t3)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--fn)',
+                      fontSize: 15,
+                    }}
+                  >
+                    ⌄
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="capture-template" style={fieldLabelStyle()}>Template</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <select
+                    id="capture-template"
+                    value={template}
+                    onChange={event => {
+                      setTemplate(event.target.value);
+                      setDirty(true);
+                    }}
+                    style={inputStyle({ appearance: 'auto' })}
+                  >
+                    {Object.keys(TEMPLATE_OPTIONS).map(option => <option key={option}>{option}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    aria-label="Apply selected template"
+                    onClick={applyTemplate}
+                    style={{ ...modalButtonStyle('quiet'), width: 46, padding: 0 }}
+                  >
+                    <img src={`${ASSET_ROOT}/actions/apply-template.svg`} alt="" aria-hidden="true" style={{ width: 19, height: 19 }} />
+                  </button>
+                </div>
               </div>
             </div>
-          ):(
-            <div><label htmlFor={ids.notes} style={ls}>Notes</label><textarea id={ids.notes} style={{...is,height:90,resize:'vertical'}} value={form.notes} onChange={update('notes')} placeholder="Thoughts, summary, highlights…"/></div>
-          )}
-          {type!=='journal'&&(
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.82fr) minmax(300px, 1.18fr)', gap: 14 }}>
+              <div>
+                <label htmlFor="capture-folder" style={fieldLabelStyle()}>Folder</label>
+                <select
+                  id="capture-folder"
+                  value={folder}
+                  onChange={event => {
+                    setFolder(event.target.value);
+                    setDirty(true);
+                  }}
+                  style={inputStyle({ appearance: 'auto' })}
+                >
+                  {FOLDERS.map(option => <option key={option}>{option}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="capture-local-path" style={fieldLabelStyle()}>Local path preview</label>
+                <div style={{ display: 'flex' }}>
+                  <input
+                    id="capture-local-path"
+                    value={localPathPreview}
+                    readOnly
+                    style={inputStyle({ borderTopRightRadius: 0, borderBottomRightRadius: 0, color: 'var(--t2)' })}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Copy local path"
+                    onClick={copyLocalPath}
+                    style={{
+                      width: 54,
+                      border: '1px solid rgba(118, 137, 160, 0.22)',
+                      borderLeft: 'none',
+                      borderRadius: '0 7px 7px 0',
+                      background: 'rgba(12, 17, 23, 0.46)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <img src={`${ASSET_ROOT}/actions/copy-local-path.svg`} alt="" aria-hidden="true" style={{ width: 19, height: 19 }} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div>
-              <label htmlFor={ids.consumedDate} style={{...ls,fontWeight:400}}>Date consumed <span style={{color:'var(--t3)'}}>(optional)</span></label>
-              <input id={ids.consumedDate} type="date" style={is} value={form.entry_date} max={today()} onChange={update('entry_date')}/>
+              <div style={fieldLabelStyle({ marginBottom: 8 })}>Content capture</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                {CONTENT_TABS.map(tab => {
+                  const active = tab === contentTab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => {
+                        setContentTab(tab);
+                        setDirty(true);
+                      }}
+                      style={{
+                        minHeight: 35,
+                        padding: '0 15px',
+                        border: `1px solid ${active ? activeType.accent : 'rgba(118, 137, 160, 0.20)'}`,
+                        borderRadius: 7,
+                        background: active ? withAlpha(activeType.accent, 0.08) : 'rgba(14, 20, 27, 0.42)',
+                        color: active ? '#dbeafe' : 'var(--t2)',
+                        fontFamily: 'var(--fn)',
+                        fontSize: 13,
+                        fontWeight: active ? 750 : 650,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  );
+                })}
+              </div>
+              <textarea
+                ref={contentRef}
+                value={form.notes}
+                onChange={setField('notes')}
+                placeholder={
+                  contentTab === 'Markdown' ? 'Start writing or paste your content...' :
+                  contentTab === 'Link' ? 'Paste the key excerpt or link notes...' :
+                  contentTab === 'Transcript' ? 'Paste or dictate the transcript...' :
+                  contentTab === 'Attachment' ? 'Drop a file here or describe the attachment...' :
+                  'Sketch the canvas idea, nodes, or relationships...'
+                }
+                style={inputStyle({
+                  minHeight: 170,
+                  resize: 'vertical',
+                  lineHeight: 1.55,
+                })}
+              />
+            </div>
+          </div>
+
+          {dupWarning && (
+            <div
+              role="alert"
+              style={{
+                marginTop: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                border: '1px solid #f59e0b',
+                borderRadius: 8,
+                background: withAlpha('#f59e0b', 0.08),
+                padding: '10px 12px',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ flex: 1 }}>That source URL is already in the vault.</span>
+              <button type="button" onClick={() => setDupWarning(null)} style={modalButtonStyle('quiet')}>Dismiss</button>
+              <button type="button" onClick={() => saveEntry(dupWarning, true)} style={modalButtonStyle('primary')}>Save anyway</button>
             </div>
           )}
-          </div>
+
+          {confirmDiscard && (
+            <div
+              role="alert"
+              style={{
+                marginTop: 14,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                border: '1px solid #ef4444',
+                borderRadius: 8,
+                background: withAlpha('#ef4444', 0.08),
+                padding: '10px 12px',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ flex: 1 }}>Discard this capture? Your changes will be lost.</span>
+              <button type="button" onClick={() => setConfirmDiscard(false)} style={modalButtonStyle('quiet')}>Keep editing</button>
+              <button type="button" onClick={onClose} style={modalButtonStyle('primary')}>Discard</button>
+            </div>
+          )}
         </div>
-        {confirmDiscard&&(
-          <div role="alert" style={{margin:'0 24px 10px',padding:'10px 14px',background:withAlpha('#ef4444',0.08),border:'1px solid #ef4444',borderRadius:'var(--rd)',fontSize:12,color:'var(--tx)',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',flexShrink:0}}>
-            <span style={{flex:1}}>Discard this entry? Your changes will be lost.</span>
-            <div style={{display:'flex',gap:6,flexShrink:0}}>
-              <button type="button" onClick={()=>setConfirmDiscard(false)}
-                style={{padding:'3px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>
-                Keep editing
-              </button>
-              <button type="button" onClick={onClose}
-                style={{padding:'3px 10px',fontSize:11,border:'1px solid #ef4444',borderRadius:'var(--rd)',background:'#ef4444',color:'#fff',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
-                Discard
-              </button>
-            </div>
-          </div>
-        )}
-        <div style={{background:'var(--bg)',padding:'10px 24px 20px',borderTop:'1px solid var(--br)',boxShadow:'0 -10px 18px rgba(0,0,0,0.18)',flexShrink:0}}>
-          {type==='journal'&&(
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,fontSize:11,color:'var(--t3)',lineHeight:1.4}}>
-              <span>Markdown journal saved as plain text in your vault.</span>
-              <span style={{marginLeft:'auto',whiteSpace:'nowrap'}}>Ctrl/⌘+Enter saves</span>
-            </div>
-          )}
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={tryClose} style={{flex:1,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13}}>Cancel</button>
-            <button onClick={save} style={{flex:2,padding:10,background:'var(--ac)',color:'var(--act)',border:'none',borderRadius:'var(--rd)',cursor:'pointer',fontFamily:'var(--fn)',fontSize:13,fontWeight:700}}>Save Entry</button>
-          </div>
+
+        <div
+          style={{
+            minHeight: 70,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '0 32px',
+            borderTop: '1px solid rgba(118, 137, 160, 0.16)',
+            background: 'rgba(14, 19, 25, 0.66)',
+          }}
+        >
+          <button type="button" onClick={tryClose} style={modalButtonStyle('quiet')}>Cancel</button>
+          <span aria-live="polite" style={{ marginLeft: 4, color: 'var(--t3)', fontSize: 12, flex: 1 }}>
+            {statusMessage}
+          </span>
+          <button type="button" onClick={applyTemplate} style={modalButtonStyle('quiet')}>Apply Template</button>
+          <button type="button" onClick={() => saveEntry('project')} style={modalButtonStyle('quiet')}>Save to Project</button>
+          <button type="button" onClick={() => saveEntry('inbox')} style={modalButtonStyle('primary')}>Save to Inbox</button>
         </div>
       </div>
     </div>

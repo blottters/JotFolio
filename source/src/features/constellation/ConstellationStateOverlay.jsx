@@ -1,5 +1,4 @@
-// Overlay state cards for Constellation: locked / empty / no-matches.
-// Source: docs/mockups/constellation-redesign StateOverlay (lines 355-420).
+// Overlay state cards for Constellation: locked / empty / no-matches / error.
 // Renders nothing for any other state value.
 
 const wrapStyle = {
@@ -16,19 +15,26 @@ const cardStyle = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: 16,
+  gap: 14,
   textAlign: 'center',
   maxWidth: 400,
-  padding: 32,
+  padding: '30px 34px',
   fontFamily: 'var(--jf-font-sans)'
 };
 
 const glyphStyle = {
-  fontFamily: 'var(--jf-font-display)',
-  fontSize: 56,
+  width: 50,
+  height: 50,
+  borderRadius: '50%',
+  border: '1px solid var(--br)',
+  display: 'grid',
+  placeItems: 'center',
+  fontFamily: 'var(--jf-font-mono)',
+  fontSize: 24,
   color: 'var(--ac)',
   lineHeight: 1,
-  marginBottom: 4
+  marginBottom: 2,
+  background: 'var(--b2)'
 };
 
 const headStyle = {
@@ -42,7 +48,7 @@ const headStyle = {
 const subStyle = {
   fontSize: 13,
   color: 'var(--t2)',
-  maxWidth: 320,
+  maxWidth: 340,
   lineHeight: 1.5
 };
 
@@ -79,25 +85,29 @@ const codeStyle = {
   fontSize: 12
 };
 
-function Shell({ children }) {
+function Shell({ children, tone = 'status' }) {
   return (
-    <div style={wrapStyle} role="status" aria-live="polite">
+    <div
+      style={wrapStyle}
+      role={tone === 'error' ? 'alert' : 'status'}
+      aria-live={tone === 'error' ? 'assertive' : 'polite'}
+    >
       <div style={cardStyle}>{children}</div>
     </div>
   );
 }
 
 function Glyph() {
-  return <div style={glyphStyle} aria-hidden="true">✦</div>;
+  return <div style={glyphStyle} aria-hidden="true">⌁</div>;
 }
 
-export function ConstellationStateOverlay({ state, count, onAdd, onReset }) {
+export function ConstellationStateOverlay({ state, count, onAdd, onReset, message }) {
   if (state === 'locked') {
     return (
       <Shell>
         <Glyph />
         <div style={headStyle}>Graph unlocks at 3 entries.</div>
-        <div style={subStyle}>You have {count}.</div>
+        <div style={subStyle}>You have {count}. Add one more note when the vault is ready to show real relationships.</div>
         <button
           type="button"
           style={primaryBtnStyle}
@@ -116,7 +126,7 @@ export function ConstellationStateOverlay({ state, count, onAdd, onReset }) {
         <Glyph />
         <div style={headStyle}>Nothing's connected yet.</div>
         <div style={subStyle}>
-          Add a few <code style={codeStyle}>[[links]]</code> between entries to see them appear here.
+          Add <code style={codeStyle}>[[links]]</code>, backlinks, or memory sources between entries and the map will start to form.
         </div>
       </Shell>
     );
@@ -127,7 +137,7 @@ export function ConstellationStateOverlay({ state, count, onAdd, onReset }) {
       <Shell>
         <Glyph />
         <div style={headStyle}>No entries match this filter.</div>
-        <div style={subStyle}>Adjust the filters above, or reset.</div>
+        <div style={subStyle}>The graph is intact. This filter combination is just hiding every node.</div>
         <button
           type="button"
           style={ghostBtnStyle}
@@ -136,6 +146,18 @@ export function ConstellationStateOverlay({ state, count, onAdd, onReset }) {
         >
           Reset filters
         </button>
+      </Shell>
+    );
+  }
+
+  if (state === 'error') {
+    return (
+      <Shell tone="error">
+        <Glyph />
+        <div style={headStyle}>Constellation could not render.</div>
+        <div style={subStyle}>
+          {message || 'Reload the graph after the vault finishes indexing. Your notes are not changed by this view.'}
+        </div>
       </Shell>
     );
   }

@@ -21,51 +21,96 @@ import { TRASH_DIR, originalPathFromTrashPath, restoreFromTrash } from '../../li
 import { exportVaultAsZip } from '../../lib/vaultExportZip.js';
 
 // ── Settings Panel ────────────────────────────────────────────────────────
+const safetyCalloutStyle = {
+  padding: 10,
+  background: 'var(--b2)',
+  border: '1px solid var(--br)',
+  borderRadius: 'var(--rd)',
+  fontSize: 11,
+  color: 'var(--t3)',
+  lineHeight: 1.5,
+};
+
+const safetyCardStyle = {
+  padding: 10,
+  background: 'var(--cd)',
+  border: '1px solid var(--br)',
+  borderRadius: 'var(--rd)',
+};
+
+function InlineConfirm({tone='danger',title,detail,confirmLabel='Confirm',busy=false,onConfirm,onCancel}){
+  const danger=tone==='danger';
+  return(
+    <div role="group" aria-label={title}
+      style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap',padding:10,background:danger?'rgba(239,68,68,0.08)':'rgba(59,130,246,0.08)',border:`1px solid ${danger?'rgba(239,68,68,0.4)':'rgba(59,130,246,0.35)'}`,borderRadius:'var(--rd)',marginTop:8}}>
+      <div style={{flex:'1 1 180px',minWidth:0}}>
+        <div style={{fontSize:12,fontWeight:800,color:danger?'#ef4444':'var(--tx)'}}>{title}</div>
+        <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.45,marginTop:2}}>{detail}</div>
+      </div>
+      <button type="button" onClick={onConfirm} disabled={busy}
+        style={{padding:'5px 10px',fontSize:11,border:`1px solid ${danger?'#ef4444':'var(--ac)'}`,borderRadius:'var(--rd)',background:danger?'#ef4444':'var(--ac)',color:danger?'#fff':'var(--act)',cursor:busy?'default':'pointer',fontFamily:'var(--fn)',fontWeight:800}}>
+        {busy?'Working...':confirmLabel}
+      </button>
+      <button type="button" onClick={onCancel} disabled={busy}
+        style={{padding:'5px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:busy?'default':'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function MiniStatus({label,value,tone='neutral'}){
+  const color=tone==='bad'?'#ef4444':tone==='good'?'#10b981':'var(--t2)';
+  return(
+    <div style={safetyCardStyle}>
+      <div style={{fontSize:10,fontWeight:800,letterSpacing:1.4,textTransform:'uppercase',color:'var(--t3)',marginBottom:3}}>{label}</div>
+      <div style={{fontSize:12,fontWeight:800,color,wordBreak:'break-word'}}>{value}</div>
+    </div>
+  );
+}
+
 function TrashReview(){
   const[items,setItems]=useState(null);
   const[busy,setBusy]=useState(false);
   const[error,setError]=useState('');
+  const[confirming,setConfirming]=useState(null);
   const load=async()=>{
-    setBusy(true);setError('');
+    setBusy(true);setError('');setConfirming(null);
     try{
       const files=await vaultAdapter.list();
       setItems(files.filter(f=>f.type!=='folder'&&f.path?.startsWith(`${TRASH_DIR}/`)));
     }catch(err){setError(err.message||'Trash scan failed')}
     finally{setBusy(false)}
   };
-  const restore=async(path)=>{
-    const target=originalPathFromTrashPath(path);
-    const ok=window.confirm(`Restore this file to "${target}"? Restore will fail safely if a file already exists there.`);
-    if(!ok)return;
-    setBusy(true);setError('');
+  const requestRestore=(path)=>{
     try{
-      await restoreFromTrash(vaultAdapter,path);
-      await load();
-    }catch(err){setError(err.message||'Restore failed')}
-    finally{setBusy(false)}
+      const target=originalPathFromTrashPath(path);
+      setConfirming({kind:'restore',path,target,title:'Restore file',detail:`Restore to "${target}". Restore stops safely if a file already exists there.`,confirmLabel:'Restore file',tone:'safe'});
+    }catch(err){setError(err.message||'Could not read original path')}
   };
-  const permanentlyDelete=async(path)=>{
+  const requestPermanentDelete=(path)=>{
     let target=path;
     try{target=originalPathFromTrashPath(path)}catch{ /* keep trash path fallback */ }
-    const ok=window.confirm(`Permanently delete "${target}" from JotFolio Trash? This cannot be undone.`);
-    if(!ok)return;
-    setBusy(true);setError('');
-    try{
-      await vaultAdapter.remove(path);
-      await load();
-    }catch(err){setError(err.message||'Permanent delete failed')}
-    finally{setBusy(false)}
+    setConfirming({kind:'delete',path,target,title:'Permanently delete file',detail:`Delete "${target}" from JotFolio Trash. This cannot be undone.`,confirmLabel:'Delete forever',tone:'danger'});
   };
-  const emptyTrash=async()=>{
+  const requestEmptyTrash=()=>{
     const count=items?.length||0;
     if(count===0)return;
-    const ok=window.confirm(`Permanently delete all ${count} file${count===1?'':'s'} in JotFolio Trash? This cannot be undone.`);
-    if(!ok)return;
+    setConfirming({kind:'empty',count,title:'Empty JotFolio Trash',detail:`Permanently delete all ${count} file${count===1?'':'s'} in JotFolio Trash. This cannot be undone.`,confirmLabel:'Empty trash',tone:'danger'});
+  };
+  const runConfirmedTrashAction=async()=>{
+    if(!confirming)return;
     setBusy(true);setError('');
     try{
-      for(const item of items)await vaultAdapter.remove(item.path);
+      if(confirming.kind==='restore')await restoreFromTrash(vaultAdapter,confirming.path);
+      if(confirming.kind==='delete')await vaultAdapter.remove(confirming.path);
+      if(confirming.kind==='empty')for(const item of items)await vaultAdapter.remove(item.path);
+      setConfirming(null);
       await load();
-    }catch(err){setError(err.message||'Empty trash failed')}
+    }catch(err){
+      const fallback=confirming.kind==='restore'?'Restore failed':confirming.kind==='delete'?'Permanent delete failed':'Empty trash failed';
+      setError(err.message||fallback);
+    }
     finally{setBusy(false)}
   };
   return(
@@ -73,19 +118,30 @@ function TrashReview(){
       <div style={{display:'flex',alignItems:'center',gap:8}}>
         <div style={{flex:1}}>
           <div style={{fontSize:11,color:'var(--t3)',marginBottom:3,textTransform:'uppercase',letterSpacing:1.5}}>JotFolio Trash</div>
-          <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5}}>Deletes move files under <code>{TRASH_DIR}</code>. Restore is safe; permanent delete and empty require confirmation.</div>
+          <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5}}>Deletes move files under <code>{TRASH_DIR}</code>. Restore checks for existing files first; permanent delete and empty are guarded inline.</div>
         </div>
         <button onClick={load} disabled={busy} style={{padding:'5px 10px',fontSize:11,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:busy?'default':'pointer',fontFamily:'var(--fn)'}}>{busy?'Checking…':'Review'}</button>
       </div>
       {error&&<div role="alert" style={{fontSize:11,color:'#ef4444',marginTop:8}}>{error}</div>}
+      {confirming&&(
+        <InlineConfirm
+          tone={confirming.tone}
+          title={confirming.title}
+          detail={confirming.detail}
+          confirmLabel={confirming.confirmLabel}
+          busy={busy}
+          onConfirm={runConfirmedTrashAction}
+          onCancel={()=>setConfirming(null)}
+        />
+      )}
       {Array.isArray(items)&&(
         <div style={{display:'flex',flexDirection:'column',gap:4,marginTop:8}}>
           {items.length===0?(
             <div style={{fontSize:11,color:'var(--t3)'}}>Trash is empty.</div>
           ):(
           <>
-            <div style={{display:'flex',justifyContent:'flex-end'}}>
-              <button type="button" onClick={emptyTrash} disabled={busy}
+          <div style={{display:'flex',justifyContent:'flex-end'}}>
+              <button type="button" onClick={requestEmptyTrash} disabled={busy}
                 style={{padding:'3px 9px',fontSize:11,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:busy?'default':'pointer',fontFamily:'var(--fn)',fontWeight:700}}>Empty trash</button>
             </div>
             {items.slice(0,12).map(item=>{
@@ -94,9 +150,9 @@ function TrashReview(){
             return(
               <div key={item.path} style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--t2)'}}>
                 <span style={{flex:1,fontFamily:'monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={item.path}>{target}</span>
-                <button type="button" onClick={()=>restore(item.path)}
+                <button type="button" onClick={()=>requestRestore(item.path)} disabled={busy}
                   style={{padding:'2px 8px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>Restore</button>
-                <button type="button" onClick={()=>permanentlyDelete(item.path)}
+                <button type="button" onClick={()=>requestPermanentDelete(item.path)} disabled={busy}
                   style={{padding:'2px 8px',fontSize:11,border:'1px solid #b91c1c',borderRadius:'var(--rd)',background:'transparent',color:'#b91c1c',cursor:'pointer',fontFamily:'var(--fn)'}}>Delete</button>
               </div>
             );
@@ -114,8 +170,11 @@ function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading
   const legacyCount=entries?.length||0;
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [exportedAt, setExportedAt] = useState(null);
+  const vaultLabel = vaultInfo?.path || vaultInfo?.root || 'No disk vault selected';
+  const issueCount = issues?.length || 0;
   const handleExport = async () => {
-    setExporting(true); setExportError('');
+    setExporting(true); setExportError(''); setExportedAt(null);
     try {
       const blob = await exportVaultAsZip(vaultAdapter);
       const url = URL.createObjectURL(blob);
@@ -127,6 +186,7 @@ function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setExportedAt(new Date());
     } catch (err) {
       setExportError(err?.message || 'unknown error');
     } finally {
@@ -137,6 +197,11 @@ function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading
     <div style={{display:'flex',flexDirection:'column',gap:12,marginTop:8}}>
       <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.5}}>
         Your notes can live on your disk as <code>.md</code> files in a vault folder. This makes them readable by any markdown editor — Obsidian, VS Code, Ulysses, TextEdit — and portable if JotFolio ever disappears.
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr',gap:8}}>
+        <MiniStatus label="Vault" value={vaultLabel} tone={vaultInfo?.path||vaultInfo?.root?'good':'neutral'}/>
+        <MiniStatus label="Recovery path" value="Trash first, skipped-file review second, zip export for full backup" tone="neutral"/>
+        <MiniStatus label="Health" value={error?`Vault error: ${error.message}`:issueCount?`${issueCount} file${issueCount===1?'':'s'} need review`:'No skipped files reported'} tone={error||issueCount?'bad':'good'}/>
       </div>
       <VaultPicker mode="inline" vaultInfo={vaultInfo} onPick={pickVault} onMigrate={migrateFromLocalStorage} legacyCount={legacyCount}/>
       <div style={{display:'flex',flexDirection:'column',gap:8,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)'}}>
@@ -150,6 +215,7 @@ function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading
           </button>
         </div>
         {exportError && <div role="alert" style={{fontSize:11,color:'#ef4444'}}>Export failed: {exportError}</div>}
+        {exportedAt && <div role="status" style={{fontSize:11,color:'#10b981',fontWeight:700}}>Export started at {exportedAt.toLocaleTimeString()}. Save it somewhere outside the vault for a real backup.</div>}
         <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.5,fontStyle:'italic'}}>
           Want continuous sync across devices? JotFolio stays out of that game. Use Obsidian Sync, Syncthing, Dropbox, or iCloud Drive on your vault folder.
         </div>
@@ -234,7 +300,10 @@ function AIPanel(){
   return(
     <>
       <div style={{fontSize:12,color:'var(--t3)',lineHeight:1.5,marginBottom:8,marginTop:8}}>
-        Experimental helper layer. JotFolio's core organization should work without AI through your vault, Keyword Library, and saved views. BYOK keeps any model calls between this app and the provider you choose.
+        Provider settings only. This does not turn on a finished assistant, auto-summarize notes, or send vault content on its own. JotFolio's core organization works through your vault, Keyword Library, and saved views without AI.
+      </div>
+      <div style={safetyCalloutStyle}>
+        Source-grounded AI features must cite the vault material they use. Until that exists, this panel is limited to BYOK storage and a connection test.
       </div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--br)'}}>
         <span id="ai-enabled-label" style={{fontSize:13,color:'var(--tx)'}}>Enable experimental AI helpers</span>
@@ -284,27 +353,36 @@ function AIPanel(){
         {test?.state==='fail'&&<span style={{fontSize:11,color:'#ef4444',fontWeight:700}}>✗ {test.msg}</span>}
       </div>
       <div style={{fontSize:10,color:'var(--t3)',marginTop:12,lineHeight:1.5}}>
-        Key stored in your browser's localStorage. Never sent to JotFolio servers. Deleted by clearing site data.
+        Key stored locally in this app profile. It is sent only to the provider endpoint you choose when an AI feature makes a model call.
       </div>
     </>
   );
 }
 
-export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,entryCount,prefs,setPrefs,keywordRules,onKeywordRulesChange,onRescanVault,vaultInfo,pickVault,migrateFromLocalStorage,vaultLoading,vaultError,vaultIssues,refreshVault,onClose}){
-  const[tab,setTab]=useState('appearance');
+export function SettingsPanel({embedded=false,initialTab='appearance',theme,setTheme,darkMode,setDarkMode,isDark,victoryColors,setVictoryColors,onExportJSON,onExportMD,onImportJSON,onLoadConstellationDemo,entries,entryCount,prefs,setPrefs,keywordRules,onKeywordRulesChange,onRescanVault,vaultInfo,pickVault,migrateFromLocalStorage,vaultLoading,vaultError,vaultIssues,refreshVault,onClose}){
+  const[tab,setTab]=useState(initialTab||'appearance');
   const[advanced,setAdvanced]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('mgn-settings-advanced'))===true}catch{return false}
   });
   const toggleAdvanced=()=>{const next=!advanced;setAdvanced(next);localStorage.setItem('mgn-settings-advanced',JSON.stringify(next))};
   const fileRef=useRef(null);
   const importId=useId();
-  useEscapeKey(true,onClose);
+  useEscapeKey(!embedded,onClose);
+  useEffect(()=>{setTab(initialTab||'appearance')},[initialTab]);
   const sH={fontSize:10,fontWeight:700,letterSpacing:2,color:'var(--t3)',textTransform:'uppercase',marginBottom:8,marginTop:16,display:'block'};
   const rowStyle={display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--br)'};
   const segBtn=(active)=>({flex:1,padding:'8px 4px',fontSize:11,border:`2px solid ${active?'var(--ac)':'var(--br)'}`,borderRadius:'var(--rd)',background:active?'var(--ac)':'transparent',color:active?'var(--act)':'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'});
   const togBtn=(on)=>({width:40,height:22,borderRadius:11,border:'none',cursor:'pointer',background:on?'var(--ac)':'var(--br)',position:'relative',transition:'background 0.2s'});
   const togDot=(on)=>({position:'absolute',top:2,left:on?20:2,width:18,height:18,borderRadius:9,background:on?'var(--act)':'var(--t3)',transition:'left 0.2s'});
-  const tabs=[['appearance','Appearance'],['library','Library'],['keyword-rules','Keyword Library'],['vault','Vault'],['system','System'],['updates','Updates'],['privacy','Privacy'],['ai','AI'],['plugins','Plugins'],['data','Data'],['shortcuts','Shortcuts']];
+  const tabs=[['appearance','Appearance'],['library','Library'],['keyword-rules','Keyword Library'],['vault','Vault & Recovery'],['system','System Health'],['privacy','Privacy'],['plugins','Extensions'],['ai','AI Keys'],['updates','Updates'],['data','Import/Export'],['shortcuts','Shortcuts']];
+  const routeSummaries={
+    vault:'Backups, Trash, skipped-file review, and vault folder changes live here so recovery choices stay together.',
+    system:'Read this when you need to know which runtime is active, where the data lives, and whether the vault is healthy.',
+    privacy:'Crash reporting is opt-in. Vault contents, titles, paths, API keys, and plugin secrets are not part of crash reports.',
+    plugins:'Extensions run as optional vault add-ons. Review permissions before enabling anything that can write files or reach the network.',
+    ai:'AI is BYOK connection setup only. No assistant claim ships from this panel.',
+    data:'JSON and Markdown export are portable entry tools. Use Vault & Recovery for a full vault backup.',
+  };
   // customColors is victoryColors prop (renamed at call site)
   const cc=victoryColors[theme]||null;
   const defaults=getThemeDefaults(theme,isDark);
@@ -318,9 +396,12 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
     return{...prev,[theme]:next};
   });
   const resetColors=()=>setVictoryColors(prev=>{const next={...prev};delete next[theme];return next;});
+  const panelStyle=embedded
+    ? {position:'static',width:'100%',height:'100%',background:'var(--bg)',borderLeft:'none',display:'flex',flexDirection:'column'}
+    : {position:'fixed',right:0,top:0,bottom:0,width:'min(420px,100vw)',background:'var(--bg)',borderLeft:'1px solid var(--br)',display:'flex',flexDirection:'column',zIndex:120};
   return(
-    <div role="dialog" aria-modal="true" aria-labelledby="settings-title" className="mgn-panel"
-      style={{position:'fixed',right:0,top:0,bottom:0,width:'min(420px,100vw)',background:'var(--bg)',borderLeft:'1px solid var(--br)',display:'flex',flexDirection:'column',zIndex:120}}>
+    <div role={embedded?'region':'dialog'} aria-modal={embedded?undefined:true} aria-labelledby="settings-title" className="mgn-panel"
+      style={panelStyle}>
       <div style={{padding:'14px 16px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
         <span style={{fontSize:16}}>⚙️</span>
         <span id="settings-title" style={{fontWeight:700,fontSize:14,flex:1}}>Settings</span>
@@ -335,6 +416,9 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
         ))}
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'4px 16px 16px'}}>
+        {routeSummaries[tab]&&(
+          <div style={{...safetyCalloutStyle,marginTop:12,marginBottom:4}}>{routeSummaries[tab]}</div>
+        )}
         {tab==='appearance'&&<>
           {!advanced&&<>
             <span style={sH}>Theme</span>
@@ -422,14 +506,14 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
           </div>
           <span style={sH}>Type Color Theme</span>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {[['bone','Bone & stone'],['sepia','Sepia'],['cool','Cool neutral'],['mono','Monochrome']].map(([val,label])=>(
-              <button key={val} onClick={()=>setPrefs(p=>({...p,typeSaturation:val}))} style={segBtn((prefs.typeSaturation||'bone')===val||(val==='bone'&&prefs.typeSaturation==='full')||(val==='sepia'&&prefs.typeSaturation==='muted'))}>{label}</button>
+            {[['signal','Signal'],['bone','Bone & stone'],['sepia','Sepia'],['cool','Cool neutral'],['mono','Monochrome']].map(([val,label])=>(
+              <button key={val} onClick={()=>setPrefs(p=>({...p,typeSaturation:val}))} style={segBtn((prefs.typeSaturation||'signal')===val||(val==='bone'&&prefs.typeSaturation==='full')||(val==='sepia'&&prefs.typeSaturation==='muted'))}>{label}</button>
             ))}
           </div>
           <span style={sH}>Constellation Background</span>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {[['solid','Solid'],['vignette','Vignette'],['grid','Grid'],['constellation','Star field']].map(([val,label])=>(
-              <button key={val} onClick={()=>setPrefs(p=>({...p,constellationBg:val}))} style={segBtn((prefs.constellationBg||'solid')===val)}>{label}</button>
+            {[['atlas','Vault map'],['solid','Solid'],['vignette','Vignette'],['grid','Grid'],['constellation','Star field']].map(([val,label])=>(
+              <button key={val} onClick={()=>setPrefs(p=>({...p,constellationBg:val}))} style={segBtn((prefs.constellationBg||'atlas')===val)}>{label}</button>
             ))}
           </div>
           </>}
@@ -459,7 +543,15 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
           {[['showNotesPreview','Show notes preview'],['showDateOnCards','Show date'],['showTagsOnCards','Show tags']].map(([key,label])=>(
             <div key={key} style={rowStyle}>
               <span style={{fontSize:13,color:'var(--tx)'}}>{label}</span>
-              <button onClick={()=>setPrefs(p=>({...p,[key]:!p[key]}))} style={togBtn(prefs[key])}><span style={togDot(prefs[key])}/></button>
+              <button
+                type="button"
+                aria-label={label}
+                aria-pressed={!!prefs[key]}
+                onClick={()=>setPrefs(p=>({...p,[key]:!p[key]}))}
+                style={togBtn(prefs[key])}
+              >
+                <span style={togDot(prefs[key])}/>
+              </button>
             </div>
           ))}
         </>}
@@ -468,6 +560,15 @@ export function SettingsPanel({theme,setTheme,darkMode,setDarkMode,isDark,victor
         )}
         {tab==='ai'&&<AIPanel/>}
         {tab==='data'&&<>
+          <div style={{...safetyCalloutStyle,marginTop:8,marginBottom:12}}>
+            For recovery, export the whole vault as a zip from Vault & Recovery. JSON and Markdown exports are useful for moving entry data, but they are not a full backup of attachments, templates, and vault side files.
+            <div style={{marginTop:8}}>
+              <button type="button" onClick={()=>setTab('vault')}
+                style={{padding:'5px 10px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:700}}>
+                Open Vault & Recovery
+              </button>
+            </div>
+          </div>
           <span style={sH}>Export</span>
           <div style={{display:'flex',gap:6,marginBottom:12}}>
             <button onClick={onExportJSON} style={{flex:1,padding:'10px 12px',fontSize:12,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',fontWeight:600}}>↓ Export JSON</button>

@@ -143,6 +143,7 @@ export async function exportVaultAsZip(vault, options) {
   const list = await vault.list()
   const entries = []
   for (const item of list) {
+    if (item?.type === 'folder') continue
     const bytes = await vault.readBinary(item.path)
     entries.push({ path: item.path, bytes })
   }

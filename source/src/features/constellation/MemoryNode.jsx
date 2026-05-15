@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 /**
  * MemoryNode — renders wiki/review memory entries as nodes inside the
@@ -17,6 +17,7 @@ import React from 'react';
  * @param {(id: string) => void} props.onSelect
  */
 export function MemoryNode({ entry, isSelected = false, onSelect }) {
+  const [isFocused, setIsFocused] = useState(false);
   const confidencePct = Math.round((entry.confidence ?? 0) * 100);
   const isReview = entry.type === 'review';
   const isStale = entry.freshness === 'stale';
@@ -45,7 +46,7 @@ export function MemoryNode({ entry, isSelected = false, onSelect }) {
     height: 110,
     padding: 'var(--jf-space-3)',
     borderRadius: 'var(--rd)',
-    border: `2px solid ${isSelected ? 'var(--ac)' : 'var(--br)'}`,
+    border: `2px solid ${isSelected || isFocused ? 'var(--ac)' : 'var(--br)'}`,
     background: isReview ? 'var(--b2)' : 'var(--cd)',
     opacity: isStale ? 0.7 : 1,
     cursor: 'pointer',
@@ -54,6 +55,8 @@ export function MemoryNode({ entry, isSelected = false, onSelect }) {
     justifyContent: 'space-between',
     boxSizing: 'border-box',
     overflow: 'hidden',
+    outline: 'none',
+    boxShadow: isFocused ? '0 0 0 3px color-mix(in srgb, var(--ac) 24%, transparent)' : 'none',
   };
 
   const titleStyle = {
@@ -87,6 +90,8 @@ export function MemoryNode({ entry, isSelected = false, onSelect }) {
       aria-label={ariaLabel}
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={style}
     >
       <strong style={titleStyle}>{entry.title}</strong>

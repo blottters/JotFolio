@@ -9,7 +9,7 @@ export function resolveColorScheme(darkMode, systemDark) {
 
 export function resolveThemeVars({ theme, darkMode = 'system', systemDark = false, customColors = {}, fontFamily = '' }) {
   const safeTheme = THEMES[theme] ? theme : 'minimal';
-  const scheme = resolveColorScheme(darkMode, systemDark);
+  const scheme = safeTheme === 'workstation' ? 'dark' : resolveColorScheme(darkMode, systemDark);
   const t = THEMES[safeTheme];
   let vars = { ...t.light, ...(scheme === 'dark' ? t.dark : {}) };
   const cc = customColors[safeTheme];

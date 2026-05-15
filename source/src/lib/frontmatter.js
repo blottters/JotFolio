@@ -143,6 +143,7 @@ function parseScalar(s, lineNum) {
 const FIELD_ORDER = [
   'id', 'type', 'title', 'tags', 'status', 'starred',
   'created', 'modified', 'entry_date', 'date',
+  'project', 'space', 'source_entry', 'due', 'priority', 'completed', 'completed_at',
   'url', 'channel', 'duration', 'guest', 'episode', 'highlight',
   'aliases', 'canonical_key', 'confidence', 'freshness', 'source_type',
   'provenance', 'valid_from', 'review_after', 'review_status',
@@ -252,6 +253,8 @@ export const TYPE_FOLDER = {
   article: 'articles',
   journal: 'journals',
   link: 'links',
+  project: 'projects',
+  task: 'tasks',
   raw: 'inbox',
   wiki: 'wiki',
   review: 'review',
@@ -289,6 +292,13 @@ export function entryToFile(entry, exists) {
     modified: now,
   };
   if (entry.entry_date) frontmatter.entry_date = entry.entry_date;
+  if (entry.project) frontmatter.project = entry.project;
+  if (entry.space) frontmatter.space = entry.space;
+  if (entry.source_entry) frontmatter.source_entry = entry.source_entry;
+  if (entry.due) frontmatter.due = entry.due;
+  if (entry.priority) frontmatter.priority = entry.priority;
+  if (typeof entry.completed === 'boolean') frontmatter.completed = entry.completed;
+  if (entry.completed_at) frontmatter.completed_at = entry.completed_at;
   if (entry.url) frontmatter.url = entry.url;
   if (entry.channel) frontmatter.channel = entry.channel;
   if (entry.duration) frontmatter.duration = entry.duration;
@@ -333,6 +343,13 @@ export function fileToEntry({ path, content }) {
     starred: !!frontmatter.starred,
     date: String(frontmatter.created || frontmatter.modified || new Date().toISOString()),
     entry_date: frontmatter.entry_date ? String(frontmatter.entry_date) : undefined,
+    project: cleanOptionalString(frontmatter.project),
+    space: cleanOptionalString(frontmatter.space),
+    source_entry: cleanOptionalString(frontmatter.source_entry),
+    due: cleanOptionalString(frontmatter.due),
+    priority: cleanOptionalString(frontmatter.priority),
+    completed: typeof frontmatter.completed === 'boolean' ? frontmatter.completed : undefined,
+    completed_at: cleanOptionalString(frontmatter.completed_at),
     url: frontmatter.url ? String(frontmatter.url) : undefined,
     channel: frontmatter.channel ? String(frontmatter.channel) : undefined,
     duration: frontmatter.duration ? String(frontmatter.duration) : undefined,

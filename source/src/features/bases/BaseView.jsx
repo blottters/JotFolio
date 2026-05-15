@@ -177,10 +177,34 @@ function BaseTable({ entries, base, onBaseChange, onOpenEntry, onDeleteEntry }) 
             {cols.map(c => (
               <th
                 key={c}
-                onClick={() => sortByCol(c)}
-                style={{ textAlign: 'left', padding: '7px 10px', borderBottom: '1px solid var(--br)', color: 'var(--t2)', cursor: 'pointer', fontWeight: 700, userSelect: 'none', whiteSpace: 'nowrap' }}
+                aria-sort={primary && primary.key === c ? (primary.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                style={{ textAlign: 'left', padding: 0, borderBottom: '1px solid var(--br)', color: 'var(--t2)', fontWeight: 700, userSelect: 'none', whiteSpace: 'nowrap' }}
               >
-                {c}{primary && primary.key === c ? (primary.dir === 'asc' ? ' ↑' : ' ↓') : ''}
+                <button
+                  type="button"
+                  aria-label={`Sort by ${c}`}
+                  onClick={() => sortByCol(c)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      sortByCol(c);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '7px 10px',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--fn)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textAlign: 'left',
+                  }}
+                >
+                  {c}{primary && primary.key === c ? (primary.dir === 'asc' ? ' ↑' : ' ↓') : ''}
+                </button>
               </th>
             ))}
             {onDeleteEntry&&(
@@ -360,7 +384,7 @@ export function BaseView({ entries, base, onBaseChange, onOpenEntry, onDeleteEnt
 }
 
 function ColumnEditor({ base, onBaseChange, propertyKeys }) {
-  const cols = (base.columns && base.columns.length > 0) ? base.columns : [];
+  const cols = (base.columns && base.columns.length > 0) ? base.columns : DEFAULT_COLUMNS;
   const toggle = (k) => {
     const next = cols.includes(k) ? cols.filter(c => c !== k) : [...cols, k];
     onBaseChange({ ...base, columns: next });

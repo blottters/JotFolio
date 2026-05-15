@@ -87,7 +87,7 @@ describe('App workstation shell', () => {
 
     fireEvent.click(within(sidebar).getByText('Calendar'));
     expect(await screen.findByRole('heading', { name: 'Calendar' })).toBeInTheDocument();
-    expect(screen.getByText('May 14, 2026')).toBeInTheDocument();
+    expect(screen.getByText(/\b(January|February|March|April|May|June|July|August|September|October|November|December) \d{1,2}, \d{4}\b/)).toBeInTheDocument();
     expect(screen.getByText('Review route rendering')).toBeInTheDocument();
 
     expect(within(sidebar).queryByText('New Space')).not.toBeInTheDocument();

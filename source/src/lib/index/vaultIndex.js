@@ -278,3 +278,37 @@ export function getMemoryHealth(index) {
       .filter(id => ['raw', 'wiki', 'review'].includes(index.byId.get(id)?.type)),
   };
 }
+
+export function getRelationshipScan(index) {
+  const entries = index?.entries || [];
+  const isolatedEntryIds = (index?.components || [])
+    .filter(component => component.length === 1)
+    .map(component => component[0])
+    .filter(Boolean);
+  const projectKeys = new Set(
+    entries
+      .filter(entry => entry?.type === 'project')
+      .flatMap(entry => [entry.id, entry.title, entry.project, entry.project_title])
+      .map(normalizeLookupKey)
+      .filter(Boolean)
+  );
+  const missingProjectRefs = entries
+    .map(entry => {
+      const project = entry?.project || entry?.project_id || entry?.project_title || '';
+      const key = normalizeLookupKey(project);
+      if (!key || projectKeys.has(key)) return null;
+      return { entryId: entry.id, project: String(project) };
+    })
+    .filter(Boolean);
+
+  return {
+    totalEntries: entries.length,
+    connectedEntries: Math.max(0, entries.length - isolatedEntryIds.length),
+    isolatedEntryIds,
+    unresolvedTargets: getUnresolvedTargets(index),
+    entriesWithoutTags: entries
+      .filter(entry => !Array.isArray(entry?.tags) || entry.tags.length === 0)
+      .map(entry => entry.id),
+    missingProjectRefs,
+  };
+}

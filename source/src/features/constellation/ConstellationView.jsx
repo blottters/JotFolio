@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { ALL_ENTRY_TYPES, LABEL, applyTypeSat } from '../../lib/types.js';
+import { getRelationshipScan } from '../../lib/index/vaultIndex.js';
+import {
+  clearRelationshipDecision,
+  loadRelationshipDecisions,
+  relationshipDecisionStatus,
+  saveRelationshipDecisions,
+  setRelationshipDecision,
+} from '../../lib/index/relationshipDecisions.js';
 import { ConstellationStateOverlay } from './ConstellationStateOverlay.jsx';
 import { Select } from '../dropdowns/Select.jsx';
 import { computeAffinityLayout, computeClusterLayout, computeMessyLayout } from './layout.js';
@@ -23,6 +31,25 @@ import {
 const KNOWLEDGE_FLAG_MAP={raw:'raw_inbox',wiki:'wiki_mode',review:'review_queue'};
 const LARGE_GRAPH_ANIMATION_LIMIT=120;
 
+function buildRelationshipScanIndex(entries, components) {
+  const unresolvedTargets = new Map();
+  entries.forEach(entry => {
+    (entry.unresolvedTargets || []).forEach(target => {
+      const key = String(target.target || '').trim().toLowerCase();
+      if (!key) return;
+      const existing = unresolvedTargets.get(key) || { target: target.target, sourceIds: new Set(), lines: [] };
+      existing.sourceIds.add(entry.id);
+      existing.lines.push({ entryId: entry.id, line: target.line, alias: target.alias });
+      unresolvedTargets.set(key, existing);
+    });
+  });
+  return {
+    entries,
+    components: components.map(group => group.map(entry => entry.id)),
+    unresolvedTargets,
+  };
+}
+
 export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layoutModeProp,onLayoutModeChange,onCreateFromMissing,focusEntryId,flags={},style='star',saturation='signal',bg='atlas',getSimilar,semanticReady=false,semanticVersion=0}){
   const visibleEntryTypes=ALL_ENTRY_TYPES.filter(t=>!KNOWLEDGE_FLAG_MAP[t]||flags[KNOWLEDGE_FLAG_MAP[t]]===true);
   const prefersReducedMotion=usePrefersReducedMotion();
@@ -30,6 +57,8 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   const[tagFilter,setTagFilter]=useState('');
   const[titleQuery,setTitleQuery]=useState('');
   const[showUnresolved,setShowUnresolved]=useState(true);
+  const[scanOpen,setScanOpen]=useState(false);
+  const[relationshipDecisionMap,setRelationshipDecisionMap]=useState(()=>loadRelationshipDecisions());
   const[memoryOnly,setMemoryOnly]=useState(false);
   const hasFilters=filter!=='all'||!!tagFilter||!!titleQuery.trim()||!showUnresolved||memoryOnly;
   const resetFilters=useCallback(()=>{
@@ -127,16 +156,13 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     return comps.sort((a,b)=>b.length-a.length);
   },[pool,poolById]);
 
-  // Affinity-weighted force-directed positions. Runs a short sim whenever the
-  // pool changes and caches the result.
-  const affinityLayout=useMemo(()=>computeAffinityLayout(pool),[pool]);
-
   // Three layouts: 'messy' | 'clusters' | 'affinity'. CSS transition on each
   // node's outer <g> smoothly animates position changes when mode toggles.
   // No auto-fallback — user-selected mode always renders. Sparse-link vaults
   // produce a sparse grid in Clusters; that's the honest visualization.
   const nodes=useMemo(()=>{
     if(layoutMode==='affinity'){
+      const affinityLayout=computeAffinityLayout(pool);
       const compOf={};components.forEach((g,ci)=>g.forEach(n=>{compOf[n.id]=ci}));
       return pool.map(e=>{
         const p=affinityLayout[e.id]||{x:400,y:300};
@@ -145,7 +171,25 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
     }
     if(layoutMode==='messy')return computeMessyLayout(pool,components);
     return computeClusterLayout(components);
-  },[components,pool,layoutMode,affinityLayout]);
+  },[components,pool,layoutMode]);
+  const relationshipScan=useMemo(
+    ()=>getRelationshipScan(buildRelationshipScanIndex(pool,components)),
+    [pool,components]
+  );
+  const updateRelationshipDecision=useCallback((issue,status)=>{
+    setRelationshipDecisionMap(current=>{
+      const next=setRelationshipDecision(current,issue,status);
+      saveRelationshipDecisions(next);
+      return next;
+    });
+  },[]);
+  const removeRelationshipDecision=useCallback(issue=>{
+    setRelationshipDecisionMap(current=>{
+      const next=clearRelationshipDecision(current,issue);
+      saveRelationshipDecisions(next);
+      return next;
+    });
+  },[]);
   // Unresolved pseudo-nodes for [[wikilinks]] that don't match any real
   // entry. Rendered with dashed stroke + muted fill in the SVG below.
   // Click handler routes to onCreateFromMissing so the user can
@@ -221,9 +265,9 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
   // Dedupe a↔b pairs so we don't draw two lines between the same nodes.
   // Skip any pair already linked by a real wiki/manual edge (no need to
   // dilute the strong signal with a weaker one).
-  // Gated behind flags.semanticEdges (default true). If the index isn't
+  // Gated behind flags.semanticEdges (default false). If the index isn't
   // ready yet or the host didn't pass getSimilar, render nothing.
-  const semanticEnabled=flags?.semanticEdges!==false;
+  const semanticEnabled=flags?.semanticEdges===true;
   const semanticEdges=useMemo(()=>{
     if(!semanticEnabled||!semanticReady||typeof getSimilar!=='function')return[];
     const realPairs=new Set();
@@ -659,6 +703,9 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
           </button>
           <InfoButton open={infoOpen==='ghosts'} onToggle={()=>setInfoOpen(o=>o==='ghosts'?null:'ghosts')}
             title="Missing linked notes"/>
+          <button type="button" onClick={()=>setScanOpen(open=>!open)} aria-pressed={scanOpen} style={controlButton(scanOpen)}>
+            Graph Health
+          </button>
           <button onClick={resetAll} style={controlButton(false)}>Reset map</button>
           <input value={titleQuery} onChange={e=>setTitleQuery(e.target.value)}
             placeholder="Search titles…" aria-label="Search node titles"
@@ -691,6 +738,17 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
           <InfoPanel title="Missing linked notes">
             Dashed nodes are names you mentioned with [[wiki-link]] syntax but have not created yet. Click one to create the note.
           </InfoPanel>
+        )}
+        {scanOpen&&(
+          <RelationshipScanPanel
+            scan={relationshipScan}
+            entriesById={poolById}
+            onOpen={onOpen}
+            onCreateFromMissing={onCreateFromMissing}
+            decisions={relationshipDecisionMap}
+            onSetDecision={updateRelationshipDecision}
+            onClearDecision={removeRelationshipDecision}
+          />
         )}
       </div>
       {renderNodes.length>0&&(
@@ -752,6 +810,7 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
                 const op=dim?base*0.25:(bothHover||bothFocal?base*2.4:base);
                 return(
                   <line key={`sem-${a.id}|${b.id}-${i}`}
+                    data-semantic-edge="true"
                     x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
                     stroke="#9ca3af"
                     strokeWidth={1}
@@ -1014,6 +1073,162 @@ function MetricChip({label,value}){
       <strong style={{color:'var(--tx)',fontWeight:850}}>{value}</strong>
       <span>{label}</span>
     </span>
+  );
+}
+
+function RelationshipScanPanel({scan,entriesById,onOpen,onCreateFromMissing,decisions={},onSetDecision,onClearDecision}){
+  const isolated=(scan?.isolatedEntryIds||[]).slice(0,5).map(id=>{
+    const title=entriesById?.[id]?.title||id;
+    return{id,title,issue:{kind:'isolated',entryId:id,label:title,origin:'graph-health'}};
+  });
+  const unresolved=(scan?.unresolvedTargets||[]).slice(0,5).map(item=>{
+    const target=item.target;
+    return{target,sourceCount:item.sourceIds?.length||0,issue:{kind:'unresolved',target,label:target,origin:'graph-health'}};
+  });
+  const tagGapCount=(scan?.entriesWithoutTags||[]).length;
+  const projectGapCount=(scan?.missingProjectRefs||[]).length;
+  const metadataGaps=[
+    ...(scan?.entriesWithoutTags||[]).slice(0,5).map(id=>{
+      const title=entriesById?.[id]?.title||id;
+      return{
+        key:`tags:${id}`,
+        entryId:id,
+        title,
+        detail:'No tags',
+        issue:{kind:'no-tags',entryId:id,label:title,origin:'graph-health'},
+      };
+    }),
+    ...(scan?.missingProjectRefs||[]).slice(0,5).map(item=>{
+      const title=entriesById?.[item.entryId]?.title||item.entryId;
+      return{
+        key:`project:${item.entryId}:${item.project}`,
+        entryId:item.entryId,
+        title,
+        detail:`Missing project: ${item.project}`,
+        issue:{kind:'missing-project',entryId:item.entryId,project:item.project,label:title,origin:'graph-health'},
+      };
+    }),
+  ].slice(0,5);
+  const totalIssues=(scan?.isolatedEntryIds||[]).length+(scan?.unresolvedTargets||[]).length+tagGapCount+projectGapCount;
+  const panelStyle={
+    border:'1px solid var(--br)',
+    borderRadius:'var(--rd)',
+    background:'rgba(9,14,20,.76)',
+    padding:'10px 12px',
+    minWidth:180,
+  };
+  const listStyle={margin:'8px 0 0',padding:0,listStyle:'none',display:'grid',gap:7,color:'var(--t2)',fontSize:12,lineHeight:1.45};
+  const emptyStyle={margin:'8px 0 0',color:'var(--t3)',fontSize:12};
+  const actionStyle={
+    border:'1px solid var(--br)',
+    borderRadius:'var(--rd)',
+    background:'rgba(255,255,255,.035)',
+    color:'var(--t2)',
+    cursor:'pointer',
+    fontFamily:'var(--fn)',
+    fontSize:11,
+    fontWeight:800,
+    padding:'3px 7px',
+    whiteSpace:'nowrap',
+  };
+  const decisionButtonStyle={
+    ...actionStyle,
+    padding:'2px 6px',
+    fontSize:10,
+    background:'rgba(255,255,255,.02)',
+  };
+  const statusStyle=status=>({
+    border:'1px solid var(--br)',
+    borderRadius:'var(--rd)',
+    color:status==='accepted'?'#86efac':status==='rejected'?'#fca5a5':'#c4b5fd',
+    background:'rgba(255,255,255,.035)',
+    fontSize:10,
+    fontWeight:850,
+    padding:'2px 6px',
+    whiteSpace:'nowrap',
+  });
+  const statusLabel=status=>status?status.charAt(0).toUpperCase()+status.slice(1):'';
+  const renderDecisionControls=(issue,label)=>{
+    const status=relationshipDecisionStatus(decisions,issue);
+    return(
+      <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:5,flexWrap:'wrap'}}>
+        {status&&<span style={statusStyle(status)}>{statusLabel(status)}</span>}
+        <button type="button" onClick={()=>onSetDecision?.(issue,'accepted')} aria-label={`Accept relationship decision for ${label}`} style={decisionButtonStyle}>Accept</button>
+        <button type="button" onClick={()=>onSetDecision?.(issue,'rejected')} aria-label={`Reject relationship decision for ${label}`} style={decisionButtonStyle}>Reject</button>
+        <button type="button" onClick={()=>onSetDecision?.(issue,'ignored')} aria-label={`Ignore relationship decision for ${label}`} style={decisionButtonStyle}>Ignore</button>
+        {status&&<button type="button" onClick={()=>onClearDecision?.(issue)} aria-label={`Clear relationship decision for ${label}`} style={decisionButtonStyle}>Clear</button>}
+      </div>
+    );
+  };
+  const renderEntryList=items=>items.length?(
+    <ul style={listStyle}>{items.map(item=>(
+      <li key={item.id} style={{display:'grid',gap:6}}>
+        <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:8,alignItems:'center'}}>
+          <span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</span>
+          <button type="button" onClick={()=>onOpen?.(item.id)} aria-label={`Open ${item.title}`} style={actionStyle}>Open</button>
+        </div>
+        {renderDecisionControls(item.issue,item.title)}
+      </li>
+    ))}</ul>
+  ):(
+    <div style={emptyStyle}>Nothing flagged.</div>
+  );
+  const renderUnresolvedList=items=>items.length?(
+    <ul style={listStyle}>{items.map(item=>(
+      <li key={item.target} style={{display:'grid',gap:6}}>
+        <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:8,alignItems:'center'}}>
+          <span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.target}</span>
+          <button type="button" onClick={()=>onCreateFromMissing?.(item.target)} aria-label={`Create ${item.target}`} style={actionStyle}>Create</button>
+        </div>
+        {renderDecisionControls(item.issue,item.target)}
+      </li>
+    ))}</ul>
+  ):(
+    <div style={emptyStyle}>Nothing flagged.</div>
+  );
+  const renderMetadataList=items=>items.length?(
+    <ul style={listStyle}>{items.map(item=>(
+      <li key={item.key} style={{display:'grid',gap:6}}>
+        <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:8,alignItems:'center'}}>
+          <span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title} - {item.detail}</span>
+          <button type="button" onClick={()=>onOpen?.(item.entryId)} aria-label={`Open metadata issue for ${item.title}`} style={actionStyle}>Open</button>
+        </div>
+        {renderDecisionControls(item.issue,`${item.title} ${item.detail}`)}
+      </li>
+    ))}</ul>
+  ):(
+    <div style={emptyStyle}>Nothing flagged.</div>
+  );
+  return(
+    <section role="region" aria-label="Graph Health" style={{
+      display:'grid',
+      gridTemplateColumns:'repeat(3, minmax(0, 1fr))',
+      gap:10,
+      padding:'2px 0 0',
+    }}>
+      <div style={{gridColumn:'1 / -1',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,color:'var(--t2)',fontSize:12}}>
+        <div>
+          <strong style={{color:'var(--tx)',fontWeight:850}}>Graph Health</strong>
+          <span style={{marginLeft:8,color:'var(--t3)'}}>Real vault checks only. MiniLM suggestions stay review-only.</span>
+        </div>
+        <span style={{color:totalIssues?'#facc15':'#86efac',fontWeight:850}}>{totalIssues} issue{totalIssues===1?'':'s'}</span>
+      </div>
+      <div style={panelStyle}>
+        <div style={{fontSize:12,fontWeight:850,color:'var(--tx)'}}>Disconnected notes</div>
+        <div style={{fontSize:11,color:'var(--t3)',marginTop:3}}>{(scan?.isolatedEntryIds||[]).length} need links, tags, or project context.</div>
+        {renderEntryList(isolated)}
+      </div>
+      <div style={panelStyle}>
+        <div style={{fontSize:12,fontWeight:850,color:'var(--tx)'}}>Unresolved links</div>
+        <div style={{fontSize:11,color:'var(--t3)',marginTop:3}}>{(scan?.unresolvedTargets||[]).length} wiki targets are missing.</div>
+        {renderUnresolvedList(unresolved)}
+      </div>
+      <div style={panelStyle}>
+        <div style={{fontSize:12,fontWeight:850,color:'var(--tx)'}}>Metadata gaps</div>
+        <div style={{fontSize:11,color:'var(--t3)',marginTop:3}}>{tagGapCount} entries have no tags; {projectGapCount} project refs are missing.</div>
+        {renderMetadataList(metadataGaps)}
+      </div>
+    </section>
   );
 }
 

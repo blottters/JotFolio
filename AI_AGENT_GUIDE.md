@@ -7,7 +7,7 @@
 | # | Question | Where the answer lives |
 |---|---|---|
 | 1 | **Who am I?** What persona / contract am I operating under? | [`CLAUDE.md`](./CLAUDE.md) — global instructions, banned phrases, voice register, code style |
-| 2 | **What step am I on? What's next?** | [`source/package.json`](./source/package.json) `version` field shows current release line. `gh pr list --state open` shows in-flight work. `git log --oneline -5` shows recent history. |
+| 2 | **What step am I on? What's next?** | [`docs/ROADMAP.md`](./docs/ROADMAP.md) is the current roadmap and beta-priority source. [`source/package.json`](./source/package.json) `version` field shows current release line. `gh pr list --state open` shows in-flight work. `git log --oneline -5` shows recent history. |
 | 3 | **What's in active working memory?** | [`docs/superpowers/specs/`](./docs/superpowers/specs/) — dated design specs per release (e.g. `2026-05-04-alpha-17-scope-split-design.md`). The spec for the version currently being shipped is the active mission. |
 | 4 | **What's already true in this codebase?** | [`CONTEXT.md`](./CONTEXT.md) — product definition, locked vocabulary, architecture map. [`docs/karpathy-llm-wiki-handoff.md`](./docs/karpathy-llm-wiki-handoff.md) — full Karpathy LLM Wiki direction (the load-bearing architecture doc). [`docs/CHANGELOG.md`](./docs/CHANGELOG.md) — last 7 alphas of shipped state. |
 | 5 | **What am I forbidden from doing?** | [`CLAUDE.md`](./CLAUDE.md) — banned phrases, no-mockup-as-real, no-stub-as-shipped, anti-pattern list. `CONTEXT.md` charter rules section. |

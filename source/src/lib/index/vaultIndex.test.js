@@ -6,6 +6,7 @@ import {
   getCluster,
   getMemoryHealth,
   getNeighbors,
+  getRelationshipScan,
   getUnresolvedTargets,
   searchRaw,
   searchWiki,
@@ -133,5 +134,21 @@ describe('vaultIndex', () => {
     expect(health.duplicateCanonicalKeys).toEqual([{ key: 'compiler-notes', ids: ['wiki-1', 'review-1'] }]);
     expect(health.orphanedRaw).toContain('raw-2');
     expect(health.hiddenGraphIslands).toContain('raw-2');
+  });
+
+  it('summarizes relationship scan gaps from real index data', () => {
+    const index = buildVaultIndex([
+      ...FIXTURE,
+      { id: 'note-1', type: 'note', title: 'Loose Note', tags: [], status: 'draft', notes: 'Mentions [[Missing Thread]].', links: [] },
+      { id: 'note-2', type: 'note', title: 'Projectless Note', tags: ['planning'], status: 'draft', notes: '', links: [], project: 'Missing Project' },
+    ]);
+
+    const scan = getRelationshipScan(index);
+
+    expect(scan.totalEntries).toBe(6);
+    expect(scan.isolatedEntryIds).toEqual(expect.arrayContaining(['note-1', 'note-2']));
+    expect(scan.unresolvedTargets.map(item => item.target)).toContain('Missing Thread');
+    expect(scan.entriesWithoutTags).toEqual(['note-1']);
+    expect(scan.missingProjectRefs).toEqual([{ entryId: 'note-2', project: 'Missing Project' }]);
   });
 });

@@ -16,7 +16,45 @@ import { rankNotes, findExactMatch } from '../../lib/quickSwitcher/quickSwitcher
 
 const RESULT_LIMIT = 8;
 
-function CreateRow({ query, active, idx, onHover, onActivate }) {
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'a[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusableElements(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll(FOCUSABLE_SELECTOR)]
+    .filter(el => el.getAttribute('aria-hidden') !== 'true');
+}
+
+function containTabFocus(event, root) {
+  if (event.key !== 'Tab') return;
+  const focusable = getFocusableElements(root);
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey) {
+    if (!root.contains(active) || active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+    return;
+  }
+  if (!root.contains(active) || active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function CreateRow({ query, id, active, idx, onHover, onActivate }) {
   return (
     <div>
       <div
@@ -28,6 +66,7 @@ function CreateRow({ query, active, idx, onHover, onActivate }) {
         Create
       </div>
       <div
+        id={id}
         role="option"
         aria-selected={active}
         onMouseEnter={() => onHover(idx)}
@@ -57,8 +96,10 @@ function CreateRow({ query, active, idx, onHover, onActivate }) {
 export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClose }) {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
+  const dialogRef = useRef(null);
   const inputRef = useRef(null);
   const inputId = useId();
+  const listId = `${inputId}-listbox`;
 
   // Reset query + selection on each open. Auto-focus the input.
   useEffect(() => {
@@ -97,6 +138,9 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
     if (showCreateRow) out.push({ kind: 'create' });
     return out;
   }, [ranked, showCreateRow]);
+  const safeActiveIdx = rows.length ? Math.min(activeIdx, rows.length - 1) : -1;
+  const optionId = idx => `${inputId}-option-${idx}`;
+  const activeOptionId = safeActiveIdx >= 0 ? optionId(safeActiveIdx) : undefined;
 
   // Clamp active index when the row list shrinks.
   useEffect(() => {
@@ -126,12 +170,12 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIdx(i => Math.min(rows.length - 1, i + 1));
+      setActiveIdx(i => rows.length ? Math.min(rows.length - 1, i + 1) : 0);
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIdx(i => Math.max(0, i - 1));
+      setActiveIdx(i => rows.length ? Math.max(0, i - 1) : 0);
       return;
     }
     if (e.key === 'Enter') {
@@ -144,7 +188,7 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
         onClose?.();
         return;
       }
-      activate(rows[activeIdx]);
+      activate(rows[safeActiveIdx]);
     }
   };
 
@@ -153,10 +197,12 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
       role="dialog"
       aria-modal="true"
       aria-labelledby={inputId}
+      ref={dialogRef}
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.42)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 96,
       }}
+      onKeyDown={e => containTabFocus(e, dialogRef.current)}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div
@@ -175,6 +221,10 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
           onKeyDown={handleKey}
           placeholder="Find or create entry…"
           aria-label="Quick switcher entry search"
+          aria-controls={listId}
+          aria-activedescendant={activeOptionId}
+          aria-autocomplete="list"
+          aria-expanded="true"
           style={{
             padding: '14px 16px', fontSize: 15, fontFamily: 'var(--fn)',
             border: 'none', borderBottom: '1px solid var(--br)', background: 'transparent',
@@ -182,8 +232,10 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
           }}
         />
         <div
+          id={listId}
           role="listbox"
           aria-label="Quick switcher results"
+          tabIndex={-1}
           style={{ overflowY: 'auto', flex: 1, padding: '6px 0' }}
         >
           {ranked.length === 0 && !showCreateRow && (
@@ -204,13 +256,14 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
               </div>
               {ranked.map((entryItem, i) => {
                 const idx = i;
-                const active = idx === activeIdx;
+                const active = idx === safeActiveIdx;
                 const aliasList = Array.isArray(entryItem.aliases)
                   ? entryItem.aliases.filter(a => typeof a === 'string' && a.length > 0)
                   : [];
                 return (
                   <div
                     key={entryItem.id || idx}
+                    id={optionId(idx)}
                     role="option"
                     aria-selected={active}
                     onMouseEnter={() => setActiveIdx(idx)}
@@ -245,7 +298,8 @@ export function QuickSwitcher({ open, entries, onOpenEntry, onCreateNote, onClos
           {showCreateRow && (
             <CreateRow
               query={trimmed}
-              active={activeIdx === ranked.length}
+              id={optionId(ranked.length)}
+              active={safeActiveIdx === ranked.length}
               idx={ranked.length}
               onHover={setActiveIdx}
               onActivate={() => activate({ kind: 'create' })}

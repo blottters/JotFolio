@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 
-export function VaultPicker({ mode = 'modal', vaultInfo, onPick, onMigrate, legacyCount = 0 }) {
+export function VaultPicker({ mode = 'modal', vaultInfo, onPick, onMigrate, legacyCount = 0, browserPreview = false }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [migrated, setMigrated] = useState(null);
@@ -48,6 +48,11 @@ export function VaultPicker({ mode = 'modal', vaultInfo, onPick, onMigrate, lega
           <>
             <div style={{ fontSize: 13, color: 'var(--tx)', fontFamily: 'var(--fn)', marginBottom: 8, wordBreak: 'break-all' }}>{vaultInfo.path}</div>
             <button onClick={doPick} disabled={busy} style={btn}>Change vault…</button>
+            {browserPreview && (
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--t2)', lineHeight: 1.5 }}>
+                Browser preview is already using this virtual vault. Export a zip when you need to move this data into a real folder.
+              </div>
+            )}
             {legacyCount > 0 && !migrated && (
               <div style={{ marginTop: 12 }}>
                 <div style={{ fontSize: 12, color: 'var(--t2)', marginBottom: 6 }}>

@@ -9,8 +9,8 @@ export const DEFAULT_FEATURE_FLAGS = Object.freeze({
   context_packs: false,
   memory_graph_nodes: false,
   // Phase 2 MiniLM: dashed semantic edges between similar notes in
-  // Constellation. On by default — user explicitly asked for it on import.
-  semanticEdges: true,
+  // Constellation. Off by default; explicit opt-in still works.
+  semanticEdges: false,
 });
 
 export function normalizeFeatureFlags(input) {
@@ -24,9 +24,9 @@ export function normalizeFeatureFlags(input) {
     // Still-dark phases — strict opt-in.
     context_packs: source.context_packs === true,
     memory_graph_nodes: source.memory_graph_nodes === true,
-    // alpha.25: Phase 2 MiniLM semantic edges. Default on; user opt-out
-    // respected the same way wiki/raw flags work.
-    semanticEdges: source.semanticEdges !== false,
+    // alpha.25: Phase 2 MiniLM semantic edges. Strict opt-in so the local
+    // embedding model stays unloaded unless a user explicitly enables it.
+    semanticEdges: source.semanticEdges === true,
   };
 }
 

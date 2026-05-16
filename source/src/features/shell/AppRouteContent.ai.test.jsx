@@ -24,10 +24,10 @@ function renderRoute(overrides = {}) {
 }
 
 describe('AppRouteContent AI route', () => {
-  it('renders an honest AI Assistant route instead of the global search view', () => {
+  it('renders an honest AI Setup route instead of the global search view', () => {
     const props = renderRoute();
 
-    expect(screen.getByRole('region', { name: 'AI Assistant' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'AI Setup' })).toBeInTheDocument();
     expect(screen.getByText(/Source-grounded AI/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Quick Switcher' })).not.toBeInTheDocument();
 

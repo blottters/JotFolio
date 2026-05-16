@@ -44,6 +44,14 @@ const backlink = {
   notes: 'This cites [[Building a Local-First Product.md]] for the vault model.',
 };
 
+const projectEntry = {
+  id: 'project-1',
+  type: 'project',
+  title: 'Real Project',
+  status: 'active',
+  tags: ['product'],
+};
+
 describe('NotesWorkspaceView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -115,6 +123,49 @@ describe('NotesWorkspaceView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
     expect(screen.queryByLabelText('Markdown editor for Building a Local-First Product.md')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Building a Local-First Product' })).toBeInTheDocument();
+  });
+
+  it('uses blank markdown destinations instead of fake toolbar URLs', async () => {
+    vi.useFakeTimers();
+    const onUpdateEntry = vi.fn();
+    render(<NotesWorkspaceView entries={[{ ...note, notes: '' }]} activeEntryId="note-1" onUpdateEntry={onUpdateEntry} />);
+
+    const editor = screen.getByLabelText('Markdown editor for Building a Local-First Product.md');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link' }));
+    expect(editor).toHaveValue('[link text]()');
+    expect(editor).not.toHaveValue(expect.stringContaining('example.com'));
+
+    fireEvent.change(editor, { target: { value: '' } });
+    editor.setSelectionRange(0, 0);
+    fireEvent.click(screen.getByRole('button', { name: 'Image' }));
+    expect(editor).toHaveValue('![alt text]()');
+    expect(editor).not.toHaveValue(expect.stringContaining('image-url'));
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(onUpdateEntry).toHaveBeenCalledWith('note-1', expect.objectContaining({
+      notes: '![alt text]()',
+    }));
+  });
+
+  it('edits common note metadata from the Properties rail', () => {
+    const onUpdateEntry = vi.fn();
+    render(<NotesWorkspaceView entries={[note, backlink, projectEntry]} activeEntryId="note-1" onUpdateEntry={onUpdateEntry} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Properties' }));
+
+    fireEvent.change(screen.getByLabelText('Note status'), { target: { value: 'review' } });
+    fireEvent.blur(screen.getByLabelText('Note status'));
+    expect(onUpdateEntry).toHaveBeenCalledWith('note-1', { status: 'review' });
+
+    fireEvent.change(screen.getByLabelText('Note project'), { target: { value: 'project-1' } });
+    expect(onUpdateEntry).toHaveBeenCalledWith('note-1', { project: 'project-1' });
+
+    fireEvent.change(screen.getByLabelText('Note entry date'), { target: { value: '2026-05-15' } });
+    expect(onUpdateEntry).toHaveBeenCalledWith('note-1', { entry_date: '2026-05-15' });
   });
 
   it('adds tags through the rail and resolves backlinks from wiki links', async () => {

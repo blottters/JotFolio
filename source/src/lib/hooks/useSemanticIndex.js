@@ -7,14 +7,23 @@
 // call.
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { buildSemanticIndex, getSimilarEntries, reembedEntry } from '../semantic/index.js';
 
 const DEFAULT_STATE = { ready: false, building: false, done: 0, total: 0, error: null };
+let semanticModulePromise = null;
+
+function loadSemanticModule() {
+  if (!semanticModulePromise) {
+    semanticModulePromise = import('../semantic/index.js');
+    semanticModulePromise.catch(() => { semanticModulePromise = null; });
+  }
+  return semanticModulePromise;
+}
 
 export function useSemanticIndex(entries, vaultAdapter, options = {}) {
   const enabled = options.enabled !== false;
   const [progress, setProgress] = useState(DEFAULT_STATE);
   const indexRef = useRef(new Map());
+  const semanticApiRef = useRef(null);
   const buildIdRef = useRef(0);
   const abortRef = useRef(null);
   // Bump this when the index is mutated so memoized consumers re-derive.
@@ -22,7 +31,16 @@ export function useSemanticIndex(entries, vaultAdapter, options = {}) {
   const bump = useCallback(() => setTick(t => t + 1), []);
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    if (!enabled) {
+      abortRef.current?.abort?.();
+      abortRef.current = null;
+      if (indexRef.current.size > 0) {
+        indexRef.current = new Map();
+        bump();
+      }
+      setProgress(DEFAULT_STATE);
+      return undefined;
+    }
     if (!Array.isArray(entries) || entries.length === 0) return undefined;
 
     const id = ++buildIdRef.current;
@@ -32,7 +50,10 @@ export function useSemanticIndex(entries, vaultAdapter, options = {}) {
 
     (async () => {
       try {
-        const next = await buildSemanticIndex(entries, {
+        const semanticApi = await loadSemanticModule();
+        if (controller?.signal?.aborted || buildIdRef.current !== id) return;
+        semanticApiRef.current = semanticApi;
+        const next = await semanticApi.buildSemanticIndex(entries, {
           vaultAdapter,
           signal: controller?.signal,
           onProgress: ({ done, total }) => {
@@ -59,18 +80,21 @@ export function useSemanticIndex(entries, vaultAdapter, options = {}) {
     // the entries array itself; otherwise every keystroke during edit would
     // re-trigger a 200-entry rebuild. Per-entry updates go through `reembed`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, entries?.length, vaultAdapter]);
+  }, [enabled, entries?.length, vaultAdapter, bump]);
 
   const getSimilar = useCallback((entryId, k = 5, opts = {}) => {
-    return getSimilarEntries(indexRef.current, entryId, k, opts);
-  }, [tick]);
+    if (!enabled || !semanticApiRef.current?.getSimilarEntries) return [];
+    return semanticApiRef.current.getSimilarEntries(indexRef.current, entryId, k, opts);
+  }, [enabled, tick]);
 
   const reembed = useCallback(async (entry) => {
-    if (!entry?.id) return null;
-    const vec = await reembedEntry(indexRef.current, entry, { vaultAdapter });
+    if (!enabled || !entry?.id) return null;
+    const semanticApi = semanticApiRef.current || await loadSemanticModule();
+    semanticApiRef.current = semanticApi;
+    const vec = await semanticApi.reembedEntry(indexRef.current, entry, { vaultAdapter });
     bump();
     return vec;
-  }, [vaultAdapter, bump]);
+  }, [enabled, vaultAdapter, bump]);
 
   // Snapshot for memoized consumers that want a stable reference to "the
   // current index version." Recomputed only when `tick` changes (i.e. after

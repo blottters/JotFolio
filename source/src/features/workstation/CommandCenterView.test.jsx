@@ -74,7 +74,7 @@ describe('CommandCenterView reference shell', () => {
 
     const focusSelect = screen.getByRole('combobox', { name: 'Focus mode' });
     fireEvent.change(focusSelect, { target: { value: 'planning' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Metrics review' }));
+    expect(screen.getByText('No priorities yet.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save Priorities' }));
     expect(screen.getByRole('status')).toHaveTextContent('Priorities saved');
     fireEvent.click(screen.getByRole('button', { name: 'Start Review' }));
@@ -82,10 +82,10 @@ describe('CommandCenterView reference shell', () => {
     expect(screen.getByText('Review Overview')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Reflection' }));
-    fireEvent.change(screen.getByLabelText('What went well item 1'), { target: { value: 'PRD draft shipped' } });
-    expect(screen.getByDisplayValue('PRD draft shipped')).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'Add note' })[0]);
     expect(screen.getByRole('status')).toHaveTextContent('Reflection note added');
+    fireEvent.change(screen.getByLabelText('What went well item 1'), { target: { value: 'PRD draft shipped' } });
+    expect(screen.getByDisplayValue('PRD draft shipped')).toBeInTheDocument();
 
     fireEvent.change(focusSelect, { target: { value: 'capture' } });
     expect(screen.getByText('Quick Capture')).toBeInTheDocument();

@@ -1,10 +1,53 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SOURCES } from '../parsers/index.js'
 import { setOnboarded, logEvent } from './activation.js'
 import { ImportModal } from './ImportModal.jsx'
 
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'a[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+function getFocusableElements(root) {
+  if (!root) return []
+  return [...root.querySelectorAll(FOCUSABLE_SELECTOR)]
+    .filter(el => el.getAttribute('aria-hidden') !== 'true')
+}
+
+function containTabFocus(event, root) {
+  if (event.key !== 'Tab') return
+  const focusable = getFocusableElements(root)
+  if (!focusable.length) {
+    event.preventDefault()
+    return
+  }
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const active = document.activeElement
+  if (event.shiftKey) {
+    if (!root.contains(active) || active === first) {
+      event.preventDefault()
+      last.focus()
+    }
+    return
+  }
+  if (!root.contains(active) || active === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
 export function WelcomePanel({ onImport, onPickTheme, onOpenAdd, onOpenGraph, onClose }) {
   const [activeSource, setActiveSource] = useState(null)
+  const dialogRef = useRef(null)
+
+  const getFocusRoot = () => activeSource
+    ? dialogRef.current?.querySelector('[role="dialog"][aria-modal="true"]') || dialogRef.current
+    : dialogRef.current
 
   const skip = () => {
     logEvent('onboard.skip')
@@ -18,8 +61,17 @@ export function WelcomePanel({ onImport, onPickTheme, onOpenAdd, onOpenGraph, on
     return () => document.removeEventListener('keydown', h)
   }, [activeSource])
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      getFocusableElements(getFocusRoot())[0]?.focus()
+    }, 0)
+    return () => clearTimeout(t)
+  }, [activeSource])
+
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="welcome-title"
+      ref={dialogRef}
+      onKeyDown={e => containTabFocus(e, getFocusRoot())}
       style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: 'var(--bg)', border: '1px solid var(--br)', borderRadius: 'var(--rd)', padding: '32px 28px', maxWidth: 560, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.45)' }}>
         <div style={{ fontSize: 10, letterSpacing: 2, color: 'var(--t3)', textTransform: 'uppercase', marginBottom: 8 }}>Welcome to JotFolio</div>

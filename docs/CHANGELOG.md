@@ -20,15 +20,63 @@ Bump rules:
 - Capture / New Entry modal rebuilt with asset-kit entry icons, template application, local path copy, source URL open, save-to-inbox/project, tag editing, and canvas creation.
 - Projects route rebuilt with screenshot-style project cards, compact project table, selected-project detail rail, tabs, sorting, grid/list toggle, project-aware New Entry, project canvas creation, project-filtered Bases, Constellation routing, and copy/reveal actions.
 - Notes route rebuilt as a full Markdown editor workspace with tabbed file chrome, edit/preview modes, Markdown toolbar actions, live debounced vault saving, line/word/file status, tag editing, backlinks, unresolved-link context, and file actions.
+- Constellation now includes a Relationship Scan panel that reports disconnected notes, unresolved wiki links, and metadata gaps from real vault/index data before any MiniLM link-writing work.
+- Graph Health now has a local relationship decision ledger for accepted, rejected, and ignored review choices without mutating note content.
+- Added a relationship review engine for future Graph Health/MiniLM suggestions, including pending/applied/rejected/undone records, exact undo snapshots, and safe storage helpers.
+- Capture / New Entry now supports real Project and Task entry creation with type-specific defaults and vault-relative path previews.
+- Spaces now has a dedicated workstation page for space selection, metrics, recent entries, projects, tasks, tags, graph gaps, and real create/capture actions.
 
 ### Changed
+- New entry creation now uses UUID v4 IDs for vault entries while keeping short UI ids for toasts and other non-vault state.
+- Capture / New Entry now labels its primary action by the actual entry type; only Raw captures say `Save to Inbox`.
+- Command Center starts from real vault state instead of seeded PRD/design/roadmap goals, and it scrubs the old fake defaults from saved browser mode state.
+- MiniLM semantic indexing is now explicit opt-in and lazy-loaded by the semantic hook instead of starting on default vault load.
+- Constellation only computes the selected heavy layout instead of eagerly computing affinity layout for every render.
+- Browser preview Vault settings now explain that `local://vault` is already the active virtual vault instead of offering a fake browser-storage migration.
+- Sidebar vocabulary now uses Constellation instead of Knowledge Graph.
+- The unfinished main AI route is now labeled AI Setup instead of AI Assistant.
+- Settings Shortcuts now lists the active Search, Quick Switcher, and Command Palette shortcuts.
+- Performance bench gating now uses at least 20 samples for p95 and requires a meaningful absolute slowdown before failing on relative-only timing drift.
+- The left sidebar now links to Spaces as a main page instead of listing every space under the navigation.
 - Search now owns its right detail rail instead of using the generic Today/tasks rail.
 - Top-bar Capture opens the full Capture / New Entry workflow.
 - Projects now owns its project detail rail and no longer shows the generic Today/tasks dashboard rail.
 - Notes now opens directly into the editor workspace instead of the generic card/list library route.
+- Notes editor chrome now matches the approved reference more closely: tab and editor controls share one header row, Markdown toolbar groups use thin dividers/icons, and the duplicate note title above the editor was removed.
+- Notes Info rail now shows the full screenshot-style context stack: Tags, Backlinks, Unresolved links, Properties, File, and Actions.
+- Notes Properties now edits common frontmatter directly for status, project, and entry date, while the editor status bar reports real space counts instead of a hard-coded value.
+- Constellation Relationship Scan is now presented as Graph Health with real open/create actions for disconnected notes, missing wiki targets, and metadata gaps.
+- Capture / New Entry now starts blank instead of pre-filling a research title, example URL, default tags, and capture metadata into new entries.
+- Inbox row actions now use readable action labels instead of symbol-only buttons for triage and conversion.
 
 ### Fixed
+- Desktop vault moves now reject existing destination paths instead of allowing overwrite-by-rename behavior.
+- Snapshot restore now validates snapshot dates and vault-contained restore destinations.
+- Browser fallback binary writes now preserve arbitrary bytes instead of decoding them as text.
+- Markdown frontmatter parsing now preserves body whitespace instead of trimming it on read.
+- Markdown frontmatter parsing now uses a lighter hot path for vault scans while preserving the same frontmatter behavior.
+- Calendar future task/project pills now show the actual due date instead of always saying `Due today`.
+- Inbox row layout now uses a narrower action column so triage actions are less likely to clip at normal desktop widths.
+- Command Palette and Quick Switcher now expose active options through ARIA and keep Tab focus inside their dialogs.
+- Welcome now keeps initial keyboard focus inside the first-run dialog.
+- Testing builds now override package metadata name to avoid reusing the production app data identity.
+- Electron external-link handling now allows only `https://` and `mailto:` targets, and the Help menu issue link points at the real GitHub repo.
+- First-run blank vaults now open the welcome workflow instead of dropping users into an empty workstation dashboard.
+- Capture / New Entry now honors Escape while a text field is focused, so the modal close/discard flow works from the title field and other editable fields.
+- New Project and New Task entry points now create `project` and `task` entries instead of falling back to `note`.
+- Save to Project is disabled unless a real project context exists, preventing project-less saves from stamping fake project metadata.
+- Command Center quick captures now keep the saved entry id on the immediate Captured Today row, so opening a just-captured note routes back to that entry instead of falling back to Inbox.
+- Inbox raw captures can now be sent directly to Notes as draft notes through the existing entry save path, keeping the same saved entry id and a `capture` tag.
+- Inbox raw captures can now be converted in place into Notes, Tasks, or Links, archived from the row, or moved to Trash from the row without losing the saved entry id.
+- Inbox raw captures can now be attached to a real existing Project through an in-app picker, writing `project` metadata and preserving that project link when the capture is later converted into a Note, Task, or Link.
+- The `⌘K` / `Ctrl+K` shortcut now opens Search / Quick Switcher globally, matching the top search field and sidebar hint instead of doing nothing from the main shell.
+- Entry detail Rename file and Move folder actions now use app-owned dialogs instead of browser `prompt()` calls while preserving the same vault move path.
 - Constellation info help no longer opens as an overlapping floating popover; it now renders inline below the toolbar.
+- Command Center and Tasks no longer emit duplicate React key warnings when different rows or metadata chips share the same visible title.
+- Notes Properties no longer shows empty duplicate metadata rows that push File and Actions out of view.
+- Notes Markdown toolbar link and image actions no longer insert fake `example.com` or `image-url` placeholders; they create blank Markdown destinations for the user to fill.
+- Graph Health review decisions now persist across reloads, so accepted/rejected/ignored relationship issues stay remembered until cleared.
+- Memory detail panels now have an explicit Close button and Escape-key exit path instead of trapping users in the selected-memory view.
 
 ## [0.5.0-alpha.25] — 2026-05-07
 

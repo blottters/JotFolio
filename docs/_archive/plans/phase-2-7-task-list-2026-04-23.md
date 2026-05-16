@@ -1,5 +1,7 @@
 # JotFolio Electron — Phase 2–7 Task List
 
+> Archived 2026-05-15. Historical implementation checklist only. Current planning lives in [`docs/ROADMAP.md`](../../ROADMAP.md).
+
 Last updated: 2026-04-23
 Status: Phase 1 (feature module split) complete. Phase 2 begins.
 

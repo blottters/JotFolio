@@ -19,6 +19,44 @@ let pending = new Map();         // relPath → debounce timer
 let lastSnapshotAt = new Map();  // relPath → timestamp
 const DEBOUNCE_MS = 60_000;
 
+function validateRelativePath(relPath) {
+  if (typeof relPath !== 'string' || !relPath) throw new Error('Invalid snapshot path');
+  if (relPath.includes('\\')) throw new Error('Snapshot path must use forward slashes');
+  if (path.isAbsolute(relPath)) throw new Error('Snapshot path must be relative');
+  const normalized = relPath.replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
+  if (!normalized || normalized.split('/').some(seg => !seg || seg === '.' || seg === '..')) {
+    throw new Error('Snapshot path escape attempt');
+  }
+  return normalized;
+}
+
+function resolveVaultPath(relPath) {
+  if (!vaultRoot) throw new Error('No vault');
+  const root = path.resolve(vaultRoot);
+  const rel = validateRelativePath(relPath);
+  const absolute = path.resolve(root, rel);
+  if (!absolute.startsWith(root + path.sep) && absolute !== root) {
+    throw new Error('Snapshot path escape attempt');
+  }
+  return absolute;
+}
+
+function validateSnapshotDate(snapshotDate) {
+  if (typeof snapshotDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) {
+    throw new Error('Invalid snapshot date');
+  }
+  const [year, month, day] = snapshotDate.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day
+  ) {
+    throw new Error('Invalid snapshot date');
+  }
+  return snapshotDate;
+}
+
 function setVaultRoot(root) {
   vaultRoot = root;
   pending.forEach(clearTimeout);
@@ -44,22 +82,28 @@ function schedule(relPath) {
 
 async function take(relPath) {
   if (!vaultRoot) return;
-  const src = path.resolve(vaultRoot, relPath);
+  let src;
+  let rel;
+  try {
+    src = resolveVaultPath(relPath);
+    rel = validateRelativePath(relPath);
+  } catch { return; }
   let content;
   try { content = await fs.readFile(src, 'utf8'); }
   catch { return; }
 
   const iso = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const dstDir = path.resolve(vaultRoot, RECOVERY_DIR, iso, path.dirname(relPath));
-  const dstFile = path.join(dstDir, path.basename(relPath));
+  const dstDir = path.resolve(vaultRoot, RECOVERY_DIR, iso, path.dirname(rel));
+  const dstFile = path.join(dstDir, path.basename(rel));
   await fs.mkdir(dstDir, { recursive: true });
   await fs.writeFile(dstFile, content, 'utf8');
-  lastSnapshotAt.set(relPath, Date.now());
+  lastSnapshotAt.set(rel, Date.now());
 }
 
 // Return list of snapshots for a given note, newest first.
 async function list(relPath) {
   if (!vaultRoot) return [];
+  const rel = validateRelativePath(relPath);
   const recRoot = path.resolve(vaultRoot, RECOVERY_DIR);
   const out = [];
   let dateDirs;
@@ -67,7 +111,8 @@ async function list(relPath) {
   catch { return []; }
   for (const d of dateDirs) {
     if (!d.isDirectory()) continue;
-    const candidate = path.join(recRoot, d.name, relPath);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.name)) continue;
+    const candidate = path.join(recRoot, d.name, rel);
     try {
       const stat = await fs.stat(candidate);
       out.push({ date: d.name, mtime: stat.mtimeMs, size: stat.size, absPath: candidate });
@@ -79,13 +124,18 @@ async function list(relPath) {
 
 async function restore(relPath, snapshotDate) {
   if (!vaultRoot) throw new Error('No vault');
-  const src = path.resolve(vaultRoot, RECOVERY_DIR, snapshotDate, relPath);
-  const dst = path.resolve(vaultRoot, relPath);
-  if (!src.startsWith(path.resolve(vaultRoot, RECOVERY_DIR) + path.sep)) {
+  const date = validateSnapshotDate(snapshotDate);
+  const rel = validateRelativePath(relPath);
+  const recRoot = path.resolve(vaultRoot, RECOVERY_DIR);
+  const dateRoot = path.resolve(recRoot, date);
+  const src = path.resolve(dateRoot, rel);
+  const dst = resolveVaultPath(rel);
+  if (!src.startsWith(dateRoot + path.sep)) {
     throw new Error('Snapshot path escape attempt');
   }
   const content = await fs.readFile(src, 'utf8');
   const tmp = dst + '.restore.tmp';
+  await fs.mkdir(path.dirname(dst), { recursive: true });
   await fs.writeFile(tmp, content, 'utf8');
   await fs.rename(tmp, dst);
 }

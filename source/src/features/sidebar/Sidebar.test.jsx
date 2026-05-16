@@ -47,17 +47,17 @@ describe('Sidebar', () => {
       'Projects',
       'Notes',
       'Calendar',
-      'Knowledge Graph',
+      'Constellation',
       'Tasks',
-      'AI Assistant',
+      'AI Setup',
       'Spaces',
       'Tags',
       'Settings',
       'Trash',
     ].forEach(label => expect(screen.getByText(label)).toBeInTheDocument());
 
-    expect(screen.getByText('Work')).toBeInTheDocument();
-    expect(screen.getByText('Research')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Spaces'));
+    expect(setSection).toHaveBeenCalledWith('spaces');
     expect(screen.getByText('Manage Tags')).toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
     expect(screen.queryByText('Media')).not.toBeInTheDocument();
@@ -81,7 +81,7 @@ describe('Sidebar', () => {
     expect(setSection).toHaveBeenCalledWith('tasks');
   });
 
-  it('renders spaces and tags from live vault data', () => {
+  it('keeps individual spaces out of the sidebar and keeps tags live', () => {
     const setSection = vi.fn();
     const setFilterTag = vi.fn();
     render(
@@ -98,17 +98,26 @@ describe('Sidebar', () => {
       />,
     );
 
-    expect(screen.getByText('Client Work')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.queryByText('Client Work')).not.toBeInTheDocument();
+    expect(screen.queryByText('Archive')).not.toBeInTheDocument();
     expect(screen.getByText('alpha')).toBeInTheDocument();
     expect(screen.getByText('zeta')).toBeInTheDocument();
     expect(screen.queryByText('product')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('Client Work'));
-    expect(setSection).toHaveBeenCalledWith('space:client-work');
-
     fireEvent.click(screen.getByText('alpha'));
     expect(setFilterTag).toHaveBeenCalledWith('alpha');
     expect(setSection).toHaveBeenCalledWith('all');
+  });
+
+  it('highlights Spaces for mixed-case space routes', () => {
+    render(
+      <Sidebar
+        {...baseProps}
+        section="space:Client Work"
+        spaces={[{ id: 'Client Work', name: 'Client Work', count: 5 }]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Spaces/ })).toHaveAttribute('aria-pressed', 'true');
   });
 });

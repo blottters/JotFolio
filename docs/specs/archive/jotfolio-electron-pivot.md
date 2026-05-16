@@ -9,7 +9,7 @@ _Created 2026-04-23. Last updated 2026-05-03 to separate historical roadmap mate
 | Phase | Status | Shipped In | Notes |
 |---|---|---|---|
 | 0 — App.jsx split | ✅ Done | v0.3.0 | 2952 → 297 lines shell, feature modules under `src/features/*`, `src/lib/*` |
-| 1 — ADRs | ✅ Done | v0.3.0 | 5 ADRs + task list at `docs/adr/` |
+| 1 — ADRs | ✅ Done | v0.3.0 | 5 ADRs at `docs/adr/`. Current planning now lives in `docs/ROADMAP.md`; the retired Phase 2–7 task list is archived. |
 | 2 — UX + design tokens | ✅ Done | v0.3.0 | 12 wireframes at `docs/design/wireframes/` + `src/design/tokens.css` |
 | 3 — Electron shell + adapters | ✅ Done | v0.3.0 | `src-electron/`, `src/adapters/`, YAML frontmatter, atomic writes |
 | 3.5 — Renderer integration | ✅ Done | v0.3.0 | `useVault` hook, VaultPicker modal, migration flow (33/33 verified live) |
@@ -302,13 +302,13 @@ Historical accepted risks from phases 0–7 are preserved below, but this list h
 - First signed release after the code-signing placeholders are replaced
 
 ### Process
-- Formalize two-tier plan pattern: roadmap (this file) + per-phase plan at `docs/phase-plans/NN-<name>.md`. Phase 7 set the precedent; retrofit earlier phases only if contributors need them.
+- Formalize two-tier plan pattern: current roadmap at `docs/ROADMAP.md` + per-phase plan at `docs/phase-plans/NN-<name>.md`. Phase 7 set the precedent; retrofit earlier phases only if contributors need them.
 
 ---
 
 ## Deliverable inventory (what exists as of v0.4.1)
 
-**ADRs (5):** `docs/adr/ADR-0001` through `ADR-0005` + `TASKS.md`
+**ADRs (5):** `docs/adr/ADR-0001` through `ADR-0005`; retired Phase 2–7 task list archived under `docs/_archive/plans/`
 **Wireframes (12):** `docs/design/wireframes/01-first-run.md` through `12-window-chrome-and-native.md`
 **Security docs (3):** `docs/security/threat-model.md`, `ipc-audit.md`, `contextBridge-surface.md`
 **Build docs (2):** `docs/build/code-signing.md`, `release-process.md`

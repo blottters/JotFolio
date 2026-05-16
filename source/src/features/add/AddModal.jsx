@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { STATUSES, today } from '../../lib/types.js';
+import { TYPE_FOLDER } from '../../lib/frontmatter.js';
 import { isSafeUrl, normalizeTags, pickEntryFields, withAlpha } from '../../lib/storage.js';
 import { useEscapeKey, useAutoFocus } from '../../lib/hooks.js';
 
@@ -12,6 +13,8 @@ const CAPTURE_TYPES = [
   { id: 'podcast', label: 'Podcast', asset: 'entry-podcast.svg', accent: '#a855f7' },
   { id: 'video', label: 'Video', asset: 'entry-video.svg', accent: '#ef4444' },
   { id: 'link', label: 'Link', asset: 'entry-link.svg', accent: '#22c55e' },
+  { id: 'project', label: 'Project', asset: 'entry-project.svg', accent: '#7ddc9e' },
+  { id: 'task', label: 'Task', asset: 'entry-task.svg', accent: '#ffb86b' },
   { id: 'canvas', label: 'Canvas', asset: 'entry-canvas.svg', accent: '#f97316' },
   { id: 'raw', label: 'Raw', asset: 'entry-raw.svg', accent: '#94a3b8' },
 ];
@@ -25,25 +28,47 @@ const TEMPLATE_OPTIONS = {
   'Daily Journal': title => `# ${title || 'Daily Journal'}\n\n## Wins\n- \n\n## Notes\n\n\n## Tomorrow\n- `,
 };
 
-const DEFAULT_TAGS = ['research', 'local-first', 'productivity'];
+const DEFAULT_TAGS = [];
 const DEFAULT_TAG_SUGGESTIONS = ['research', 'local-first', 'productivity', 'design', 'planning', 'ideas', 'capture'];
-const FOLDERS = ['Inbox', 'Projects', 'Notes', 'Research', 'Work', 'Writing', 'Personal'];
 
 function supportedType(type) {
   return CAPTURE_TYPES.some(item => item.id === type) ? type : 'note';
 }
 
-function sanitizeFileName(value) {
-  const clean = String(value || 'New Research Entry')
+function defaultTitleFor(type) {
+  if (type === 'project') return 'Untitled Project';
+  if (type === 'task') return 'Untitled Task';
+  if (type === 'canvas') return 'New Canvas';
+  if (type === 'raw') return 'Untitled Capture';
+  if (type === 'journal') return `Journal ${today()}`;
+  return 'Untitled Note';
+}
+
+function defaultTemplateFor(type) {
+  if (type === 'journal') return 'Daily Journal';
+  if (type === 'project') return 'Project Brief';
+  if (type === 'task') return 'Meeting Notes';
+  return 'Research Note';
+}
+
+function bucketLabelFor(type) {
+  const bucket = type === 'canvas' ? 'canvases' : TYPE_FOLDER[type] || 'notes';
+  return bucket.charAt(0).toUpperCase() + bucket.slice(1);
+}
+
+function sanitizeFileName(value, type) {
+  const fallback = defaultTitleFor(type);
+  const clean = String(value || fallback)
     .replace(/[<>:"/\\|?*]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return clean || 'New Research Entry';
+  return clean || fallback;
 }
 
-function pathFor(folder, title, type) {
+function pathFor(title, type) {
   const extension = type === 'canvas' ? '.canvas.json' : '.md';
-  return `/Vault/${folder}/${sanitizeFileName(title)}${extension}`;
+  const bucket = type === 'canvas' ? 'canvases' : TYPE_FOLDER[type] || 'notes';
+  return `${bucket}/${sanitizeFileName(title, type)}${extension}`;
 }
 
 function normalizeProjectContext(projectContext) {
@@ -114,9 +139,10 @@ function iconPath(asset) {
 
 export function AddModal({
   initialType = 'note',
+  initialSpace = '',
+  initialTitle = '',
   existingUrls,
   allTags,
-  initialFolder,
   projectContext,
   quickCapture = false,
   onImportFile,
@@ -131,14 +157,13 @@ export function AddModal({
   const quickNote = quickCapture && startingType === 'note';
   const [type, setType] = useState(startingType);
   const [form, setForm] = useState({
-    title: quickNote ? '' : 'New Research Entry',
-    url: quickNote ? '' : 'https://example.com/research',
+    title: initialTitle,
+    url: '',
     notes: '',
   });
   const [tags, setTags] = useState(DEFAULT_TAGS);
   const [tagDraft, setTagDraft] = useState('');
-  const [template, setTemplate] = useState('Research Note');
-  const [folder, setFolder] = useState(initialFolder || (projectTarget ? 'Projects' : 'Inbox'));
+  const [template, setTemplate] = useState(defaultTemplateFor(startingType));
   const [contentTab, setContentTab] = useState('Markdown');
   const [urlError, setUrlError] = useState('');
   const [dupWarning, setDupWarning] = useState(null);
@@ -148,7 +173,7 @@ export function AddModal({
   const titleInputRef = useRef(null);
   const contentRef = useRef(null);
 
-  useEscapeKey(true, () => tryClose());
+  useEscapeKey(true, () => tryClose(), { includeEditableTargets: true });
   useAutoFocus(titleInputRef);
 
   const tagSuggestions = useMemo(() => {
@@ -157,8 +182,8 @@ export function AddModal({
   }, [allTags]);
 
   const localPathPreview = useMemo(
-    () => pathFor(folder, form.title, type),
-    [folder, form.title, type]
+    () => pathFor(form.title, type),
+    [form.title, type]
   );
 
   const setField = key => event => {
@@ -184,7 +209,7 @@ export function AddModal({
     setDirty(true);
     setConfirmDiscard(false);
     setStatusMessage('');
-    if (nextType === 'journal') setTemplate('Daily Journal');
+    setTemplate(defaultTemplateFor(nextType));
   };
 
   const addTag = value => {
@@ -322,26 +347,26 @@ export function AddModal({
     const body = [
       form.notes.trim(),
       sourceLine,
-      `Template: ${template}`,
-      `Folder: ${folder}`,
-      `Capture mode: ${contentTab}`,
     ].filter(Boolean).join('\n\n');
     const projectValue = projectTarget?.id || '';
+    const spaceValue = String(initialSpace || '').trim();
     const projectTags = projectTarget ? ['project', ...projectTarget.tags] : [];
     const safeForm = {
-      title: form.title.trim() || 'New Research Entry',
+      title: form.title.trim() || defaultTitleFor(type),
       url: form.url.trim(),
       notes: body,
-      tags: normalizeTags(destination === 'project' || projectTarget ? [...tags, ...projectTags] : tags),
+      tags: normalizeTags(projectTarget ? [...tags, ...projectTags] : tags),
       status,
       entry_date: today(),
-      project: projectValue || (destination === 'project' ? 'JotFolio 2.0' : ''),
+      project: projectValue,
+      space: spaceValue,
     };
     return {
       type,
       ...pickEntryFields(safeForm, type),
       tags: safeForm.tags,
       project: safeForm.project,
+      space: safeForm.space,
       ...(projectTarget ? {
         project_title: projectTarget.title,
         project_path: projectTarget.path,
@@ -377,6 +402,8 @@ export function AddModal({
   };
 
   const activeType = CAPTURE_TYPES.find(item => item.id === type) || CAPTURE_TYPES[0];
+  const canSaveToProject = Boolean(projectTarget);
+  const primarySaveLabel = type === 'raw' ? 'Save to Inbox' : `Create ${activeType.label}`;
 
   return (
     <div
@@ -459,7 +486,7 @@ export function AddModal({
                 aria-label="Entry type"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))',
                   gap: 10,
                   marginBottom: 20,
                 }}
@@ -508,6 +535,7 @@ export function AddModal({
                 id="capture-title"
                 value={form.title}
                 onChange={setField('title')}
+                placeholder={defaultTitleFor(type)}
                 style={inputStyle()}
               />
             </div>
@@ -704,18 +732,13 @@ export function AddModal({
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 0.82fr) minmax(300px, 1.18fr)', gap: 14 }}>
               <div>
-                <label htmlFor="capture-folder" style={fieldLabelStyle()}>Folder</label>
-                <select
+                <label htmlFor="capture-folder" style={fieldLabelStyle()}>Vault bucket</label>
+                <input
                   id="capture-folder"
-                  value={folder}
-                  onChange={event => {
-                    setFolder(event.target.value);
-                    setDirty(true);
-                  }}
-                  style={inputStyle({ appearance: 'auto' })}
-                >
-                  {FOLDERS.map(option => <option key={option}>{option}</option>)}
-                </select>
+                  value={bucketLabelFor(type)}
+                  readOnly
+                  style={inputStyle({ color: 'var(--t2)' })}
+                />
               </div>
 
               <div>
@@ -856,8 +879,19 @@ export function AddModal({
             {statusMessage}
           </span>
           <button type="button" onClick={applyTemplate} style={modalButtonStyle('quiet')}>Apply Template</button>
-          <button type="button" onClick={() => saveEntry('project')} style={modalButtonStyle('quiet')}>Save to Project</button>
-          <button type="button" onClick={() => saveEntry('inbox')} style={modalButtonStyle('primary')}>Save to Inbox</button>
+          <button
+            type="button"
+            onClick={() => saveEntry('project')}
+            disabled={!canSaveToProject}
+            style={{
+              ...modalButtonStyle('quiet'),
+              opacity: canSaveToProject ? 1 : 0.45,
+              cursor: canSaveToProject ? 'pointer' : 'not-allowed',
+            }}
+          >
+            Save to Project
+          </button>
+          <button type="button" onClick={() => saveEntry('inbox')} style={modalButtonStyle('primary')}>{primarySaveLabel}</button>
         </div>
       </div>
     </div>

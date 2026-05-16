@@ -5,14 +5,6 @@ import { TagManageDialog } from '../tags/TagManageDialog.jsx';
 // ── Sidebar ────────────────────────────────────────────────────────────────
 export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,tagCounts,filterTag,setFilterTag,theme,setTheme,darkMode,setDarkMode,isDark,onAdd,onExportJSON,onExportMD,victoryColors,setVictoryColors,onOpenSettings,folders=[],folderFiles=[],activeFolderFilePath='',onSelectFolder,onNewFolder,onOpenFolderFile,onDeleteFolderFile,onDeleteFolder,bases=[],onSelectBase,onNewBase,onDeleteBase,canvases=[],onSelectCanvas,onNewCanvas,onDeleteCanvas,pluginPanelsSlot,flags={},spaces=[],entries=[],onUpdateEntry}){
   const [tagManageOpen,setTagManageOpen]=useState(false);
-  const spaceItems=(Array.isArray(spaces)?spaces:[])
-    .map(space=>{
-      if(typeof space==='string')return{id:space.toLowerCase(),name:space,count:0};
-      const name=space?.name||space?.id;
-      if(!name)return null;
-      return{id:String(space.id||name).toLowerCase(),name:String(name),count:space.count||0,color:space.color};
-    })
-    .filter(Boolean);
   const tagItems=(Array.isArray(allTags)?allTags:[])
     .map(tag=>{
       const name=typeof tag==='string'?tag:(tag?.name||tag?.id);
@@ -29,27 +21,13 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
         <NavItem icon="▭" label="Projects" active={section==='projects'} open={open} onClick={()=>setSection('projects')}/>
         <NavItem icon="▤" label="Notes" active={section==='note'} open={open} onClick={()=>setSection('note')}/>
         <NavItem icon="□" label="Calendar" active={section==='calendar'} open={open} onClick={()=>setSection('calendar')}/>
-        <NavItem icon="⌘" label="Knowledge Graph" active={section==='graph'} open={open} onClick={()=>setSection('graph')}/>
+        <NavItem icon="⌘" label="Constellation" active={section==='graph'} open={open} onClick={()=>setSection('graph')}/>
         <NavItem icon="☑" label="Tasks" active={section==='tasks'} open={open} onClick={()=>setSection('tasks')}/>
-        <NavItem icon="✧" label="AI Assistant" active={section==='ai'} open={open} onClick={()=>setSection('ai')}/>
+        <NavItem icon="▣" label="Spaces" active={section==='spaces'||section?.startsWith?.('space:')} open={open} onClick={()=>setSection('spaces')}/>
+        <NavItem icon="✧" label="AI Setup" active={section==='ai'} open={open} onClick={()=>setSection('ai')}/>
 
         {open?<SectionDivider/>:<div style={{height:1,background:'var(--br)',margin:'12px 6px 8px'}}/>}
-        {open?<NavHeader>Spaces</NavHeader>:null}
-        {spaceItems.map((space,index)=>(
-          <NavItem
-            key={space.id}
-            icon="▣"
-            iconColor={space.color||['#3b82f6','#22c55e','#f97316','#8b5cf6'][index%4]}
-            label={space.name}
-            count={space.count}
-            active={section===`space:${space.id}`}
-            open={open}
-            onClick={()=>setSection(`space:${space.id}`)}/>
-        ))}
-        {open&&spaceItems.length===0?<EmptyNavHint>No spaces yet</EmptyNavHint>:null}
-
         {open&&<>
-          <SectionDivider/>
           <NavHeader>Tags</NavHeader>
           {tagItems.map(t=>(
             <Pressable key={t.name} onPress={()=>{setFilterTag?.(filterTag===t.name?'':t.name);setSection('all')}} ariaLabel={`Filter by tag ${t.name}`} ariaPressed={filterTag===t.name}
@@ -80,6 +58,6 @@ function NavItem({icon,label,count,hint,active,open,onClick,iconColor}){
     <span style={{fontSize:14,flexShrink:0,width:18,textAlign:'center',color:iconColor||(active?'var(--tx)':'var(--t2)')}}>{icon}</span>
     {open&&<><span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
     {count>0&&<span style={{fontSize:11,fontWeight:600,background:'rgba(255,255,255,.10)',border:'1px solid rgba(255,255,255,.08)',borderRadius:99,padding:'1px 7px',color:'var(--t2)',flexShrink:0}}>{count}</span>}</>}
-    {open&&hint&&<span style={{fontSize:11,fontWeight:500,color:'var(--t3)',flexShrink:0}}>{hint}</span>}
+    {open&&hint&&<span style={{fontSize:11,fontWeight:500,color:active?'var(--t2)':'var(--t3)',flexShrink:0}}>{hint}</span>}
   </Pressable>);
 }

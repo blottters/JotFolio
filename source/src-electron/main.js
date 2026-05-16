@@ -21,6 +21,7 @@ const crypto = require('node:crypto');
 const telemetry = require('./telemetry.js');
 const updater = require('./updater.js');
 const snapshots = require('./snapshots.js');
+const { isSafeExternalUrl } = require('./openExternalSafe.js');
 telemetry.init();
 
 const isDev = !app.isPackaged;
@@ -253,6 +254,19 @@ ipcMain.handle('vault:move', wrapIpc(async (from, to) => {
   const absFrom = resolveSafe(from);
   const absTo = resolveSafe(to);
   try {
+    await fs.lstat(absFrom);
+  } catch (err) {
+    if (err.code === 'ENOENT') throw new VaultErr('not-found', from);
+    throw new VaultErr('io-error', err.message);
+  }
+  try {
+    await fs.lstat(absTo);
+    throw new VaultErr('invalid-path', `Destination exists: ${to}`);
+  } catch (err) {
+    if (err instanceof VaultErr) throw err;
+    if (err.code !== 'ENOENT') throw new VaultErr('io-error', err.message);
+  }
+  try {
     await fs.mkdir(path.dirname(absTo), { recursive: true });
     await fs.rename(absFrom, absTo);
   } catch (err) {
@@ -306,8 +320,8 @@ ipcMain.handle('vault:writeBinary', wrapIpc(async (rel, data) => {
 }));
 
 ipcMain.handle('app:open-external', wrapIpc(async (url) => {
-  if (typeof url !== 'string' || !/^https?:\/\//.test(url)) {
-    throw new VaultErr('invalid-path', 'Only http(s) URLs allowed');
+  if (!isSafeExternalUrl(url)) {
+    throw new VaultErr('invalid-path', 'Only https:// and mailto: URLs allowed');
   }
   await shell.openExternal(url);
 }));
@@ -354,8 +368,8 @@ async function createWindow() {
 
   // Block window.open and target="_blank" — renderer cannot create new windows
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Send http(s) links to default browser, deny everything else
-    if (/^https?:\/\//.test(url)) {
+    // Send approved external links to default browser, deny everything else.
+    if (isSafeExternalUrl(url)) {
       shell.openExternal(url).catch(err => console.error('openExternal failed', err));
     }
     return { action: 'deny' };

@@ -15,6 +15,7 @@
 // Throws FrontmatterError with 1-indexed line number.
 
 const RESERVED_CHARS = /[:#{}[\],&*!|>'"%@`]/;
+const FRONTMATTER_KEY = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
 export class FrontmatterError extends Error {
   constructor(message, line) {
@@ -37,19 +38,35 @@ export function parse(content) {
   if (!content.startsWith('---\n') && !content.startsWith('---\r\n')) {
     return { frontmatter: {}, body: content, raw };
   }
-  const afterOpen = content.replace(/^---\r?\n/, '');
+  const openLength = content.startsWith('---\r\n') ? 5 : 4;
   // Match either `\n---\n` / `\n---\r\n` (body follows) or `\n---` at EOF
   // (no trailing newline). Files that end at the close delimiter without
   // a trailing newline are valid and should not be rejected.
-  const closeMatch = afterOpen.match(/\n---(?:\r?\n|$)/);
-  if (!closeMatch) {
+  const close = findClosingDelimiter(content, openLength);
+  if (!close) {
     // Open but no close → treat as broken frontmatter
     throw new FrontmatterError('Frontmatter opened with --- but no closing --- found', 1);
   }
-  const yamlBlock = afterOpen.slice(0, closeMatch.index);
-  const body = afterOpen.slice(closeMatch.index + closeMatch[0].length);
+  const yamlBlock = content.slice(openLength, close.start);
+  const body = content.slice(close.end);
   const frontmatter = parseYaml(yamlBlock, 2); // line 1 is opening ---
   return { frontmatter, body, raw };
+}
+
+function findClosingDelimiter(content, fromIndex) {
+  let searchFrom = fromIndex;
+  while (searchFrom < content.length) {
+    const start = content.indexOf('\n---', searchFrom);
+    if (start === -1) return null;
+    const afterMarker = start + 4;
+    if (afterMarker === content.length) return { start, end: afterMarker };
+    if (content[afterMarker] === '\n') return { start, end: afterMarker + 1 };
+    if (content[afterMarker] === '\r' && content[afterMarker + 1] === '\n') {
+      return { start, end: afterMarker + 2 };
+    }
+    searchFrom = start + 1;
+  }
+  return null;
 }
 
 // Keys that would pollute Object.prototype if assigned blindly.
@@ -58,27 +75,31 @@ const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 function parseYaml(src, baseLine) {
   // Split on LF, then strip any trailing CR. Handles CRLF and lone-CR edge
   // cases without polluting scalar values with stray \r.
-  const lines = src.split('\n').map(l => l.endsWith('\r') ? l.slice(0, -1) : l);
+  const lines = src.includes('\r')
+    ? src.split('\n').map(l => l.endsWith('\r') ? l.slice(0, -1) : l)
+    : src.split('\n');
   const obj = Object.create(null); // no prototype chain; safer target
   let i = 0;
   while (i < lines.length) {
     const lineNum = baseLine + i;
     const line = lines[i];
-    if (line.trim() === '' || line.trim().startsWith('#')) { i++; continue; }
-    const m = line.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
-    if (!m) throw new FrontmatterError(`Invalid line: "${line}"`, lineNum);
-    const [, key, valueRaw] = m;
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) { i++; continue; }
+    const colon = line.indexOf(':');
+    if (colon <= 0) throw new FrontmatterError(`Invalid line: "${line}"`, lineNum);
+    const key = line.slice(0, colon).trimEnd();
+    if (!FRONTMATTER_KEY.test(key)) throw new FrontmatterError(`Invalid line: "${line}"`, lineNum);
     if (UNSAFE_KEYS.has(key)) throw new FrontmatterError(`Forbidden key: "${key}"`, lineNum);
-    const value = valueRaw.trim();
+    const value = line.slice(colon + 1).trim();
     if (value === '') {
       // Block array on following lines (`-` prefixed, indented)
       const collected = [];
       let j = i + 1;
       while (j < lines.length) {
         const next = lines[j];
-        const nm = next.match(/^(\s+)-\s+(.*)$/);
-        if (!nm) break;
-        collected.push(parseScalar(nm[2].trim(), baseLine + j));
+        const dash = next.indexOf('-');
+        if (dash <= 0 || next.slice(0, dash).trim() !== '' || next[dash + 1] !== ' ') break;
+        collected.push(parseScalar(next.slice(dash + 2).trim(), baseLine + j));
         j++;
       }
       obj[key] = collected;
@@ -197,8 +218,7 @@ export function serialize({ frontmatter, body }) {
     lines.push(serializeField(k, v));
   }
   lines.push('---');
-  const trailing = body.endsWith('\n') ? body : body + '\n';
-  return lines.join('\n') + '\n' + trailing;
+  return lines.join('\n') + '\n' + (typeof body === 'string' ? body : '');
 }
 
 function serializeField(key, value) {
@@ -370,7 +390,7 @@ export function fileToEntry({ path, content }) {
     graph: typeof frontmatter.graph === 'boolean' ? frontmatter.graph : undefined,
     retrieval_priority: typeof frontmatter.retrieval_priority === 'number' ? frontmatter.retrieval_priority : undefined,
     retrieval_keywords: cleanStringArray(frontmatter.retrieval_keywords),
-    notes: body.trim(),
+    notes: body,
     links: manualLinks ? cleanStringArray(frontmatter.links) : [],
     [MANUAL_LINKS_FIELD]: manualLinks,
     [FRONTMATTER_EXTRAS_FIELD]: extras,

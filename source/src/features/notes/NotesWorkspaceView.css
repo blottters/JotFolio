@@ -55,29 +55,36 @@
 }
 
 .jf-notes-tabbar {
-  min-height: 58px;
+  min-height: 60px;
   box-sizing: border-box;
   display: flex;
-  align-items: end;
+  align-items: center;
   gap: 8px;
-  padding: 14px 16px 0;
+  padding: 0 16px;
   border-bottom: 1px solid rgba(118, 137, 160, .16);
   background: linear-gradient(180deg, rgba(11, 17, 24, .92), rgba(9, 15, 22, .76));
 }
 
+.jf-notes-open-tabs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .jf-notes-tab,
 .jf-notes-tab-add {
-  min-height: 38px;
+  min-height: 36px;
   border: 1px solid rgba(118, 137, 160, .18);
-  border-bottom-color: rgba(118, 137, 160, .10);
-  border-radius: 7px 7px 0 0;
+  border-radius: 7px;
   background: rgba(17, 25, 34, .86);
   color: var(--tx);
   font-family: var(--fn);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
 }
 
 .jf-notes-tab {
-  max-width: min(360px, 70%);
+  max-width: min(360px, 42vw);
   display: inline-grid;
   grid-template-columns: 18px minmax(0, 1fr) 18px;
   align-items: center;
@@ -104,12 +111,16 @@
 }
 
 .jf-notes-tab-add {
-  width: 38px;
+  width: 36px;
   display: grid;
   place-items: center;
   color: var(--t2);
   cursor: pointer;
   font-size: 20px;
+}
+
+.jf-notes-tabbar-spacer {
+  flex: 1;
 }
 
 .jf-notes-modebar {
@@ -126,6 +137,8 @@
 .jf-notes-mode-group {
   display: flex;
   gap: 8px;
+  align-items: center;
+  min-width: 0;
 }
 
 .jf-notes-mode-button,
@@ -135,7 +148,7 @@
   border-radius: 7px;
   background: rgba(255, 255, 255, .028);
   color: var(--t2);
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 13px;
   font-family: var(--fn);
   font-size: 13px;
@@ -174,11 +187,11 @@
 }
 
 .jf-notes-toolbar {
-  min-height: 50px;
+  min-height: 48px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 22px;
+  gap: 4px;
+  padding: 0 18px;
   border-bottom: 1px solid rgba(118, 137, 160, .14);
   background: rgba(10, 17, 24, .72);
 }
@@ -197,6 +210,14 @@
   font-size: 13px;
   font-weight: 780;
   cursor: pointer;
+}
+
+.jf-notes-tool-separator {
+  width: 1px;
+  height: 22px;
+  margin: 0 8px;
+  background: rgba(118, 137, 160, .18);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, .24);
 }
 
 .jf-notes-tool:hover {
@@ -221,7 +242,7 @@
 .jf-notes-editor-scroll {
   height: 100%;
   overflow: auto;
-  padding: 20px 0 34px;
+  padding: 22px 0 34px;
 }
 
 .jf-notes-editor-code {
@@ -446,6 +467,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.jf-notes-property-control {
+  align-items: center;
+}
+
+.jf-notes-property-control input,
+.jf-notes-property-control select {
+  min-width: 0;
+  width: 100%;
+  min-height: 30px;
+  box-sizing: border-box;
+  border: 1px solid rgba(118, 137, 160, .18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .035);
+  color: var(--tx);
+  font-family: var(--fn);
+  font-size: 12px;
+  padding: 5px 8px;
 }
 
 .jf-notes-file-path {

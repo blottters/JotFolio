@@ -108,7 +108,8 @@ export function WorkspaceTopBar({
             if (event.key === 'Escape') setQuery?.('');
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
               event.preventDefault();
-              onCommandPalette?.();
+              event.stopPropagation();
+              onSearchActivate?.();
             }
           }}
           placeholder="Search notes, projects, people, tags..."

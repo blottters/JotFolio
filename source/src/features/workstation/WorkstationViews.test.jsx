@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   CalendarView,
@@ -51,6 +51,8 @@ describe('WorkstationViews', () => {
     expect(screen.getByText('Deep Work Hub')).toBeInTheDocument();
     expect(screen.getByText('Current Focus')).toBeInTheDocument();
     expect(screen.getByText('Session Goals')).toBeInTheDocument();
+    expect(screen.queryByText('Refine core principle statements')).not.toBeInTheDocument();
+    expect(screen.getByText('Create real tasks or review notes to define this session.')).toBeInTheDocument();
     // Most-recently-modified note appears as the current focus.
     expect(screen.getAllByText('Pinned Note').length).toBeGreaterThan(0);
     expect(screen.getByText('Quick Actions')).toBeInTheDocument();
@@ -61,6 +63,82 @@ describe('WorkstationViews', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
     expect(onAdd).toHaveBeenCalledWith('note');
     expect(onNavigate).toHaveBeenCalledWith('templates');
+  });
+
+  it('scrubs old fake command-center defaults from saved browser state', () => {
+    window.localStorage.setItem('jf-command-center-mode-state', JSON.stringify({
+      deepWork: {
+        sessionGoals: [
+          { label: 'Refine core principle statements', done: true },
+          { label: 'Map principles to user outcomes', done: true },
+          { label: 'Draft practical applications', done: false },
+          { label: 'Review with team', done: false },
+        ],
+      },
+    }));
+
+    render(<CommandCenterView model={{ recentEntries: [] }} userName="Gavin" />);
+
+    expect(screen.queryByText('Refine core principle statements')).not.toBeInTheDocument();
+    expect(screen.getByText('Create real tasks or review notes to define this session.')).toBeInTheDocument();
+    window.localStorage.removeItem('jf-command-center-mode-state');
+  });
+
+  it('does not warn when command-center rows share the same visible title', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    window.localStorage.setItem('jf-command-center-mode-state', JSON.stringify({
+      deepWork: { activeTab: 'Backlinks' },
+    }));
+
+    render(
+      <CommandCenterView
+        model={{
+          recentEntries: [
+            { id: 'focus', type: 'note', title: 'Focus Note', notes: 'Working note', modified: '2026-05-14T12:00:00.000Z' },
+            { id: 'backlink-a', type: 'note', title: 'JotFolio Command Center', notes: 'Mentions [[Focus Note]]', modified: '2026-05-14T11:00:00.000Z' },
+            { id: 'backlink-b', type: 'note', title: 'JotFolio Command Center', notes: 'Also mentions [[Focus Note]]', modified: '2026-05-14T10:00:00.000Z' },
+          ],
+        }}
+        userName="Gavin"
+      />,
+    );
+
+    expect(screen.getAllByText('Backlinks').length).toBeGreaterThan(0);
+    expect(consoleError.mock.calls.some(call => String(call[0]).includes('same key'))).toBe(false);
+
+    consoleError.mockRestore();
+    window.localStorage.removeItem('jf-command-center-mode-state');
+  });
+
+  it('opens the newly saved quick capture from Captured Today', async () => {
+    const onQuickCapture = vi.fn(async payload => ({ ...payload, id: 'capture-new' }));
+    const onOpenEntry = vi.fn();
+    const onNavigate = vi.fn();
+
+    render(
+      <CommandCenterView
+        model={{ recentCaptures: [] }}
+        focusMode="capture"
+        userName="Gavin"
+        onQuickCapture={onQuickCapture}
+        onOpenEntry={onOpenEntry}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Quick capture text'), { target: { value: 'Follow up with design notes' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Capture\s+⌘↵$/ }));
+
+    await waitFor(() => {
+      expect(onQuickCapture).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'note',
+        title: 'Follow up with design notes',
+      }));
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open Follow up with design notes' }));
+    expect(onOpenEntry).toHaveBeenCalledWith('capture-new');
+    expect(onNavigate).not.toHaveBeenCalledWith('raw');
   });
 
   it('renders project and task routes from derived rows', () => {
@@ -85,6 +163,26 @@ describe('WorkstationViews', () => {
     fireEvent.click(checkbox);
     expect(onUpdateEntry).toHaveBeenCalledWith('t-1', { status: 'done', completed: true });
     expect(onOpenEntry).not.toHaveBeenCalled();
+  });
+
+  it('does not warn when task metadata repeats the same label', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <TasksView
+        rows={[{
+          entry: task,
+          project: { ...project, title: 'JotFolio Command Center' },
+          sourceEntry: { ...note, title: 'JotFolio Command Center' },
+        }]}
+        onOpenEntry={vi.fn()}
+        onAdd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Review roadmap')).toBeInTheDocument();
+    expect(consoleError.mock.calls.some(call => String(call[0]).includes('same key'))).toBe(false);
+
+    consoleError.mockRestore();
   });
 
   it('filters, sorts, selects, and wires project workspace actions', () => {
@@ -340,6 +438,12 @@ describe('WorkstationViews', () => {
     expect(screen.getByRole('tab', { name: /Unreviewed 1/ })).toBeInTheDocument();
     expect(screen.getByText('Voice Note — Interview Jamie Park')).toBeInTheDocument();
     expect(screen.getByText('Voice Memos')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Flag Voice Note — Interview Jamie Park' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit tags for Voice Note — Interview Jamie Park' })).toHaveTextContent('Tags');
+    expect(screen.getByRole('button', { name: 'Make Note from Voice Note — Interview Jamie Park' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Make Task from Voice Note — Interview Jamie Park' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Archive Voice Note — Interview Jamie Park' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Move Voice Note — Interview Jamie Park to Trash' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Voice Note — Interview Jamie Park' }));
     expect(onOpenEntry).toHaveBeenCalledWith('raw-voice');
@@ -349,13 +453,201 @@ describe('WorkstationViews', () => {
     fireEvent.click(screen.getByText('Save tags'));
     expect(onUpdateEntry).toHaveBeenCalledWith('raw-voice', { tags: ['research', 'urgent'] });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compile Voice Note — Interview Jamie Park' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compile Memory from Voice Note — Interview Jamie Park' }));
     expect(onCompileRaw).toHaveBeenCalledWith('raw-voice');
 
     fireEvent.click(screen.getByLabelText('Select Voice Note — Interview Jamie Park'));
     fireEvent.click(screen.getByText(/Bulk actions/));
     fireEvent.click(screen.getByText('Move to Trash'));
     expect(onBulkTrash).toHaveBeenCalledWith(['raw-voice']);
+  });
+
+  it('routes a raw inbox capture into Notes as a draft note', async () => {
+    const onOpenEntry = vi.fn();
+    const onUpdateEntry = vi.fn(async () => {});
+    const onCompileRaw = vi.fn();
+
+    render(
+      <InboxView
+        entries={[{
+          id: 'raw-meeting',
+          type: 'raw',
+          title: 'Meeting capture',
+          notes: 'Turn this into a durable note.',
+          tags: ['research'],
+          status: 'captured',
+          source: 'Voice Memos',
+          date: '2026-05-14T09:15:00.000Z',
+        }]}
+        onOpenEntry={onOpenEntry}
+        onUpdateEntry={onUpdateEntry}
+        onCompileRaw={onCompileRaw}
+        onBulkTrash={vi.fn()}
+        onAdd={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Make Note from Meeting capture' }));
+
+    await waitFor(() => {
+      expect(onUpdateEntry).toHaveBeenCalledWith('raw-meeting', {
+        type: 'note',
+        status: 'draft',
+        tags: ['research', 'capture'],
+        source_type: 'capture',
+      });
+    });
+    expect(onOpenEntry).toHaveBeenCalledWith('raw-meeting');
+    expect(onCompileRaw).not.toHaveBeenCalled();
+  });
+
+  it('converts raw inbox captures into tasks and links without fake data', async () => {
+    const onOpenEntry = vi.fn();
+    const onUpdateEntry = vi.fn(async () => {});
+    const onBulkTrash = vi.fn();
+
+    render(
+      <InboxView
+        entries={[{
+          id: 'raw-link',
+          type: 'raw',
+          title: 'Read later capture',
+          notes: 'Follow up on https://example.com/research before planning.',
+          tags: ['research'],
+          status: 'captured',
+          source: 'Web Clipper',
+          date: '2026-05-14T09:15:00.000Z',
+        }]}
+        onOpenEntry={onOpenEntry}
+        onUpdateEntry={onUpdateEntry}
+        onCompileRaw={vi.fn()}
+        onBulkTrash={onBulkTrash}
+        onAdd={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Make Task from Read later capture' }));
+    await waitFor(() => {
+      expect(onUpdateEntry).toHaveBeenCalledWith('raw-link', expect.objectContaining({
+        type: 'task',
+        status: 'open',
+        priority: 'normal',
+        tags: ['research', 'capture'],
+      }));
+    });
+    expect(onOpenEntry).toHaveBeenCalledWith('raw-link');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Make Link from Read later capture' }));
+    await waitFor(() => {
+      expect(onUpdateEntry).toHaveBeenCalledWith('raw-link', expect.objectContaining({
+        type: 'link',
+        status: 'active',
+        url: 'https://example.com/research',
+        tags: ['research', 'capture'],
+      }));
+    });
+    expect(onUpdateEntry.mock.calls.flatMap(call => Object.values(call[1] || {})).join(' ')).not.toContain('example.com/research-note');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Read later capture' }));
+    expect(onUpdateEntry).toHaveBeenCalledWith('raw-link', { status: 'archived' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Read later capture to Trash' }));
+    expect(onBulkTrash).toHaveBeenCalledWith(['raw-link']);
+  });
+
+  it('attaches a raw inbox capture to a real project and preserves the project on conversion', async () => {
+    const onUpdateEntry = vi.fn(async () => {});
+    const onOpenEntry = vi.fn();
+    const projectEntry = { ...project, id: 'project-real', title: 'Real Project', _path: 'projects/Real Project.md' };
+
+    render(
+      <InboxView
+        entries={[
+          projectEntry,
+          {
+            id: 'raw-project',
+            type: 'raw',
+            title: 'Project capture',
+            notes: 'Needs to land under a real project.',
+            tags: ['planning'],
+            status: 'captured',
+            date: '2026-05-14T09:15:00.000Z',
+          },
+        ]}
+        onOpenEntry={onOpenEntry}
+        onUpdateEntry={onUpdateEntry}
+        onCompileRaw={vi.fn()}
+        onBulkTrash={vi.fn()}
+        onAdd={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Project to Project capture' }));
+    const picker = await screen.findByRole('dialog', { name: 'Attach capture to project' });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Attach to Real Project' }));
+
+    expect(onUpdateEntry).toHaveBeenCalledWith('raw-project', { project: 'project-real' });
+
+    render(
+      <InboxView
+        entries={[
+          projectEntry,
+          {
+            id: 'raw-attached',
+            type: 'raw',
+            title: 'Attached capture',
+            notes: 'Make this a project task.',
+            tags: ['planning'],
+            status: 'captured',
+            project: 'project-real',
+            date: '2026-05-14T09:15:00.000Z',
+          },
+        ]}
+        onOpenEntry={onOpenEntry}
+        onUpdateEntry={onUpdateEntry}
+        onCompileRaw={vi.fn()}
+        onBulkTrash={vi.fn()}
+        onAdd={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Make Task from Attached capture' }));
+    await waitFor(() => {
+      expect(onUpdateEntry).toHaveBeenCalledWith('raw-attached', expect.objectContaining({
+        type: 'task',
+        project: 'project-real',
+      }));
+    });
+  });
+
+  it('offers project creation from the attach picker when no projects exist', async () => {
+    const onAdd = vi.fn();
+
+    render(
+      <InboxView
+        entries={[{
+          id: 'raw-no-projects',
+          type: 'raw',
+          title: 'No project capture',
+          notes: 'Needs a project but none exist.',
+          tags: [],
+          status: 'captured',
+          date: '2026-05-14T09:15:00.000Z',
+        }]}
+        onOpenEntry={vi.fn()}
+        onUpdateEntry={vi.fn()}
+        onCompileRaw={vi.fn()}
+        onBulkTrash={vi.fn()}
+        onAdd={onAdd}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Attach Project to No project capture' }));
+    const picker = await screen.findByRole('dialog', { name: 'Attach capture to project' });
+    expect(within(picker).getByText('No projects yet.')).toBeInTheDocument();
+
+    fireEvent.click(within(picker).getByRole('button', { name: 'Create Project' }));
+    expect(onAdd).toHaveBeenCalledWith('project');
   });
 
   it('renders search, calendar, spaces, tags, and vault status from real data', () => {
@@ -406,13 +698,14 @@ describe('WorkstationViews', () => {
     expect(screen.getByText('Calendar')).toBeInTheDocument();
     expect(screen.getByText('May 14, 2026')).toBeInTheDocument();
     expect(screen.getByText('Review roadmap')).toBeInTheDocument();
+    expect(screen.getByText('Overdue')).toBeInTheDocument();
     expect(screen.getAllByText('Local-first Roadmap').length).toBeGreaterThan(0);
 
-    render(<SpacesView spaces={[{ id: 'work', name: 'work', count: 3, entries: [project, task, note] }]} onSelectSpace={vi.fn()} />);
+    render(<SpacesView spaces={[{ id: 'work', name: 'Work', count: 3, entries: [project, task, note] }]} onSelectSpace={vi.fn()} />);
     expect(screen.getAllByText('Spaces').length).toBeGreaterThan(0);
-    expect(screen.getByText('work')).toBeInTheDocument();
-    expect(screen.getByText('1 projects')).toBeInTheDocument();
-    expect(screen.getByText('1 open tasks')).toBeInTheDocument();
+    expect(screen.getAllByText('Work').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Projects').length).toBeGreaterThan(0);
+    expect(screen.getByText('Open Tasks')).toBeInTheDocument();
 
     render(<TagManagerView tags={[{ id: 'product', name: 'product', count: 2, aliases: ['prod'], description: 'Product work' }]} onSelectTag={vi.fn()} />);
     expect(screen.getByText('Tag Manager')).toBeInTheDocument();
@@ -448,21 +741,25 @@ describe('WorkstationViews', () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole('button', { name: 'Review Memory' }));
+    expect(onOpenEntry).toHaveBeenCalledWith('w-1');
+
     fireEvent.click(screen.getByRole('button', { name: 'Journal Entries' }));
     expect(screen.getByRole('button', { name: 'Journal Entries' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getAllByText('Daily Journal').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Local-first Roadmap')).not.toBeInTheDocument();
     expect(screen.queryByText('Review roadmap')).not.toBeInTheDocument();
+    expect(screen.queryByText('Local-first Principles')).not.toBeInTheDocument();
+    expect(screen.queryByText('JotFolio 2.0')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'New Journal Entry' }));
     fireEvent.click(screen.getByRole('button', { name: 'Link Entry' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Review Memory' }));
     fireEvent.click(screen.getByRole('button', { name: 'Open in Constellation' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close day details' }));
     fireEvent.click(screen.getByRole('button', { name: /Show May 14, 2026/ }));
 
     expect(onAdd).toHaveBeenCalledWith('journal');
     expect(onNavigate).toHaveBeenCalledWith('search');
-    expect(onOpenEntry).toHaveBeenCalledWith('w-1');
     expect(onNavigate).toHaveBeenCalledWith('graph');
     expect(screen.getByRole('button', { name: 'Close day details' })).toBeInTheDocument();
   });
@@ -504,6 +801,59 @@ describe('WorkstationViews', () => {
     expect(onNavigate).toHaveBeenCalledWith('space:work');
     expect(onNavigate).toHaveBeenCalledWith('base:base-product');
     expect(onNavigate).toHaveBeenCalledWith('templates');
+  });
+
+  it('renders Spaces as a functional workspace and wires its actions', () => {
+    const onAdd = vi.fn();
+    const onOpenEntry = vi.fn();
+    const onNavigate = vi.fn();
+    const onSelectSpace = vi.fn();
+    const onUpdateEntry = vi.fn();
+    render(
+      <SpacesView
+        spaces={[{ id: 'work', name: 'Work', count: 3, entries: [project, task, note], tags: ['product'] }]}
+        onAdd={onAdd}
+        onOpenEntry={onOpenEntry}
+        onNavigate={onNavigate}
+        onSelectSpace={onSelectSpace}
+        onUpdateEntry={onUpdateEntry}
+      />,
+    );
+
+    expect(screen.getByRole('region', { name: 'Spaces workspace' })).toBeInTheDocument();
+    expect(screen.getByText('Space Health')).toBeInTheDocument();
+    expect(screen.getByText('Automation Rules')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Open filtered list/ }));
+    expect(onSelectSpace).toHaveBeenCalledWith('work');
+
+    fireEvent.click(screen.getByRole('button', { name: /Create note in Work/ }));
+    expect(onAdd).toHaveBeenCalledWith({ type: 'note', initialSpace: 'Work' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Capture to Work/ }));
+    expect(onAdd).toHaveBeenCalledWith({ type: 'raw', initialSpace: 'Work' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Open in Constellation/ }));
+    expect(onNavigate).toHaveBeenCalledWith('graph');
+
+    fireEvent.click(screen.getByLabelText(`Change Work color`));
+    fireEvent.click(screen.getByRole('button', { name: /Local-first Roadmap/ }));
+    expect(onOpenEntry).toHaveBeenCalledWith('n-1');
+  });
+
+  it('creates a new space through a real project seed capture', () => {
+    const onAdd = vi.fn();
+    render(<SpacesView spaces={[]} onAdd={onAdd} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create first space' }));
+    fireEvent.change(screen.getByLabelText('Space name'), { target: { value: 'Studio' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create project seed' }));
+
+    expect(onAdd).toHaveBeenCalledWith({
+      type: 'project',
+      initialSpace: 'Studio',
+      initialTitle: 'Studio Space',
+    });
   });
 
   it('renders a persistent context rail with today, task, capture, and selected entry details', () => {

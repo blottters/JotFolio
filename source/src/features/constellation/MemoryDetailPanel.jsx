@@ -1,6 +1,7 @@
 import React from 'react';
 import { parseFacts } from '../../lib/memory/parseFacts.js';
 import { getBacklinks } from '../../lib/index/vaultIndex.js';
+import { useEscapeKey } from '../../lib/hooks.js';
 
 /**
  * MemoryDetailPanel — right-side detail view for a selected memory entry
@@ -16,6 +17,7 @@ import { getBacklinks } from '../../lib/index/vaultIndex.js';
  * @param {(id: string) => void} props.onConfirm
  * @param {(id: string) => void} props.onSplit
  * @param {(id: string) => void} props.onTraceToSources
+ * @param {() => void} [props.onClose]
  */
 export function MemoryDetailPanel({
   entry,
@@ -24,7 +26,10 @@ export function MemoryDetailPanel({
   onConfirm,
   onSplit,
   onTraceToSources,
+  onClose,
 }) {
+  useEscapeKey(typeof onClose === 'function', onClose);
+
   const confidencePct = Math.round((entry?.confidence ?? 0) * 100);
   const isReview = entry?.type === 'review';
   const isConfirmed = entry?.review_status === 'confirmed';
@@ -53,6 +58,34 @@ export function MemoryDetailPanel({
     fontWeight: 600,
     margin: 0,
     lineHeight: 1.3,
+  };
+
+  const headerRowStyle = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 12,
+  };
+
+  const headerTextStyle = {
+    flex: 1,
+    minWidth: 0,
+  };
+
+  const closeButtonStyle = {
+    width: 28,
+    height: 28,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid var(--br)',
+    borderRadius: 'var(--rd)',
+    background: 'transparent',
+    color: 'var(--t2)',
+    fontFamily: 'var(--fn)',
+    fontSize: 18,
+    lineHeight: 1,
+    cursor: 'pointer',
+    flex: '0 0 auto',
   };
 
   const statusStyle = {
@@ -165,16 +198,30 @@ export function MemoryDetailPanel({
   return (
     <aside data-memory-detail-panel style={panelStyle} aria-label="Memory detail panel">
       <header>
-        <h2 style={headerTitleStyle}>Selected memory: {entry?.title || 'Untitled'}</h2>
-        <div style={statusStyle}>{statusLine}</div>
-        <div style={chipRowStyle}>
-          <span style={confidenceChipStyle} data-testid="confidence-chip">
-            confidence {confidencePct}%
-          </span>
-          {isStale && (
-            <span style={staleChipStyle} data-testid="stale-chip">
-              STALE
-            </span>
+        <div style={headerRowStyle}>
+          <div style={headerTextStyle}>
+            <h2 style={headerTitleStyle}>Selected memory: {entry?.title || 'Untitled'}</h2>
+            <div style={statusStyle}>{statusLine}</div>
+            <div style={chipRowStyle}>
+              <span style={confidenceChipStyle} data-testid="confidence-chip">
+                confidence {confidencePct}%
+              </span>
+              {isStale && (
+                <span style={staleChipStyle} data-testid="stale-chip">
+                  STALE
+                </span>
+              )}
+            </div>
+          </div>
+          {typeof onClose === 'function' && (
+            <button
+              type="button"
+              aria-label="Close memory detail"
+              style={closeButtonStyle}
+              onClick={onClose}
+            >
+              ×
+            </button>
           )}
         </div>
       </header>

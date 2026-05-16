@@ -62,13 +62,13 @@ function commandText(command, selection) {
     case 'h2': return prefixLines(selection, '## ', 'Heading');
     case 'bold': return `**${selectedOr(selection, 'text')}**`;
     case 'italic': return `*${selectedOr(selection, 'text')}*`;
-    case 'link': return `[${selectedOr(selection, 'label')}](https://example.com)`;
+    case 'link': return `[${selectedOr(selection, 'link text')}]()`;
     case 'code': return `\`${selectedOr(selection, 'code')}\``;
     case 'bullet': return prefixLines(selection, '- ', 'List item');
     case 'number': return prefixLines(selection, 'number', 'List item');
     case 'check': return prefixLines(selection, '- [ ] ', 'Task');
     case 'quote': return prefixLines(selection, '> ', 'Quote');
-    case 'image': return `![${selectedOr(selection, 'alt text')}](image-url)`;
+    case 'image': return `![${selectedOr(selection, 'alt text')}]()`;
     case 'table': return '| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |';
     default: return selection;
   }

@@ -98,6 +98,36 @@ describe('NotesWorkspaceView regressions', () => {
     );
   });
 
+  it('keeps link and image toolbar inserts free of fake URLs', async () => {
+    vi.useFakeTimers();
+    const props = renderWorkspace();
+
+    const editor = screen.getByRole('textbox', { name: /Markdown editor for Local-first Roadmap/i });
+    fireEvent.change(editor, { target: { value: '' } });
+    editor.setSelectionRange(0, 0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Link' }));
+    expect(editor).toHaveValue('[link text]()');
+    expect(editor.value).not.toContain('example.com');
+
+    fireEvent.change(editor, { target: { value: '' } });
+    editor.setSelectionRange(0, 0);
+    fireEvent.click(screen.getByRole('button', { name: 'Image' }));
+    expect(editor).toHaveValue('![alt text]()');
+    expect(editor.value).not.toContain('image-url');
+
+    await act(async () => {
+      vi.advanceTimersByTime(750);
+    });
+
+    expect(props.onUpdateEntry).toHaveBeenCalledWith(
+      'note-main',
+      expect.objectContaining({
+        notes: '![alt text]()',
+      }),
+    );
+  });
+
   it('opens backlinks and entry actions from the editor-local right rail', () => {
     const props = renderWorkspace();
 
@@ -123,8 +153,12 @@ describe('NotesWorkspaceView regressions', () => {
     const rail = screen.getByRole('complementary', { name: 'Selected note context' });
 
     expect(within(rail).getByRole('tab', { name: 'Info' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(rail).getByRole('heading', { name: 'Tags' })).toBeInTheDocument();
+    expect(within(rail).getByRole('heading', { name: 'Backlinks (1)' })).toBeInTheDocument();
+    expect(within(rail).getByRole('heading', { name: 'Unresolved links (1)' })).toBeInTheDocument();
+    expect(within(rail).getByRole('heading', { name: 'Properties' })).toBeInTheDocument();
     expect(within(rail).getByRole('heading', { name: 'File' })).toBeInTheDocument();
-    expect(within(rail).queryByText('Meeting Notes')).not.toBeInTheDocument();
+    expect(within(rail).getByText('Meeting Notes')).toBeInTheDocument();
 
     fireEvent.click(within(rail).getByRole('tab', { name: /Backlinks 1/i }));
     expect(within(rail).getByRole('tab', { name: /Backlinks 1/i })).toHaveAttribute('aria-selected', 'true');

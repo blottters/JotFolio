@@ -70,12 +70,12 @@ function AIAssistantView({ onOpenAIKeys, onSearch }) {
   return (
     <section
       role="region"
-      aria-label="AI Assistant"
+      aria-label="AI Setup"
       style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 28, background: 'var(--bg)' }}>
       <div style={{ maxWidth: 760 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 850, color: 'var(--tx)' }}>AI Assistant</h1>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 850, color: 'var(--tx)' }}>AI Setup</h1>
         <p style={{ margin: '8px 0 0', color: 'var(--t2)', fontSize: 14, lineHeight: 1.6 }}>
-          Source-grounded AI is not enabled as an assistant route yet. JotFolio will only ship chat-style answers here once responses cite the exact vault material they used.
+          Source-grounded AI is not enabled as a chat route yet. JotFolio will only ship chat-style answers once responses cite the exact vault material they used.
         </p>
         <div
           role="status"
@@ -278,7 +278,15 @@ export function AppRouteContent({
   );
   if(section==='tasks')return <TasksView rows={taskRows} onOpenEntry={setDetailId} onAdd={openAdd} onUpdateEntry={updateEntry}/>;
   if(section==='calendar')return <CalendarView days={calendarDays} entries={visibleEntries} onOpenEntry={setDetailId} onNavigate={handleWorkstationNavigate} onAdd={openAdd}/>;
-  if(section==='spaces')return <SpacesView spaces={spaces} onSelectSpace={id=>setSection(`space:${id}`)}/>;
+  if(section==='spaces')return (
+    <SpacesView
+      spaces={spaces}
+      onSelectSpace={id=>setSection(`space:${id}`)}
+      onOpenEntry={setDetailId}
+      onAdd={openAdd}
+      onNavigate={handleWorkstationNavigate}
+      onUpdateEntry={updateEntry}/>
+  );
   if(section==='tags')return <TagManagerView tags={tagRows} onSelectTag={tag=>{setFilterTag(tag);setSection('all')}}/>;
   if(section==='settings')return(
     <div style={{flex:1,minHeight:0,overflow:'hidden'}}>

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App.jsx';
 import { workstationEntries } from './test/workstationFixtures.js';
 
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const mocks = vi.hoisted(() => ({
   vaultHook: {
     entries: [],
@@ -50,11 +52,22 @@ vi.mock('./adapters/index.js', () => ({
   VaultAdapter: class VaultAdapter {},
 }));
 
+vi.mock('./lib/hooks/useSemanticIndex.js', () => ({
+  useSemanticIndex: () => ({ ready: false, building: false, done: 0, total: 0, getSimilar: () => [] }),
+}));
+
 function renderWorkstationApp() {
   mocks.vaultHook.entries = workstationEntries;
   render(<App />);
   return screen.findByRole('heading', { name: 'Good morning, Gavin' });
 }
+
+const creationCases = [
+  ['note', 'Note', 'UUID Note', 'Create Note'],
+  ['journal', 'Journal', 'UUID Journal', 'Create Journal'],
+  ['project', 'Project', 'UUID Project', 'Create Project'],
+  ['task', 'Task', 'UUID Task', 'Create Task'],
+];
 
 describe('App workstation shell', () => {
   beforeEach(() => {
@@ -66,6 +79,17 @@ describe('App workstation shell', () => {
     mocks.vaultHook.loading = false;
     mocks.vaultHook.error = null;
     mocks.vaultHook.issues = [];
+    localStorage.removeItem('jf-command-center-focus-mode');
+  });
+
+  it('opens the welcome workflow for a blank first-run vault', async () => {
+    localStorage.removeItem('mgn-onboarded');
+    mocks.vaultHook.entries = [];
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Your local-first synthesis vault' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create your first entry' })).toBeInTheDocument();
   });
 
   it('renders workstation routes from the left navigation without dropping shell chrome', async () => {
@@ -165,6 +189,12 @@ describe('App workstation shell', () => {
   it('keeps global keyboard affordances live on the 5174 shell', async () => {
     await renderWorkstationApp();
 
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    expect(await screen.findByRole('heading', { name: 'Search / Quick Switcher' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Command Center'));
+    expect(await screen.findByRole('heading', { name: 'Good morning, Gavin' })).toBeInTheDocument();
+
     fireEvent.keyDown(document, { key: '/' });
     const topSearch = document.querySelector('input[placeholder="Search notes, projects, people, tags..."]');
     expect(topSearch).not.toBeNull();
@@ -178,5 +208,70 @@ describe('App workstation shell', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument();
     });
+  });
+
+  it('renames and moves entry files through app dialogs instead of browser prompts', async () => {
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+    await renderWorkstationApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Current' }));
+    expect(await screen.findByRole('dialog', { name: 'Local-first Roadmap' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename file' }));
+    expect(promptSpy).not.toHaveBeenCalled();
+    const renameDialog = await screen.findByRole('dialog', { name: 'Rename entry file' });
+    const nameInput = within(renameDialog).getByLabelText('File name');
+    expect(nameInput).toHaveValue('Local-first Roadmap.md');
+
+    fireEvent.change(nameInput, { target: { value: 'Roadmap Updated.md' } });
+    fireEvent.click(within(renameDialog).getByRole('button', { name: 'Rename file' }));
+    await waitFor(() => {
+      expect(mocks.adapter.move).toHaveBeenCalledWith('notes/Local-first Roadmap.md', 'notes/Roadmap Updated.md');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move folder' }));
+    expect(promptSpy).not.toHaveBeenCalled();
+    const moveDialog = await screen.findByRole('dialog', { name: 'Move entry file' });
+    const folderInput = within(moveDialog).getByLabelText('Vault folder');
+    expect(folderInput).toHaveValue('notes');
+
+    fireEvent.change(folderInput, { target: { value: 'Research' } });
+    fireEvent.click(within(moveDialog).getByRole('button', { name: 'Move file' }));
+    await waitFor(() => {
+      expect(mocks.adapter.move).toHaveBeenCalledWith('notes/Local-first Roadmap.md', 'Research/Local-first Roadmap.md');
+    });
+  });
+
+  it.each(creationCases)('creates %s entries with UUID v4 ids', async (type, label, title, saveLabel) => {
+    await renderWorkstationApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Capture / New Entry' });
+    if (type !== 'note') {
+      fireEvent.click(within(dialog).getByRole('radio', { name: label }));
+    }
+    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: title } });
+    fireEvent.click(within(dialog).getByRole('button', { name: saveLabel }));
+
+    await waitFor(() => expect(mocks.vaultHook.saveEntry).toHaveBeenCalled());
+    const saved = mocks.vaultHook.saveEntry.mock.calls.at(-1)[0];
+    expect(saved).toMatchObject({ type, title });
+    expect(saved.id).toMatch(UUID_V4_RE);
+  });
+
+  it('saves compiled entries with UUID v4 ids', async () => {
+    await renderWorkstationApp();
+
+    fireEvent.click(screen.getByRole('button', { name: /Notifications/i }));
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Compile Memory from Inbox capture from meeting' }));
+    const dialog = await screen.findByRole('dialog', { name: /Compile preview:/ });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Save as review entry|Save as wiki entry/ }));
+
+    await waitFor(() => expect(mocks.vaultHook.saveEntry).toHaveBeenCalled());
+    const saved = mocks.vaultHook.saveEntry.mock.calls.at(-1)[0];
+    expect(['review', 'wiki']).toContain(saved.type);
+    expect(saved.id).toMatch(UUID_V4_RE);
   });
 });

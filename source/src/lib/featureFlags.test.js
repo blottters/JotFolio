@@ -7,7 +7,7 @@ import {
 } from './featureFlags.js';
 
 describe('featureFlags', () => {
-  it('normalizes missing flags to alpha.18 defaults (knowledge types on)', () => {
+  it('normalizes missing flags to alpha.18 defaults (knowledge types on, semantic edges off)', () => {
     expect(normalizeFeatureFlags()).toEqual(DEFAULT_FEATURE_FLAGS);
     expect(normalizeFeatureFlags({ context_packs: true })).toEqual({
       ...DEFAULT_FEATURE_FLAGS,
@@ -47,5 +47,12 @@ describe('featureFlags', () => {
     expect(flags.context_packs).toBe(false);
     expect(flags.memory_graph_nodes).toBe(false);
     expect(normalizeFeatureFlags({ context_packs: true }).context_packs).toBe(true);
+  });
+
+  it('keeps semantic edges strict opt-in', () => {
+    expect(DEFAULT_FEATURE_FLAGS.semanticEdges).toBe(false);
+    expect(normalizeFeatureFlags({}).semanticEdges).toBe(false);
+    expect(normalizeFeatureFlags({ semanticEdges: false }).semanticEdges).toBe(false);
+    expect(normalizeFeatureFlags({ semanticEdges: true }).semanticEdges).toBe(true);
   });
 });

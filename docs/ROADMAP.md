@@ -4,7 +4,7 @@ Last updated: 2026-05-11
 Current version: v0.5.0-alpha.25 (shipped 2026-05-07)
 North-star milestone: **public beta of v0.5.0**
 
-This file replaces the stale `docs/adr/TASKS.md` (Phase 2–7 of the original Electron pivot — those phases all shipped between v0.4.0 and v0.5.0-alpha.22).
+This file supersedes the retired Phase 2–7 task list from the original Electron pivot; those phases all shipped between v0.4.0 and v0.5.0-alpha.22.
 
 ---
 
@@ -160,12 +160,6 @@ These were considered, sometimes specced, sometimes half-built, then cut. The re
 | Frontmatter schema — UUID v4 id, derived links, atomic writes | ADR-0005 |
 | Karpathy Phase 4 locks — djb2 hash, block-on-collision, pure compile function | `docs/superpowers/specs/2026-05-07-rip-git-sync-zip-export-design.md` and `2026-05-04-karpathy-phase-4-locks-design.md` |
 | Charter rules — no external CDN, no AI in shipped product, JSX (never TSX), 1800-line soft cap, no stubs as features, no UI without engine | `CONTEXT.md` |
-
----
-
-## Maintenance — Files to delete after this roadmap is committed
-
-- `docs/adr/TASKS.md` — Phase 2–7 task list from 2026-04-23. All those phases shipped. Delete or move to `docs/_archive/`. **Decision needed: which?**
 
 ---
 

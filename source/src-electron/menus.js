@@ -2,9 +2,15 @@
 // Dynamic plugin commands added in Phase 4.
 
 const { Menu, app, shell } = require('electron');
+const { isSafeExternalUrl } = require('./openExternalSafe.js');
 
 const isMac = process.platform === 'darwin';
 const mod = isMac ? 'Cmd' : 'Ctrl';
+
+function openExternal(url) {
+  if (!isSafeExternalUrl(url)) return;
+  shell.openExternal(url);
+}
 
 function buildMenu(win) {
   const send = (channel) => () => win?.webContents.send(channel);
@@ -76,8 +82,8 @@ function buildMenu(win) {
     {
       role: 'help',
       submenu: [
-        { label: 'JotFolio Help', click: () => shell.openExternal('https://jotfolio.app/help') },
-        { label: 'Report an Issue', click: () => shell.openExternal('https://github.com/anthropics/jotfolio/issues') },
+        { label: 'JotFolio Help', click: () => openExternal('https://jotfolio.app/help') },
+        { label: 'Report an Issue', click: () => openExternal('https://github.com/blottters/JotFolio/issues') },
       ],
     },
   ];

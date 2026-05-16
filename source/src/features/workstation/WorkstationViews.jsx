@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ICON, displayStatus } from '../../lib/types.js';
-import { buildVaultIndex, getBacklinks } from '../../lib/index/vaultIndex.js';
+import { buildVaultIndex, getBacklinks, getRelationshipScan } from '../../lib/index/vaultIndex.js';
 import { normalizeTags } from '../../lib/storage.js';
 import { NotesRail } from './NotesRail.jsx';
 
@@ -543,22 +543,12 @@ const commandCenterStateKey = 'jf-command-center-mode-state';
 const commandCenterDefaults = {
   deepWork: {
     activeTab: 'Deep Work Hub',
-    sessionGoals: [
-      { label: 'Refine core principle statements', done: true },
-      { label: 'Map principles to user outcomes', done: true },
-      { label: 'Draft practical applications', done: false },
-      { label: 'Review with team', done: false },
-    ],
+    sessionGoals: [],
     lastAction: '',
   },
   planning: {
-    priorities: [
-      { label: 'Review PRD draft', done: true },
-      { label: 'Design walkthrough', done: true },
-      { label: 'Metrics review', done: false },
-      { label: 'Update roadmap', done: false },
-    ],
-    selectedTimeBlock: 'Mon 11',
+    priorities: [],
+    selectedTimeBlock: '',
     lastAction: '',
   },
   capture: {
@@ -572,31 +562,64 @@ const commandCenterDefaults = {
   },
   review: {
     reflection: {
-      wentWell: ['PRD draft completed and reviewed', 'User interviews provided strong insights', 'Design system audit is on track'],
-      improve: ['Design walkthrough was delayed', 'Metrics review needs deeper analysis', 'Update roadmap is still pending'],
-      next: ['Finalize PRD and share', 'Prepare for design walkthrough', 'Deep dive into metrics'],
+      wentWell: [],
+      improve: [],
+      next: [],
     },
-    goals: [
-      { title: 'Launch JotFolio 2.0', value: 68, meta: 'May 30' },
-      { title: 'Improve user research process', value: 50, meta: 'Jun 15' },
-      { title: 'Build AI onboarding flow', value: 80, meta: 'May 25' },
-      { title: 'Design system v2', value: 30, meta: 'Jun 10' },
-    ],
+    goals: [],
     lastAction: '',
   },
 };
 
+const legacyCommandCenter = {
+  deepWorkGoals: ['Refine core principle statements', 'Map principles to user outcomes', 'Draft practical applications', 'Review with team'],
+  planningPriorities: ['Review PRD draft', 'Design walkthrough', 'Metrics review', 'Update roadmap'],
+  reflection: {
+    wentWell: ['PRD draft completed and reviewed', 'User interviews provided strong insights', 'Design system audit is on track'],
+    improve: ['Design walkthrough was delayed', 'Metrics review needs deeper analysis', 'Update roadmap is still pending'],
+    next: ['Finalize PRD and share', 'Prepare for design walkthrough', 'Deep dive into metrics'],
+  },
+  goals: ['Launch JotFolio 2.0', 'Improve user research process', 'Build AI onboarding flow', 'Design system v2'],
+};
+
+function rowLabelsMatch(rows, legacyLabels, key = 'label') {
+  if (!Array.isArray(rows) || rows.length !== legacyLabels.length) return false;
+  return rows.every((row, index) => String(key ? row?.[key] : row || '') === legacyLabels[index]);
+}
+
+function scrubLegacyCommandCenterState(saved = {}) {
+  const next = { ...saved };
+  if (rowLabelsMatch(next.deepWork?.sessionGoals, legacyCommandCenter.deepWorkGoals)) {
+    next.deepWork = { ...next.deepWork, sessionGoals: [] };
+  }
+  if (rowLabelsMatch(next.planning?.priorities, legacyCommandCenter.planningPriorities)) {
+    next.planning = { ...next.planning, priorities: [] };
+  }
+  if (next.review?.reflection) {
+    const reflection = { ...next.review.reflection };
+    for (const key of ['wentWell', 'improve', 'next']) {
+      if (rowLabelsMatch(reflection[key], legacyCommandCenter.reflection[key], '')) reflection[key] = [];
+    }
+    next.review = { ...next.review, reflection };
+  }
+  if (rowLabelsMatch(next.review?.goals, legacyCommandCenter.goals, 'title')) {
+    next.review = { ...next.review, goals: [] };
+  }
+  return next;
+}
+
 function mergeCommandCenterState(saved = {}) {
+  const scrubbed = scrubLegacyCommandCenterState(saved);
   return {
-    deepWork: { ...commandCenterDefaults.deepWork, ...(saved.deepWork || {}) },
-    planning: { ...commandCenterDefaults.planning, ...(saved.planning || {}) },
-    capture: { ...commandCenterDefaults.capture, ...(saved.capture || {}) },
+    deepWork: { ...commandCenterDefaults.deepWork, ...(scrubbed.deepWork || {}) },
+    planning: { ...commandCenterDefaults.planning, ...(scrubbed.planning || {}) },
+    capture: { ...commandCenterDefaults.capture, ...(scrubbed.capture || {}) },
     review: {
       ...commandCenterDefaults.review,
-      ...(saved.review || {}),
+      ...(scrubbed.review || {}),
       reflection: {
         ...commandCenterDefaults.review.reflection,
-        ...(saved.review?.reflection || {}),
+        ...(scrubbed.review?.reflection || {}),
       },
     },
   };
@@ -839,7 +862,9 @@ function DeepWorkCommandCenter({ accent, state, model = {}, onStateChange, onNav
             </section>
             <section style={{ ...cardStyle, padding: 18 }}>
               <SectionHeader title="Session Goals" />
-              {goals.map((goal, index) => <GoalLine key={goal.label} done={goal.done} label={goal.label} color={accent} onToggle={() => toggleGoal(index)} />)}
+              {goals.length > 0
+                ? goals.map((goal, index) => <GoalLine key={goal.label} done={goal.done} label={goal.label} color={accent} onToggle={() => toggleGoal(index)} />)
+                : <EmptyLine>Create real tasks or review notes to define this session.</EmptyLine>}
             </section>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12, marginBottom: 22 }}>
@@ -964,7 +989,7 @@ function PlanningCommandCenter({ accent, state, model = {}, onStateChange, onMod
       </div>
       <SectionHeader title="Plan Your Work" action={<TextActionButton onClick={() => onNavigate?.('calendar')}>View calendar</TextActionButton>} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12, marginBottom: 22 }}>
-        <PlanningStepCard number="1" title="Define Priorities" body="Focus on what matters most this week." action="Save Priorities" accent={accent} items={priorities} onToggleItem={togglePriority} onAction={() => setPlanningStatus('Priorities saved')} />
+        <PlanningStepCard number="1" title="Define Priorities" body="Focus on what matters most this week." action="Save Priorities" accent={accent} items={priorities} emptyItems="No priorities yet." onToggleItem={togglePriority} onAction={() => setPlanningStatus('Priorities saved')} />
         <PlanningStepCard number="2" title="Break Down Work" body="Decompose projects into actionable tasks." action="View All Tasks" accent={accent} progressRows={projectRows.slice(0, 3).map(row => ({ name: row.entry?.title || 'Untitled project', value: row.progress || 0, color: accent }))} onAction={() => onNavigate?.('tasks')} />
         <PlanningStepCard number="3" title="Schedule Time" body="Block focused time for deep work." action="View Time Blocks" accent={accent} scheduleRows={weekDays.slice(0, 3).map(day => [day.label, day.firstItem?.title || 'Open'])} onAction={() => onNavigate?.('calendar')} />
         <PlanningStepCard number="4" title="Review & Adjust" body="Check progress and adjust the plan." action="Start Review" accent={accent} review onAction={() => onModeChange?.('review')} />
@@ -1057,15 +1082,19 @@ function CaptureCommandCenter({ accent, state, recentCaptures = [], onStateChang
     if (selected.type === 'raw') return { type: 'raw', title, notes: text, status: 'captured', tags, source: selected.label };
     return { type: 'note', title, notes: text, status: 'draft', tags };
   };
-  const captureNow = () => {
+  const captureNow = async () => {
     const text = draft.trim();
     if (!text) {
       setCaptureStatus(`Opened ${selected.label} capture`);
       onAdd?.({ type: selected.type, quickCapture: true });
       return;
     }
+    const payload = buildPayload(text);
+    const savedEntry = await onQuickCapture?.(payload);
+    const savedId = typeof savedEntry === 'string' ? savedEntry : savedEntry?.id;
     const row = {
-      id: `local-${Date.now()}`,
+      id: savedId || `local-${Date.now()}`,
+      entryId: savedId || '',
       title: text.split(/\n/)[0].trim().slice(0, 80),
       label: selected.label,
       time: 'Just now',
@@ -1073,8 +1102,6 @@ function CaptureCommandCenter({ accent, state, recentCaptures = [], onStateChang
       category: selected.category,
       icon: selected.id === 'web' ? 'p' : selected.id === 'voice' ? 'wave' : selected.id === 'screenshot' ? 'thumb' : 'note',
     };
-    const payload = buildPayload(text);
-    onQuickCapture?.(payload);
     onStateChange(current => ({
       ...current,
       draft: '',
@@ -1219,7 +1246,9 @@ function ReviewCommandCenter({ accent, state, model = {}, onStateChange, onNavig
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 22 }}>
         <section style={{ ...cardStyle, padding: 14 }}>
           <SectionHeader title="Goals & Commitments" action={<TextActionButton onClick={() => onNavigate?.('projects')}>View all</TextActionButton>} />
-          {goals.map(row => <MiniProgressRow key={row.title} title={row.title} value={row.value} meta={row.meta} color={accent} />)}
+          {goals.length > 0
+            ? goals.map(row => <MiniProgressRow key={row.title} title={row.title} value={row.value} meta={row.meta} color={accent} />)
+            : <EmptyLine>No goals yet.</EmptyLine>}
           <button type="button" onClick={addGoal} style={{ marginTop: 8, border: 'none', background: 'transparent', color: accent, fontFamily: 'var(--fn)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>+ New Goal</button>
         </section>
         <section style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
@@ -1337,7 +1366,7 @@ function ModePanelList({ title, rows, onOpen }) {
   );
 }
 
-function PlanningStepCard({ number, title, body, action, accent, items, onToggleItem, progressRows, scheduleRows, review, onAction }) {
+function PlanningStepCard({ number, title, body, action, accent, items, emptyItems = 'Nothing here yet.', onToggleItem, progressRows, scheduleRows, review, onAction }) {
   return (
     <section style={{ ...cardStyle, padding: 16, minHeight: 214, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -1345,7 +1374,7 @@ function PlanningStepCard({ number, title, body, action, accent, items, onToggle
         <h3 style={{ margin: 0, color: 'var(--tx)', fontSize: 15 }}>{title}</h3>
       </div>
       <p style={{ margin: '0 0 12px 34px', color: 'var(--t2)', fontSize: 13, lineHeight: 1.45 }}>{body}</p>
-      {items && <div style={{ marginTop: 4 }}>{items.map((item, index) => <GoalLine key={item.label || item} done={!!item.done} label={item.label || item} color={accent} onToggle={() => onToggleItem?.(index)} />)}</div>}
+      {items && <div style={{ marginTop: 4 }}>{items.length > 0 ? items.map((item, index) => <GoalLine key={item.label || item} done={!!item.done} label={item.label || item} color={accent} onToggle={() => onToggleItem?.(index)} />) : <EmptyLine>{emptyItems}</EmptyLine>}</div>}
       {progressRows && progressRows.length > 0 && (
         <div>
           {progressRows.map(row => <MiniProgressRow key={row.name} title={row.name} value={row.value} color={row.color} />)}
@@ -1442,7 +1471,7 @@ function RoutingSuggestion({ row, selected, onApply }) {
   );
 }
 
-function ReflectionCard({ title, accent, items, action, editing, onChange, onAction }) {
+function ReflectionCard({ title, accent, items = [], action, editing, onChange, onAction }) {
   return (
     <section style={{ ...cardStyle, padding: 16 }}>
       <h3 style={{ margin: '0 0 12px', color: 'var(--tx)', fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1450,6 +1479,7 @@ function ReflectionCard({ title, accent, items, action, editing, onChange, onAct
         {title}
       </h3>
       <ul style={{ margin: '0 0 16px 18px', padding: 0, color: 'var(--t2)', fontSize: 13, lineHeight: 1.8 }}>
+        {items.length === 0 && <li style={{ color: 'var(--t3)' }}>No notes yet.</li>}
         {items.map((item, index) => (
           <li key={`${item}-${index}`}>
             {editing ? (
@@ -2248,6 +2278,40 @@ function sortInboxEntries(entries, sortMode) {
   });
 }
 
+function captureUrl(entry) {
+  const direct = String(entry?.url || entry?.source_url || '').trim();
+  if (direct) return direct;
+  const text = [entry?.notes, entry?.summary, entry?.title].filter(Boolean).join(' ');
+  const match = text.match(/https?:\/\/[^\s)\]}>"']+/i);
+  return match ? match[0].replace(/[.,;:!?]+$/, '') : '';
+}
+
+function captureConversionTags(entry) {
+  return normalizeTags([...(entry?.tags || []), 'capture']);
+}
+
+function captureSourceType(entry) {
+  return entry?.source_type || 'capture';
+}
+
+function captureProjectPatch(entry) {
+  return entry?.project ? { project: entry.project } : {};
+}
+
+function projectReferenceSet(project = {}) {
+  return new Set([project.id, project.title, project._path, project.path, project.slug]
+    .filter(Boolean)
+    .map(value => String(value)));
+}
+
+function inboxProjectTitle(entry, projects) {
+  const projectRef = entry?.project;
+  if (!projectRef) return '';
+  const ref = String(projectRef);
+  const project = projects.find(item => projectReferenceSet(item).has(ref));
+  return project?.title || ref;
+}
+
 export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileRaw, onBulkTrash, onAdd }) {
   const [tab, setTab] = useState('all');
   const [sortMode, setSortMode] = useState('newest');
@@ -2257,8 +2321,15 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [tagEditorId, setTagEditorId] = useState('');
   const [tagDraft, setTagDraft] = useState('');
+  const [projectPickerEntry, setProjectPickerEntry] = useState(null);
 
   const captures = useMemo(() => entries.filter(entry => entry.type === 'raw'), [entries]);
+  const projects = useMemo(
+    () => entries
+      .filter(entry => entry.type === 'project')
+      .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''))),
+    [entries],
+  );
   const counts = useMemo(() => inboxCounts(captures), [captures]);
   const visibleCaptures = useMemo(() => {
     const filtered = captures.filter(entry => {
@@ -2302,6 +2373,56 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
     const tags = tagDraft.split(',').map(tag => tag.trim().replace(/^#/, '')).filter(Boolean);
     onUpdateEntry?.(entry.id, { tags: [...new Set(tags)] });
     setTagEditorId('');
+  };
+  const makeNote = async entry => {
+    if (!entry?.id) return;
+    await onUpdateEntry?.(entry.id, {
+      type: 'note',
+      status: 'draft',
+      tags: captureConversionTags(entry),
+      source_type: captureSourceType(entry),
+      ...captureProjectPatch(entry),
+    });
+    onOpenEntry?.(entry.id);
+  };
+  const makeTask = async entry => {
+    if (!entry?.id) return;
+    await onUpdateEntry?.(entry.id, {
+      type: 'task',
+      status: 'open',
+      priority: entry.priority || 'normal',
+      tags: captureConversionTags(entry),
+      source_type: captureSourceType(entry),
+      ...captureProjectPatch(entry),
+    });
+    onOpenEntry?.(entry.id);
+  };
+  const makeLink = async entry => {
+    if (!entry?.id) return;
+    const url = captureUrl(entry);
+    if (!url) return;
+    await onUpdateEntry?.(entry.id, {
+      type: 'link',
+      status: 'active',
+      url,
+      tags: captureConversionTags(entry),
+      source_type: captureSourceType(entry),
+      ...captureProjectPatch(entry),
+    });
+    onOpenEntry?.(entry.id);
+  };
+  const archiveCapture = entry => {
+    if (!entry?.id) return;
+    onUpdateEntry?.(entry.id, { status: 'archived' });
+  };
+  const attachProject = (entry, project) => {
+    if (!entry?.id || !project?.id) return;
+    onUpdateEntry?.(entry.id, { project: project.id });
+    setProjectPickerEntry(null);
+  };
+  const createProjectFromPicker = () => {
+    setProjectPickerEntry(null);
+    onAdd?.('project');
   };
 
   return (
@@ -2385,7 +2506,7 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
         </div>
       )}
 
-      <div style={{ border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018))', overflow: 'hidden', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.025)' }}>
+      <div style={{ border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018))', overflowX: 'auto', overflowY: 'hidden', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.025)' }}>
         <div style={inboxGridHeaderStyle()}>
           <input type="checkbox" checked={allVisibleSelected} onChange={event => selectVisible(event.target.checked)} aria-label="Select all visible inbox captures" style={{ accentColor: 'var(--ac)' }} />
           <span>Entry</span>
@@ -2411,22 +2532,39 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
             onOpen={() => onOpenEntry?.(entry.id)}
             onFlag={() => onUpdateEntry?.(entry.id, { starred: !entry.starred })}
             onTag={() => openTagEditor(entry)}
+            onAttachProject={() => setProjectPickerEntry(entry)}
+            onMakeNote={() => makeNote(entry)}
+            onMakeTask={() => makeTask(entry)}
+            onMakeLink={() => makeLink(entry)}
             onCompile={() => onCompileRaw?.(entry.id)}
+            onArchive={() => archiveCapture(entry)}
+            onTrash={() => onBulkTrash?.([entry.id])}
             editingTags={tagEditorId === entry.id}
             tagDraft={tagDraft}
             onTagDraft={setTagDraft}
             onSaveTags={() => saveTags(entry)}
             onCancelTags={() => setTagEditorId('')}
+            projectTitle={inboxProjectTitle(entry, projects)}
           />
         ))}
       </div>
+      {projectPickerEntry && (
+        <InboxProjectPickerDialog
+          entry={projectPickerEntry}
+          projects={projects}
+          onPick={project => attachProject(projectPickerEntry, project)}
+          onCreateProject={createProjectFromPicker}
+          onClose={() => setProjectPickerEntry(null)}
+        />
+      )}
     </div>
   );
 }
 
-function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, onCompile, editingTags, tagDraft, onTagDraft, onSaveTags, onCancelTags }) {
+function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, onAttachProject, onMakeNote, onMakeTask, onMakeLink, onCompile, onArchive, onTrash, editingTags, tagDraft, onTagDraft, onSaveTags, onCancelTags, projectTitle }) {
   const source = captureSource(entry);
   const icon = captureIcon(entry);
+  const linkUrl = captureUrl(entry);
   return (
     <div style={{ borderTop: '1px solid var(--br)' }}>
       <div style={inboxGridRowStyle()}>
@@ -2458,11 +2596,18 @@ function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, o
             return <span key={tag} style={{ ...pillStyle, color: tone.color, background: tone.bg, border: '1px solid rgba(255,255,255,.04)' }}>#{tag}</span>;
           })}
           {entry.status && <span style={pillStyle}>{displayStatus(entry.status)}</span>}
+          {projectTitle && <span style={{ ...pillStyle, color: '#c7d2fe', background: 'rgba(99,102,241,.12)', border: '1px solid rgba(129,140,248,.20)' }}>Project: {projectTitle}</span>}
         </span>
-        <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" onClick={onFlag} aria-label={`${entry.starred ? 'Unflag' : 'Flag'} ${entry.title || 'capture'}`} style={inboxActionButtonStyle(entry.starred)}>{entry.starred ? '⚑' : '⚐'}</button>
-          <button type="button" onClick={onTag} aria-label={`Edit tags for ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>◇</button>
-          <button type="button" onClick={onCompile} aria-label={`Compile ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>⋮</button>
+        <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
+          <button type="button" onClick={onFlag} aria-label={`${entry.starred ? 'Unflag' : 'Flag'} ${entry.title || 'capture'}`} style={inboxActionButtonStyle(entry.starred)}>{entry.starred ? 'Unflag' : 'Flag'}</button>
+          <button type="button" onClick={onTag} aria-label={`Edit tags for ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Tags</button>
+          <button type="button" onClick={onAttachProject} aria-label={`Attach Project to ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Attach Project</button>
+          <button type="button" onClick={onMakeNote} aria-label={`Make Note from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false, 'primary')}>Make Note</button>
+          <button type="button" onClick={onMakeTask} aria-label={`Make Task from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Make Task</button>
+          <button type="button" onClick={onMakeLink} disabled={!linkUrl} aria-label={`Make Link from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false, 'default', !linkUrl)}>Make Link</button>
+          <button type="button" onClick={onCompile} aria-label={`Compile Memory from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Compile</button>
+          <button type="button" onClick={onArchive} aria-label={`Archive ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Archive</button>
+          <button type="button" onClick={onTrash} aria-label={`Move ${entry.title || 'capture'} to Trash`} style={inboxActionButtonStyle(false, 'danger')}>Trash</button>
         </span>
       </div>
       {editingTags && (
@@ -2476,13 +2621,88 @@ function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, o
   );
 }
 
+function InboxProjectPickerDialog({ entry, projects, onPick, onCreateProject, onClose }) {
+  const titleId = 'inbox-project-picker-title';
+  return (
+    <div
+      role="presentation"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 80,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        background: 'rgba(5,8,13,.58)',
+        backdropFilter: 'blur(8px)',
+      }}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={{
+          width: 'min(520px, calc(100vw - 48px))',
+          border: '1px solid var(--br)',
+          borderRadius: 10,
+          background: '#111820',
+          boxShadow: '0 24px 80px rgba(0,0,0,.45)',
+          padding: 18,
+          color: 'var(--tx)',
+        }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 id={titleId} style={{ margin: 0, fontSize: 17, fontWeight: 760 }}>Attach capture to project</h2>
+            <p style={{ margin: '6px 0 0', color: 'var(--t3)', fontSize: 12, lineHeight: 1.5 }}>
+              {entry?.title || 'Untitled capture'}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close project picker" style={inboxActionButtonStyle(false)}>Close</button>
+        </div>
+
+        <div style={{ marginTop: 16, display: 'grid', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+          {projects.length === 0 ? (
+            <div style={{ border: '1px solid var(--br)', borderRadius: 8, padding: 14, background: 'rgba(255,255,255,.025)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>No projects yet.</div>
+              <div style={{ marginTop: 5, color: 'var(--t3)', fontSize: 12, lineHeight: 1.45 }}>Create a real project first, then attach this capture to it.</div>
+            </div>
+          ) : projects.map(project => (
+            <button
+              key={project.id}
+              type="button"
+              onClick={() => onPick?.(project)}
+              aria-label={`Attach to ${project.title || 'Untitled Project'}`}
+              style={{
+                border: '1px solid var(--br)',
+                borderRadius: 8,
+                background: 'rgba(255,255,255,.028)',
+                color: 'var(--tx)',
+                textAlign: 'left',
+                padding: '10px 12px',
+                fontFamily: 'var(--fn)',
+                cursor: 'pointer',
+              }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 720 }}>{project.title || 'Untitled Project'}</span>
+              <span style={{ display: 'block', marginTop: 4, color: 'var(--t3)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project._path || project.path || project.id}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+          <button type="button" onClick={onClose} style={inboxToolbarButtonStyle(false)}>Cancel</button>
+          {projects.length === 0 && <button type="button" onClick={onCreateProject} style={inboxToolbarButtonStyle(true)}>Create Project</button>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function inboxGridHeaderStyle() {
   return {
     display: 'grid',
-    gridTemplateColumns: '34px minmax(260px,1.45fr) 110px minmax(150px,.55fr) minmax(180px,.75fr) 112px',
+    gridTemplateColumns: '34px minmax(210px,1.15fr) 92px minmax(118px,.45fr) minmax(138px,.58fr) minmax(360px,1fr)',
     gap: 14,
     alignItems: 'center',
-    minWidth: 900,
+    minWidth: 1080,
     padding: '10px 14px',
     color: 'var(--t3)',
     fontSize: 11,
@@ -2494,11 +2714,11 @@ function inboxGridHeaderStyle() {
 function inboxGridRowStyle() {
   return {
     display: 'grid',
-    gridTemplateColumns: '34px minmax(260px,1.45fr) 110px minmax(150px,.55fr) minmax(180px,.75fr) 112px',
+    gridTemplateColumns: '34px minmax(210px,1.15fr) 92px minmax(118px,.45fr) minmax(138px,.58fr) minmax(360px,1fr)',
     gap: 14,
     alignItems: 'center',
-    minWidth: 900,
-    minHeight: 76,
+    minWidth: 1080,
+    minHeight: 92,
     padding: '12px 14px',
   };
 }
@@ -2518,18 +2738,38 @@ function inboxToolbarButtonStyle(active) {
   };
 }
 
-function inboxActionButtonStyle(active) {
+function inboxActionButtonStyle(active, tone = 'default', disabled = false) {
+  const color = tone === 'danger'
+    ? '#fecaca'
+    : tone === 'primary'
+      ? '#dbeafe'
+      : active
+        ? '#facc15'
+        : 'var(--t2)';
+  const border = tone === 'danger'
+    ? 'rgba(248,113,113,.32)'
+    : tone === 'primary'
+      ? 'rgba(77,141,255,.35)'
+      : 'rgba(118,137,160,.20)';
+  const background = tone === 'danger'
+    ? 'rgba(248,113,113,.08)'
+    : tone === 'primary'
+      ? 'rgba(77,141,255,.12)'
+      : 'rgba(255,255,255,.026)';
   return {
-    width: 26,
-    height: 26,
-    border: '1px solid transparent',
+    minHeight: 28,
+    border: `1px solid ${border}`,
     borderRadius: 6,
-    background: 'transparent',
-    color: active ? '#facc15' : 'var(--t2)',
-    cursor: 'pointer',
+    background,
+    color,
+    cursor: disabled ? 'not-allowed' : 'pointer',
     fontFamily: 'var(--fn)',
-    fontSize: 17,
+    fontSize: 11,
+    fontWeight: 720,
     lineHeight: 1,
+    padding: '0 8px',
+    opacity: disabled ? 0.45 : 1,
+    whiteSpace: 'nowrap',
   };
 }
 
@@ -3305,8 +3545,21 @@ function calendarEventTone(group, entry) {
 }
 
 function calendarEventTime(entry, group) {
-  if (group === 'task' || group === 'project') return entry?.due ? 'Due today' : '';
-  if (group === 'review') return 'Due today';
+  if (group === 'task' || group === 'project') {
+    if (!entry?.due) return '';
+    const due = String(entry.due).slice(0, 10);
+    const current = todayISO();
+    if (due === current) return 'Due today';
+    if (due < current) return 'Overdue';
+    const parsed = new Date(due);
+    if (Number.isNaN(parsed.valueOf())) return `Due ${due}`;
+    return `Due ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(parsed)}`;
+  }
+  if (group === 'review') {
+    const due = String(entry?.review_after || entry?.due || '').slice(0, 10);
+    if (!due) return 'Review due';
+    return due === todayISO() ? 'Due today' : `Due ${calendarDayLabel(due)}`;
+  }
   const raw = entry?.date || entry?.modified || '';
   const parsed = raw ? new Date(raw) : null;
   if (parsed && !Number.isNaN(parsed.valueOf())) {
@@ -3375,6 +3628,16 @@ export function CalendarView({ days = {}, entries = [], onOpenEntry, onNavigate,
   const [filters, setFilters] = useState({ entries: true, tasks: true, projects: true, reviews: true });
   const sortedDays = useMemo(() => Object.values(days).sort((a, b) => a.date.localeCompare(b.date)), [days]);
   const selectedDay = days[selectedDate] || { date: selectedDate, entries: [], tasks: [], projects: [], reviews: [] };
+  const detailDay = useMemo(() => {
+    if (!journalOnly) return selectedDay;
+    return {
+      ...selectedDay,
+      entries: (selectedDay.entries || []).filter(entry => entry.type === 'journal'),
+      tasks: [],
+      projects: [],
+      reviews: [],
+    };
+  }, [journalOnly, selectedDay]);
   const currentMonth = anchorDate.getMonth();
   const calendarDates = useMemo(() => {
     if (viewMode === 'day') return [parseCalendarDate(selectedDate)];
@@ -3387,15 +3650,16 @@ export function CalendarView({ days = {}, entries = [], onOpenEntry, onNavigate,
     return Array.from({ length: 42 }, (_, index) => addCalendarDays(gridStart, index));
   }, [anchorDate, selectedDate, viewMode]);
   const selectedItems = allCalendarItems(selectedDay, filters, journalOnly);
-  const linkedProjects = linkedCalendarProjects(selectedDay, entries);
-  const selectedTags = [...new Set([
-    ...(selectedDay.entries || []),
-    ...(selectedDay.tasks || []),
-    ...(selectedDay.projects || []),
-    ...(selectedDay.reviews || []),
+  const detailItems = allCalendarItems(detailDay, filters, journalOnly);
+  const linkedProjects = journalOnly ? [] : linkedCalendarProjects(selectedDay, entries);
+  const detailTags = [...new Set([
+    ...(detailDay.entries || []),
+    ...(detailDay.tasks || []),
+    ...(detailDay.projects || []),
+    ...(detailDay.reviews || []),
   ].flatMap(entry => entry.tags || []))].slice(0, 6);
-  const journalEntry = (selectedDay.entries || []).find(entry => entry.type === 'journal') || null;
-  const primaryEntry = journalEntry || (selectedDay.entries || [])[0] || (selectedDay.tasks || [])[0] || (selectedDay.reviews || [])[0] || null;
+  const journalEntry = (detailDay.entries || []).find(entry => entry.type === 'journal') || null;
+  const primaryEntry = journalEntry || (detailDay.entries || [])[0] || (detailDay.tasks || [])[0] || (detailDay.reviews || [])[0] || null;
   const localPath = primaryEntry?._path || `Journals/${selectedDate}.md`;
   const journalRows = sortedDays
     .flatMap(day => (day.entries || []).filter(entry => entry.type === 'journal').map(entry => ({ day, entry })))
@@ -3550,11 +3814,11 @@ export function CalendarView({ days = {}, entries = [], onOpenEntry, onNavigate,
 
       <CalendarDetailRail
         date={selectedDate}
-        day={selectedDay}
-        items={selectedItems}
+        day={detailDay}
+        items={detailItems}
         primaryEntry={primaryEntry}
         linkedProjects={linkedProjects}
-        tags={selectedTags}
+        tags={detailTags}
         localPath={localPath}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
@@ -3751,63 +4015,332 @@ function calendarActionStyle() {
   };
 }
 
-export function SpacesView({ spaces = [], onSelectSpace }) {
+export function SpacesView({ spaces = [], onSelectSpace, onOpenEntry, onAdd, onNavigate, onUpdateEntry }) {
   const [query, setQuery] = useState('');
-  const enrichedSpaces = useMemo(() => spaces.map(space => {
-    const entries = space.entries || [];
-    const sortedEntries = [...entries].sort((a, b) => String(entryDate(b) || b.modified || '').localeCompare(String(entryDate(a) || a.modified || '')));
-    return {
-      ...space,
-      entries,
-      projectCount: space.projectCount ?? entries.filter(entry => entry.type === 'project').length,
-      openTaskCount: space.openTaskCount ?? entries.filter(entry => entry.type === 'task' && entry.completed !== true && !['done', 'complete', 'archived'].includes(String(entry.status || '').toLowerCase())).length,
-      tagCount: space.tagCount ?? new Set(entries.flatMap(entry => entry.tags || [])).size,
-      recentEntry: space.recentEntry || sortedEntries[0] || null,
-    };
-  }), [spaces]);
-  const visibleSpaces = useMemo(() => enrichedSpaces.filter(space => textMatch([
-    space.name,
-    space.description,
-    space.recentEntry?.title,
-    ...(space.entries || []).flatMap(entry => entry.tags || []),
-  ].join(' '), query)), [enrichedSpaces, query]);
+  const [statusFilter, setStatusFilter] = useState('active');
+  const [sortMode, setSortMode] = useState('activity');
+  const [selectedId, setSelectedId] = useState('');
+  const [newSpaceOpen, setNewSpaceOpen] = useState(false);
+  const [newSpaceName, setNewSpaceName] = useState('');
+  const [colorBySpace, setColorBySpace] = useState({});
+
+  const enrichedSpaces = useMemo(() => spaces.map((space, index) => enrichSpace(space, index)), [spaces]);
+  const visibleSpaces = useMemo(() => enrichedSpaces
+    .filter(space => statusFilter === 'all' || space.status === statusFilter)
+    .filter(space => textMatch([
+      space.name,
+      space.description,
+      space.recentEntry?.title,
+      ...(space.entries || []).flatMap(entry => entry.tags || []),
+    ].join(' '), query))
+    .sort((a, b) => {
+      if (sortMode === 'name') return a.name.localeCompare(b.name);
+      if (sortMode === 'entries') return b.count - a.count || a.name.localeCompare(b.name);
+      if (sortMode === 'health') return b.healthScore - a.healthScore || a.name.localeCompare(b.name);
+      return b.lastActivity - a.lastActivity || a.name.localeCompare(b.name);
+    }), [enrichedSpaces, query, sortMode, statusFilter]);
+
+  useEffect(() => {
+    if (!visibleSpaces.length) return;
+    if (!visibleSpaces.some(space => space.id === selectedId)) setSelectedId(visibleSpaces[0].id);
+  }, [selectedId, visibleSpaces]);
+
+  const selectedSpace = visibleSpaces.find(space => space.id === selectedId) || visibleSpaces[0] || null;
+  const selectedColor = selectedSpace ? (colorBySpace[selectedSpace.id] || selectedSpace.color) : '#4d8dff';
+  const selectedEntries = selectedSpace?.entries || [];
+  const selectedProjects = selectedEntries.filter(entry => entry.type === 'project');
+  const selectedTasks = selectedEntries.filter(entry => entry.type === 'task');
+  const openTasks = selectedTasks.filter(entry => !entry.completed && !['done', 'complete', 'archived'].includes(String(entry.status || '').toLowerCase()));
+  const selectedTags = selectedSpace?.tags || [];
+  const recentEntries = selectedEntries.slice(0, 5);
+  const graphGaps = selectedSpace?.scan || null;
+
+  const createSpaceSeed = () => {
+    const name = newSpaceName.trim();
+    if (!name) return;
+    onAdd?.({ type: 'project', initialSpace: name, initialTitle: `${name} Space` });
+    setNewSpaceOpen(false);
+    setNewSpaceName('');
+  };
+
+  const cycleSelectedColor = () => {
+    if (!selectedSpace) return;
+    const palette = ['#4d8dff', '#22c55e', '#f97316', '#a78bfa', '#f43f5e', '#14b8a6'];
+    const current = palette.indexOf(selectedColor);
+    setColorBySpace(previous => ({ ...previous, [selectedSpace.id]: palette[(current + 1) % palette.length] }));
+  };
 
   return (
-    <PanelShell title="Spaces" count={visibleSpaces.length}>
-      <input
-        aria-label="Filter spaces"
-        value={query}
-        onChange={event => setQuery(event.target.value)}
-        onKeyDown={event => {
-          if (event.key === 'Escape') setQuery('');
-        }}
-        placeholder="Filter spaces..."
-        style={{ width: '100%', maxWidth: 420, boxSizing: 'border-box', marginBottom: 14, padding: '10px 12px', border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--b1)', color: 'var(--tx)', fontFamily: 'var(--fn)' }}
-      />
+    <section role="region" aria-label="Spaces workspace" style={{ ...pageStyle, padding: 20 }}>
+      <div style={{ ...headerStyle, alignItems: 'flex-start', marginBottom: 18 }}>
+        <div>
+          <h1 style={{ ...titleStyle, fontSize: 24 }}>Spaces</h1>
+          <div style={{ ...subStyle, marginTop: 5 }}>Work areas for projects, notes, tasks, and graph context.</div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <SmallButton onClick={() => setNewSpaceOpen(value => !value)}>New Space</SmallButton>
+          <SmallButton onClick={() => onNavigate?.('tags')}>Manage Tags</SmallButton>
+          <SmallButton onClick={() => setStatusFilter('archived')}>View Archive</SmallButton>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <SegmentedControl
+          label="Space status"
+          value={statusFilter}
+          options={[{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'archived', label: 'Archived' }]}
+          onChange={setStatusFilter}
+        />
+        <input
+          aria-label="Filter spaces"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+          onKeyDown={event => {
+            if (event.key === 'Escape') setQuery('');
+          }}
+          placeholder="Filter spaces..."
+          style={{ width: 'min(280px, 100%)', minHeight: 34, boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--b1)', color: 'var(--tx)', fontFamily: 'var(--fn)', fontSize: 12 }}
+        />
+        <select aria-label="Sort spaces" value={sortMode} onChange={event => setSortMode(event.target.value)} style={{ minHeight: 34, border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--b1)', color: 'var(--tx)', fontFamily: 'var(--fn)', fontSize: 12, padding: '0 10px' }}>
+          <option value="activity">Recent activity</option>
+          <option value="entries">Most entries</option>
+          <option value="health">Graph health</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+
+      {newSpaceOpen && (
+        <div role="form" aria-label="Create space seed" style={{ ...cardStyle, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <label style={{ fontSize: 12, color: 'var(--t2)', fontWeight: 800 }} htmlFor="space-name-input">Space name</label>
+          <input id="space-name-input" value={newSpaceName} onChange={event => setNewSpaceName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') createSpaceSeed(); }} placeholder="Studio" style={{ flex: '1 1 220px', minHeight: 34, border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--b2)', color: 'var(--tx)', padding: '7px 10px', fontFamily: 'var(--fn)' }} />
+          <SmallButton onClick={createSpaceSeed}>Create project seed</SmallButton>
+        </div>
+      )}
+
       {visibleSpaces.length === 0 ? (
         <EmptyStateCard
           title={spaces.length ? 'No spaces match this filter' : 'No spaces yet'}
-          detail="Add a space field to Markdown entries to group projects, notes, tasks, and memory by workspace."
+          detail="Create a project or note with a Space field to group real Markdown entries into a workspace."
+          action={<SmallButton onClick={() => setNewSpaceOpen(true)}>Create first space</SmallButton>}
         />
       ) : (
-        <div style={gridStyle}>
-          {visibleSpaces.map(space => (
-          <button key={space.id} type="button" onClick={() => onSelectSpace?.(space.id)} style={{ ...cardStyle, textAlign: 'left', cursor: 'pointer', color: 'var(--tx)', fontFamily: 'var(--fn)' }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{space.name}</div>
-            {space.description && <div style={{ marginTop: 6, color: 'var(--t3)', fontSize: 12, lineHeight: 1.45 }}>{space.description}</div>}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-              <span style={pillStyle}>{space.count} entries</span>
-              {space.projectCount != null && <span style={pillStyle}>{space.projectCount} projects</span>}
-              {space.openTaskCount != null && <span style={pillStyle}>{space.openTaskCount} open tasks</span>}
-              {space.tagCount != null && <span style={pillStyle}>{space.tagCount} tags</span>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, .95fr) minmax(420px, 1.55fr) minmax(280px, .9fr)', gap: 14, alignItems: 'start' }}>
+          <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
+            <SpacePanelHeader title="Spaces" meta={`${visibleSpaces.length} visible`} />
+            <div aria-label="Spaces list">
+              {visibleSpaces.map(space => {
+                const selected = selectedSpace?.id === space.id;
+                const color = colorBySpace[space.id] || space.color;
+                return (
+                  <button key={space.id} type="button" onClick={() => setSelectedId(space.id)} style={{ width: '100%', minHeight: 72, border: 'none', borderTop: '1px solid var(--br)', background: selected ? 'rgba(77,141,255,.11)' : 'transparent', color: 'var(--tx)', padding: '10px 12px', display: 'grid', gridTemplateColumns: '10px minmax(0,1fr) auto', gap: 10, alignItems: 'center', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--fn)' }}>
+                    <span aria-hidden="true" style={{ width: 8, height: 38, borderRadius: 99, background: color }} />
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                        <span style={{ fontSize: 14, fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{space.name}</span>
+                        <span style={spaceHealthPillStyle(space.healthScore)}>{space.healthScore}%</span>
+                      </span>
+                      <span style={{ display: 'block', color: 'var(--t3)', fontSize: 11, marginTop: 5 }}>{space.count} entries · {space.openTaskCount} open tasks · {space.lastActivityLabel}</span>
+                      <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 7 }}>{space.tags.slice(0, 3).map(tag => <span key={tag} style={miniChipStyle}>#{tag}</span>)}</span>
+                    </span>
+                    <span style={{ color: 'var(--t3)', fontSize: 18 }}>›</span>
+                  </button>
+                );
+              })}
             </div>
-            {space.recentEntry && <div style={{ marginTop: 10, fontSize: 12, color: 'var(--t2)' }}>Recent: {space.recentEntry.title}</div>}
-          </button>
-          ))}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+                <button type="button" aria-label={`Change ${selectedSpace?.name || 'space'} color`} onClick={cycleSelectedColor} style={{ width: 34, height: 34, border: '1px solid var(--br)', borderRadius: 7, background: selectedColor, cursor: 'pointer', flexShrink: 0 }} />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h2 style={{ margin: 0, color: 'var(--tx)', fontSize: 20, fontWeight: 900 }}>{selectedSpace?.name}</h2>
+                  <div style={{ color: 'var(--t3)', fontSize: 12, marginTop: 4 }}>{selectedSpace?.description || 'Space is built from real entry frontmatter.'}</div>
+                </div>
+                <span style={spaceHealthPillStyle(selectedSpace?.healthScore || 0)}>{selectedSpace?.healthScore || 0}% health</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 8 }}>
+                <SpaceMetric label="Entries" value={selectedSpace?.count || 0} />
+                <SpaceMetric label="Projects" value={selectedSpace?.projectCount || 0} />
+                <SpaceMetric label="Tasks" value={openTasks.length} />
+                <SpaceMetric label="Unresolved" value={graphGaps?.unresolvedTargets?.length || 0} />
+                <SpaceMetric label="Graph health" value={`${selectedSpace?.healthScore || 0}%`} />
+              </div>
+            </div>
+
+            <SpaceSection title="Recent Entries" action={<TextActionButton onClick={() => selectedSpace && onSelectSpace?.(selectedSpace.id)}>Open filtered list</TextActionButton>}>
+              {recentEntries.length ? recentEntries.map(entry => <SpaceEntryRow key={entry.id} entry={entry} onOpenEntry={onOpenEntry} />) : <SpaceEmptyLine>No entries in this space yet.</SpaceEmptyLine>}
+            </SpaceSection>
+
+            <SpaceSection title="Active Projects">
+              {selectedProjects.length ? selectedProjects.slice(0, 4).map(project => <SpaceEntryRow key={project.id} entry={project} onOpenEntry={onOpenEntry} meta={`${displayStatus(project.status) || 'Active'}${project.due ? ` · due ${String(project.due).slice(0, 10)}` : ''}`} />) : <SpaceEmptyLine>No projects assigned to this space.</SpaceEmptyLine>}
+            </SpaceSection>
+
+            <SpaceSection title="Open Tasks">
+              {openTasks.length ? openTasks.slice(0, 5).map(task => (
+                <label key={task.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 0', borderTop: '1px solid var(--br)', color: 'var(--tx)', fontSize: 13 }}>
+                  <input type="checkbox" checked={!!task.completed} onChange={() => onUpdateEntry?.(task.id, { completed: true, status: 'done', completed_at: new Date().toISOString() })} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                  {task.due && <span style={{ color: 'var(--t3)', fontSize: 11 }}>{String(task.due).slice(0, 10)}</span>}
+                </label>
+              )) : <SpaceEmptyLine>No open tasks.</SpaceEmptyLine>}
+            </SpaceSection>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <SpaceSection title="Space Health">
+              <SpaceHealthLine label="Disconnected entries" value={graphGaps?.isolatedEntryIds?.length || 0} />
+              <SpaceHealthLine label="Missing wiki targets" value={graphGaps?.unresolvedTargets?.length || 0} />
+              <SpaceHealthLine label="Untagged entries" value={graphGaps?.entriesWithoutTags?.length || 0} />
+            </SpaceSection>
+            <SpaceSection title="Graph Gaps">
+              {(graphGaps?.unresolvedTargets || []).slice(0, 4).map(target => <button key={target} type="button" onClick={() => onNavigate?.('graph')} style={spaceActionRowStyle()}>{target}</button>)}
+              {!(graphGaps?.unresolvedTargets || []).length && <SpaceEmptyLine>No unresolved links in this space.</SpaceEmptyLine>}
+            </SpaceSection>
+            <SpaceSection title="Linked Tags">
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{selectedTags.length ? selectedTags.map(tag => <button key={tag} type="button" onClick={() => onNavigate?.(`tag:${tag}`)} style={tagButtonStyle}>#{tag}</button>) : <SpaceEmptyLine>No tags yet.</SpaceEmptyLine>}</div>
+            </SpaceSection>
+            <SpaceSection title="Automation Rules">
+              <SpaceEmptyLine>No rules yet. Rules need a real automation engine before they appear here.</SpaceEmptyLine>
+            </SpaceSection>
+            <SpaceSection title="Actions">
+              <button type="button" onClick={() => selectedSpace && onAdd?.({ type: 'note', initialSpace: selectedSpace.name })} style={spaceActionRowStyle(true)}>Create note in {selectedSpace?.name}</button>
+              <button type="button" onClick={() => selectedSpace && onAdd?.({ type: 'raw', initialSpace: selectedSpace.name })} style={spaceActionRowStyle()}>Capture to {selectedSpace?.name}</button>
+              <button type="button" onClick={() => onNavigate?.('graph')} style={spaceActionRowStyle()}>Open in Constellation</button>
+            </SpaceSection>
+          </div>
         </div>
       )}
-    </PanelShell>
+    </section>
   );
+}
+
+function enrichSpace(space, index = 0) {
+  const entries = space.entries || [];
+  const sortedEntries = [...entries].sort((a, b) => String(entryDate(b) || b.modified || '').localeCompare(String(entryDate(a) || a.modified || '')));
+  const indexData = buildVaultIndex(sortedEntries);
+  const scan = getRelationshipScan(indexData);
+  const tags = [...new Set(sortedEntries.flatMap(entry => entry.tags || []))].sort();
+  const archivedEntries = sortedEntries.filter(entry => ['archived', 'done', 'complete'].includes(String(entry.status || '').toLowerCase()));
+  const status = String(space.name || space.id || '').toLowerCase().includes('archive') || (sortedEntries.length > 0 && archivedEntries.length === sortedEntries.length)
+    ? 'archived'
+    : 'active';
+  const gapCount = (scan.isolatedEntryIds?.length || 0) + (scan.unresolvedTargets?.length || 0) + (scan.entriesWithoutTags?.length || 0);
+  const healthScore = sortedEntries.length ? Math.max(0, Math.min(100, Math.round(100 - (gapCount / Math.max(1, sortedEntries.length * 3)) * 100))) : 0;
+  const lastActivity = Number(space.lastActivity || 0) || (sortedEntries[0] ? new Date(sortedEntries[0].modified || sortedEntries[0].date || sortedEntries[0].entry_date || 0).getTime() : 0);
+  return {
+    ...space,
+    id: String(space.id || space.name || `space-${index}`).toLowerCase(),
+    name: space.name || space.id || `Space ${index + 1}`,
+    color: space.color || ['#4d8dff', '#22c55e', '#f97316', '#a78bfa', '#f43f5e', '#14b8a6'][index % 6],
+    entries: sortedEntries,
+    count: space.count ?? sortedEntries.length,
+    projectCount: space.projectCount ?? sortedEntries.filter(entry => entry.type === 'project').length,
+    openTaskCount: space.openTaskCount ?? sortedEntries.filter(entry => entry.type === 'task' && entry.completed !== true && !['done', 'complete', 'archived'].includes(String(entry.status || '').toLowerCase())).length,
+    tagCount: space.tagCount ?? tags.length,
+    tags,
+    recentEntry: space.recentEntry || sortedEntries[0] || null,
+    scan,
+    status,
+    healthScore,
+    lastActivity,
+    lastActivityLabel: lastActivity ? formatRelativeTime(lastActivity) : 'No activity',
+  };
+}
+
+function SpacePanelHeader({ title, meta }) {
+  return (
+    <div style={{ padding: '11px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ color: 'var(--tx)', fontSize: 13, fontWeight: 850, flex: 1 }}>{title}</div>
+      {meta && <div style={{ color: 'var(--t3)', fontSize: 11 }}>{meta}</div>}
+    </div>
+  );
+}
+
+function SpaceMetric({ label, value }) {
+  return (
+    <div style={{ border: '1px solid var(--br)', borderRadius: 7, background: 'var(--b2)', padding: '10px 8px', minWidth: 0 }}>
+      <div style={{ color: 'var(--tx)', fontSize: 18, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+      <div style={{ color: 'var(--t3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+    </div>
+  );
+}
+
+function SpaceSection({ title, action, children }) {
+  return (
+    <section style={cardStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <h3 style={{ margin: 0, flex: 1, color: 'var(--tx)', fontSize: 13, fontWeight: 850 }}>{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SpaceEntryRow({ entry, onOpenEntry, meta }) {
+  return (
+    <button type="button" onClick={() => onOpenEntry?.(entry.id)} style={{ width: '100%', border: 'none', borderTop: '1px solid var(--br)', background: 'transparent', color: 'var(--tx)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--fn)' }}>
+      <span style={{ width: 22, color: 'var(--t2)' }}>{ICON[entry.type] || '▤'}</span>
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 760, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title || 'Untitled'}</span>
+        <span style={{ display: 'block', color: 'var(--t3)', fontSize: 11, marginTop: 3 }}>{meta || [entry.type, entryDate(entry, 'modified')].filter(Boolean).join(' · ')}</span>
+      </span>
+    </button>
+  );
+}
+
+function SpaceHealthLine({ label, value }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderTop: '1px solid var(--br)', color: 'var(--t2)', fontSize: 12 }}>
+      <span>{label}</span>
+      <strong style={{ color: 'var(--tx)' }}>{value}</strong>
+    </div>
+  );
+}
+
+function SpaceEmptyLine({ children }) {
+  return <div style={{ color: 'var(--t3)', fontSize: 12, lineHeight: 1.45 }}>{children}</div>;
+}
+
+function spaceHealthPillStyle(score = 0) {
+  const color = score >= 80 ? '#22c55e' : score >= 55 ? '#f59e0b' : '#ef4444';
+  return {
+    ...pillStyle,
+    color,
+    borderColor: `${color}55`,
+    background: `${color}14`,
+    fontWeight: 850,
+  };
+}
+
+const miniChipStyle = {
+  ...pillStyle,
+  fontSize: 10,
+  padding: '3px 6px',
+};
+
+const tagButtonStyle = {
+  ...miniChipStyle,
+  cursor: 'pointer',
+  fontFamily: 'var(--fn)',
+};
+
+function spaceActionRowStyle(primary = false) {
+  return {
+    width: '100%',
+    border: `1px solid ${primary ? 'rgba(77,141,255,.55)' : 'var(--br)'}`,
+    borderRadius: 7,
+    background: primary ? 'var(--ac)' : 'var(--b2)',
+    color: primary ? 'white' : 'var(--tx)',
+    padding: '9px 10px',
+    marginTop: 7,
+    fontFamily: 'var(--fn)',
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: 'pointer',
+    textAlign: 'left',
+  };
 }
 
 export function TagManagerView({ tags = [], onSelectTag }) {

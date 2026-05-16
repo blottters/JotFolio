@@ -9,14 +9,16 @@ const toolbarButtons = [
   ['H2', 'H2'],
   ['B', 'B'],
   ['I', 'I'],
-  ['Link', 'Link'],
-  ['Code', 'Code'],
-  ['List', 'List'],
-  ['Task', 'Task'],
-  ['Quote', 'Quote'],
-  ['Image', 'Image'],
-  ['Table', 'Table'],
+  ['Link', '↗'],
+  ['Code', '</>'],
+  ['List', '☷'],
+  ['Task', '☑'],
+  ['Quote', '❝'],
+  ['Image', '▧'],
+  ['Table', '▦'],
 ];
+
+const TOOLBAR_BREAKS_AFTER = new Set(['H2', 'I', 'Code', 'Task', 'Table']);
 
 function noteTime(entry) {
   return Date.parse(entry?.modified || entry?.entry_date || entry?.date || '') || 0;
@@ -43,12 +45,12 @@ function toolbarText(label, selection) {
     case 'H2': return prefixLines(selection, '## ', 'Heading');
     case 'B': return `**${selectedOr(selection, 'text')}**`;
     case 'I': return `*${selectedOr(selection, 'text')}*`;
-    case 'Link': return `[${selectedOr(selection, 'label')}](https://example.com)`;
+    case 'Link': return `[${selectedOr(selection, 'link text')}]()`;
     case 'Code': return `\`${selectedOr(selection, 'code')}\``;
     case 'List': return prefixLines(selection, '- ', 'List item');
     case 'Task': return prefixLines(selection, '- [ ] ', 'Task');
     case 'Quote': return prefixLines(selection, '> ', 'Quote');
-    case 'Image': return `![${selectedOr(selection, 'alt text')}](image-url)`;
+    case 'Image': return `![${selectedOr(selection, 'alt text')}]()`;
     case 'Table': return '| Column 1 | Column 2 |\n| --- | --- |\n| Value | Value |';
     default: return selection;
   }
@@ -84,6 +86,10 @@ function wordCount(text) {
   return String(text || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
+function countSpaces(text) {
+  return (String(text || '').match(/ /g) || []).length;
+}
+
 function formatBytes(size, text = '') {
   const n = Number(size) || new Blob([text]).size;
   if (n < 1024) return `${n} B`;
@@ -108,6 +114,14 @@ function displayStatus(value) {
   return String(value).replace(/[-_]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 }
 
+function dateInputValue(value) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.valueOf())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
 function copyText(value) {
   try { navigator.clipboard?.writeText(String(value || '')); } catch { /* clipboard may be unavailable in preview */ }
 }
@@ -123,6 +137,10 @@ const PROPERTY_SKIP_KEYS = new Set([
   'title',
   'notes',
   'tags',
+  'project',
+  'status',
+  'space',
+  'starred',
   'links',
   'date',
   'created',
@@ -143,10 +161,14 @@ function displayPropertyValue(value) {
   return String(value);
 }
 
+function hasDisplayablePropertyValue(value) {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return value != null && value !== '';
+}
+
 function railProperties(entry) {
   const base = [
-    ['Project', entry?.project || 'None'],
-    ['Status', displayStatus(entry?.status)],
     ['Created', formatDate(entry?.date || entry?.created || entry?.entry_date)],
     ['Modified', formatDate(entry?.modified || entry?.date)],
     ['Type', displayStatus(entry?.type || 'note')],
@@ -155,10 +177,22 @@ function railProperties(entry) {
     ? entry[FRONTMATTER_EXTRAS_FIELD]
     : {};
   const custom = Object.entries({ ...(entry || {}), ...extras })
-    .filter(([key]) => !PROPERTY_SKIP_KEYS.has(key) && !key.startsWith('_'))
+    .filter(([key, value]) => !PROPERTY_SKIP_KEYS.has(key) && !key.startsWith('_') && hasDisplayablePropertyValue(value))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => [key, displayPropertyValue(value)]);
   return [...base, ...custom];
+}
+
+function projectRefs(project = {}) {
+  return [project.id, project.title, project._path, project.path, project.slug]
+    .filter(Boolean)
+    .map(value => String(value));
+}
+
+function matchingProject(projects, ref) {
+  const target = String(ref || '').trim();
+  if (!target) return null;
+  return projects.find(project => projectRefs(project).includes(target)) || null;
 }
 
 function railTabItems({ backlinks, unresolved, tags }) {
@@ -185,6 +219,10 @@ export function NotesWorkspaceView({
 }) {
   const allEntries = Array.isArray(entries) && entries.length ? entries : Array.isArray(notes) ? notes : [];
   const noteEntries = useMemo(() => normalizeEntryList({ entries, notes }).sort((a, b) => noteTime(b) - noteTime(a)), [entries, notes]);
+  const projectEntries = useMemo(
+    () => allEntries.filter(entry => entry?.type === 'project').sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''))),
+    [allEntries],
+  );
   const preferredId = activeEntryId || selectedEntryId;
   const [localId, setLocalId] = useState('');
   const [moreOpen, setMoreOpen] = useState(false);
@@ -268,6 +306,9 @@ export function NotesWorkspaceView({
   };
 
   const railTabs = railTabItems({ backlinks, unresolved, tags });
+  const activeProject = matchingProject(projectEntries, activeEntry?.project);
+  const projectSelectValue = activeProject?.id || activeEntry?.project || '';
+  const entryDateValue = dateInputValue(activeEntry?.entry_date || activeEntry?.date || activeEntry?.created);
 
   if (!activeEntry) {
     return (
@@ -340,6 +381,48 @@ export function NotesWorkspaceView({
   const renderPropertiesSection = () => (
     <RailSection title="Properties">
       <div className="jf-notes-properties">
+        <label className="jf-notes-property jf-notes-property-control">
+          <span>Status</span>
+          <input
+            key={`${activeEntry.id}-status-${activeEntry.status || ''}`}
+            aria-label="Note status"
+            defaultValue={activeEntry.status || ''}
+            placeholder="draft"
+            onBlur={event => {
+              const next = event.target.value.trim();
+              if (next !== String(activeEntry.status || '')) onUpdateEntry?.(activeEntry.id, { status: next });
+            }}
+            onKeyDown={event => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+              if (event.key === 'Escape') {
+                event.currentTarget.value = activeEntry.status || '';
+                event.currentTarget.blur();
+              }
+            }}
+          />
+        </label>
+        <label className="jf-notes-property jf-notes-property-control">
+          <span>Project</span>
+          <select
+            aria-label="Note project"
+            value={projectSelectValue}
+            onChange={event => onUpdateEntry?.(activeEntry.id, { project: event.target.value })}>
+            <option value="">No project</option>
+            {activeEntry.project && !activeProject && <option value={activeEntry.project}>Missing: {activeEntry.project}</option>}
+            {projectEntries.map(project => (
+              <option key={project.id} value={project.id}>{project.title || project.id}</option>
+            ))}
+          </select>
+        </label>
+        <label className="jf-notes-property jf-notes-property-control">
+          <span>Entry date</span>
+          <input
+            aria-label="Note entry date"
+            type="date"
+            value={entryDateValue}
+            onChange={event => onUpdateEntry?.(activeEntry.id, { entry_date: event.target.value })}
+          />
+        </label>
         {railProperties(activeEntry).map(([label, value]) => (
           <div key={label} className="jf-notes-property">
             <span>{label}</span>
@@ -379,21 +462,21 @@ export function NotesWorkspaceView({
   return (
     <section className={`jf-notes-workspace${fullscreen ? ' is-fullscreen' : ''}`} role="region" aria-label="Notes Markdown Editor">
       <main className="jf-notes-main" aria-label="Markdown editor">
-        <div className="jf-notes-tabbar" role="tablist" aria-label="Open notes">
-          <button type="button" className="jf-notes-tab is-active" role="tab" aria-selected="true">
-            <span className="jf-notes-file-icon" aria-hidden="true">▣</span>
-            <span className="jf-notes-tab-title">{activeEntry.title || 'Untitled Note.md'}</span>
-            <span className="jf-notes-tab-close" aria-hidden="true">x</span>
-          </button>
-          <button type="button" className="jf-notes-tab-add" aria-label="New note tab" onClick={() => onAdd?.({ type: 'note', folder: 'Notes' })}>+</button>
-        </div>
-
-        <div className="jf-notes-modebar">
+        <div className="jf-notes-tabbar">
+          <div className="jf-notes-open-tabs" role="tablist" aria-label="Open notes">
+            <button type="button" className="jf-notes-tab is-active" role="tab" aria-selected="true">
+              <span className="jf-notes-file-icon" aria-hidden="true">▣</span>
+              <span className="jf-notes-tab-title">{activeEntry.title || 'Untitled Note.md'}</span>
+              <span className="jf-notes-tab-close" aria-hidden="true">x</span>
+            </button>
+            <button type="button" className="jf-notes-tab-add" aria-label="New note tab" onClick={() => onAdd?.({ type: 'note', folder: 'Notes' })}>+</button>
+          </div>
+          <span className="jf-notes-tabbar-spacer" />
           <div className="jf-notes-mode-group" role="group" aria-label="Editor mode">
             <button type="button" className={`jf-notes-mode-button${editorMode === 'edit' ? ' is-active' : ''}`} aria-pressed={editorMode === 'edit'} onClick={() => setEditorMode('edit')}>Edit</button>
             <button type="button" className={`jf-notes-mode-button${editorMode === 'preview' ? ' is-active' : ''}`} aria-pressed={editorMode === 'preview'} onClick={() => setEditorMode('preview')}>Preview</button>
-            <button type="button" className={`jf-notes-mode-button${activeRailTab === 'backlinks' ? ' is-active' : ''}`} aria-pressed={activeRailTab === 'backlinks'} onClick={() => setActiveRailTab('backlinks')}>Backlinks</button>
-            <button type="button" className="jf-notes-mode-button" onClick={() => onAdd?.({ type: 'note', folder: 'Notes' })}>New Entry</button>
+            <button type="button" className={`jf-notes-mode-button${activeRailTab === 'backlinks' ? ' is-active' : ''}`} aria-pressed={activeRailTab === 'backlinks'} onClick={() => setActiveRailTab('backlinks')}>Backlinks <span aria-hidden="true">⌄</span></button>
+            <button type="button" className="jf-notes-mode-button" onClick={() => onAdd?.({ type: 'note', folder: 'Notes' })}>New Entry <span aria-hidden="true">⌄</span></button>
           </div>
           <div className="jf-notes-editor-more">
             <button type="button" className="jf-notes-icon-button" aria-label="More editor actions" aria-haspopup="menu" aria-expanded={editorMenuOpen} onClick={() => setEditorMenuOpen(open => !open)}>⋮</button>
@@ -409,22 +492,21 @@ export function NotesWorkspaceView({
 
         <div className="jf-notes-toolbar" role="toolbar" aria-label="Markdown tools">
           {toolbarButtons.map(([label, textLabel]) => (
-            <button
-              key={label}
-              type="button"
-              className="jf-notes-tool"
-              aria-label={label}
-              onMouseDown={event => event.preventDefault()}
-              onClick={() => applyToolbar(label)}>
-              {textLabel}
-            </button>
+            <FragmentWithBreak key={label} breakAfter={TOOLBAR_BREAKS_AFTER.has(label)}>
+              <button
+                type="button"
+                className="jf-notes-tool"
+                aria-label={label}
+                onMouseDown={event => event.preventDefault()}
+                onClick={() => applyToolbar(label)}>
+                {textLabel}
+              </button>
+            </FragmentWithBreak>
           ))}
           <span className="jf-notes-toolbar-spacer" />
           <button type="button" className="jf-notes-tool" aria-label="Focus editor" onClick={focusEditor}>↙</button>
           <button type="button" className="jf-notes-tool" aria-label="Fullscreen editor" aria-pressed={fullscreen} onClick={() => setFullscreen(active => !active)}>⛶</button>
         </div>
-
-        <h1 className="jf-notes-title">{activeEntry.title || 'Untitled Note'}</h1>
 
         <div className="jf-notes-editor-shell">
           <div className="jf-notes-editor-scroll">
@@ -474,7 +556,7 @@ export function NotesWorkspaceView({
           <span>{wordCount(text).toLocaleString()} words</span>
           <span>{formatBytes(activeEntry.size, text)}</span>
           <span className="jf-notes-status-push">Markdown</span>
-          <span>Spaces: 2</span>
+          <span>Spaces: {countSpaces(text)}</span>
           <span className="jf-notes-live-dot" aria-hidden="true" />
           <span>Live</span>
         </footer>
@@ -489,6 +571,10 @@ export function NotesWorkspaceView({
 
         {activeRailTab === 'info' && (
           <>
+            {renderTagsSection()}
+            {renderBacklinksSection()}
+            {renderUnresolvedSection()}
+            {renderPropertiesSection()}
             {renderFileSection()}
             {renderActionsSection()}
           </>
@@ -514,5 +600,14 @@ function RailSection({ title, children }) {
       <h3>{title}</h3>
       {children}
     </section>
+  );
+}
+
+function FragmentWithBreak({ breakAfter, children }) {
+  return (
+    <>
+      {children}
+      {breakAfter && <span className="jf-notes-tool-separator" aria-hidden="true" />}
+    </>
   );
 }

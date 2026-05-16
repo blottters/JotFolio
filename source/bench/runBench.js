@@ -23,6 +23,8 @@ import workstationMeasurements from './measure/workstation.js';
 const BENCH_ROOT = dirname(fileURLToPath(import.meta.url));
 const BASELINE_PATH = join(BENCH_ROOT, 'baseline.json');
 const REGRESSION_THRESHOLD = 0.15; // 15%
+const REGRESSION_MIN_ABSOLUTE_MS = 10;
+const MIN_ITERATIONS_FOR_P95 = 20;
 
 const updateBaseline = process.argv.includes('--update-baseline');
 
@@ -58,12 +60,13 @@ const allMeasurements = [
 
 function percentile(sortedValues, p) {
   if (sortedValues.length === 0) return 0;
-  const idx = Math.min(sortedValues.length - 1, Math.floor(sortedValues.length * p));
+  const idx = Math.min(sortedValues.length - 1, Math.max(0, Math.ceil(sortedValues.length * p) - 1));
   return sortedValues[idx];
 }
 
 async function runOne(m) {
-  const { id, fn, setup, warmup = 3, iterations = 10 } = m;
+  const { id, fn, setup, warmup = 3, iterations: requestedIterations = 10 } = m;
+  const iterations = Math.max(requestedIterations, MIN_ITERATIONS_FOR_P95);
   const setupCtx = setup ? setup() : {};
   // Warmup
   for (let i = 0; i < warmup; i++) {
@@ -90,16 +93,34 @@ async function runOne(m) {
 
 function fmt(ms) { return ms < 1 ? ms.toFixed(2) + 'ms' : ms < 100 ? ms.toFixed(1) + 'ms' : Math.round(ms) + 'ms'; }
 
+function regressionDelta(result, baseline) {
+  if (!baseline) return null;
+  const absolute = result.p95 - baseline.p95;
+  return {
+    absolute,
+    relative: absolute / baseline.p95,
+  };
+}
+
+function isSignificantRegression(result, baseline) {
+  const delta = regressionDelta(result, baseline);
+  return !!delta
+    && delta.relative > REGRESSION_THRESHOLD
+    && delta.absolute > REGRESSION_MIN_ABSOLUTE_MS;
+}
+
 function printTable(results, baseline) {
   const rows = [['metric', 'p50', 'p95', 'min', 'max', 'target', 'vs baseline', 'verdict']];
   for (const r of results) {
     const t = TARGETS[r.id] || { target: null, mode: 'warn' };
     const base = baseline?.[r.id];
-    const delta = base ? ((r.p95 - base.p95) / base.p95) : null;
-    const deltaStr = delta == null ? '—' : `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)}%`;
+    const delta = regressionDelta(r, base);
+    const deltaStr = delta == null
+      ? '—'
+      : `${delta.relative >= 0 ? '+' : ''}${(delta.relative * 100).toFixed(1)}% (${delta.absolute >= 0 ? '+' : ''}${fmt(delta.absolute)})`;
     let verdict = 'ok';
     if (t.target != null && r.p95 > t.target) verdict = t.mode === 'fail' ? 'FAIL(target)' : 'warn(target)';
-    if (base && delta > REGRESSION_THRESHOLD) verdict = t.mode === 'fail' ? 'FAIL(regression)' : 'warn(regression)';
+    if (isSignificantRegression(r, base)) verdict = t.mode === 'fail' ? 'FAIL(regression)' : 'warn(regression)';
     rows.push([r.id, fmt(r.p50), fmt(r.p95), fmt(r.min), fmt(r.max), t.target == null ? '—' : fmt(t.target), deltaStr, verdict]);
   }
   const widths = rows[0].map((_, col) => Math.max(...rows.map(r => String(r[col]).length)));
@@ -142,7 +163,7 @@ async function main() {
     if (!t) continue;
     const overTarget = t.target != null && r.p95 > t.target;
     const base = baseline?.measurements?.[r.id];
-    const regressed = base && ((r.p95 - base.p95) / base.p95) > REGRESSION_THRESHOLD;
+    const regressed = isSignificantRegression(r, base);
     if (t.mode === 'fail' && (overTarget || regressed)) failed = true;
   }
 
@@ -153,6 +174,7 @@ async function main() {
       platform: process.platform,
       arch: process.arch,
       threshold: REGRESSION_THRESHOLD,
+      minRegressionMs: REGRESSION_MIN_ABSOLUTE_MS,
       measurements: Object.fromEntries(results.filter(r => !r.error).map(r => [r.id, {
         p50: r.p50, p95: r.p95, min: r.min, max: r.max, mean: r.mean,
       }])),
@@ -162,7 +184,7 @@ async function main() {
   }
 
   if (failed && !updateBaseline) {
-    console.error('\nBench FAILED: one or more fail-mode metrics exceeded target or regressed >15%.');
+    console.error(`\nBench FAILED: one or more fail-mode metrics exceeded target or regressed >15% and >${REGRESSION_MIN_ABSOLUTE_MS}ms.`);
     process.exit(1);
   }
   console.log('\nBench complete.');

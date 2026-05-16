@@ -1,6 +1,32 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+
+const layoutCalls = vi.hoisted(() => ({
+  affinity: vi.fn(),
+  clusters: vi.fn(),
+  messy: vi.fn(),
+}));
+
+vi.mock('./layout.js', async importOriginal => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    computeAffinityLayout: (...args) => {
+      layoutCalls.affinity(...args);
+      return actual.computeAffinityLayout(...args);
+    },
+    computeClusterLayout: (...args) => {
+      layoutCalls.clusters(...args);
+      return actual.computeClusterLayout(...args);
+    },
+    computeMessyLayout: (...args) => {
+      layoutCalls.messy(...args);
+      return actual.computeMessyLayout(...args);
+    },
+  };
+});
+
 import { ConstellationView } from './ConstellationView.jsx';
 
 function entries(overrides = {}) {
@@ -70,6 +96,9 @@ describe('ConstellationView polish', () => {
   beforeEach(() => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    layoutCalls.affinity.mockClear();
+    layoutCalls.clusters.mockClear();
+    layoutCalls.messy.mockClear();
   });
 
   afterEach(() => {
@@ -106,6 +135,91 @@ describe('ConstellationView polish', () => {
     fireEvent.keyDown(ghost, { key: 'Enter' });
 
     expect(onCreateFromMissing).toHaveBeenCalledWith('Missing Idea');
+  });
+
+  it('shows a Graph Health panel with disconnected notes and unresolved links', () => {
+    setReducedMotion(true);
+    const onOpen = vi.fn();
+    const onCreateFromMissing = vi.fn();
+    renderGraph({
+      onOpen,
+      onCreateFromMissing,
+      entries: [
+        ...entries(),
+        { id: 'd', title: 'Disconnected Draft', type: 'note', tags: [], links: [], unresolvedTargets: [], notes: '' },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Graph Health' }));
+
+    const scan = screen.getByRole('region', { name: 'Graph Health' });
+    expect(scan).toBeInTheDocument();
+    expect(scan).toHaveTextContent('Disconnected Draft');
+    expect(scan).toHaveTextContent('Missing Idea');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Disconnected Draft' }));
+    expect(onOpen).toHaveBeenCalledWith('d');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Missing Idea' }));
+    expect(onCreateFromMissing).toHaveBeenCalledWith('Missing Idea');
+  });
+
+  it('surfaces missing project references in the relationship scan', () => {
+    setReducedMotion(true);
+    const onOpen = vi.fn();
+    renderGraph({
+      onOpen,
+      entries: [
+        ...entries(),
+        {
+          id: 'projectless',
+          title: 'Projectless Note',
+          type: 'note',
+          tags: ['planning'],
+          links: [],
+          unresolvedTargets: [],
+          notes: '',
+          project: 'Missing Project',
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Graph Health' }));
+
+    const scan = screen.getByRole('region', { name: 'Graph Health' });
+    expect(scan).toHaveTextContent('Missing Project');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open metadata issue for Projectless Note' }));
+    expect(onOpen).toHaveBeenCalledWith('projectless');
+  });
+
+  it('remembers Graph Health accept, reject, and ignore decisions', () => {
+    setReducedMotion(true);
+    const graphEntries = [
+      ...entries(),
+      { id: 'd', title: 'Disconnected Draft', type: 'note', tags: [], links: [], unresolvedTargets: [], notes: '' },
+    ];
+    const { unmount } = renderGraph({ entries: graphEntries });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Graph Health' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Accept relationship decision for Disconnected Draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reject relationship decision for Missing Idea' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ignore relationship decision for Disconnected Draft' }));
+
+    const stored = JSON.parse(localStorage.getItem('jf-relationship-decisions'));
+    expect(Object.values(stored.decisions).map(item => item.status)).toEqual(expect.arrayContaining(['ignored', 'rejected']));
+    expect(screen.getByText('Ignored')).toBeInTheDocument();
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
+
+    unmount();
+    renderGraph({ entries: graphEntries });
+    fireEvent.click(screen.getByRole('button', { name: 'Graph Health' }));
+
+    expect(screen.getByText('Ignored')).toBeInTheDocument();
+    expect(screen.getByText('Rejected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear relationship decision for Disconnected Draft' }));
+    expect(screen.queryByText('Ignored')).not.toBeInTheDocument();
   });
 
   it('accepts an initial focused entry from route actions', () => {
@@ -161,5 +275,71 @@ describe('ConstellationView polish', () => {
     fireEvent.keyDown(document, { key: 'a' });
 
     expect(layoutChanges).toEqual(['clusters', 'messy', 'affinity', 'messy']);
+  });
+
+  it('computes only the active layout mode', () => {
+    setReducedMotion(true);
+    const props = {
+      entries: entries(),
+      onOpen: vi.fn(),
+      onBack: vi.fn(),
+      onAdd: vi.fn(),
+      onCreateFromMissing: vi.fn(),
+      flags: { wiki_mode: true, review_queue: true, raw_inbox: true },
+    };
+
+    const { rerender } = render(<ConstellationView {...props} layoutMode="messy" />);
+    expect(layoutCalls.messy).toHaveBeenCalled();
+    expect(layoutCalls.clusters).not.toHaveBeenCalled();
+    expect(layoutCalls.affinity).not.toHaveBeenCalled();
+
+    layoutCalls.affinity.mockClear();
+    layoutCalls.clusters.mockClear();
+    layoutCalls.messy.mockClear();
+    rerender(<ConstellationView {...props} layoutMode="clusters" />);
+    expect(layoutCalls.clusters).toHaveBeenCalled();
+    expect(layoutCalls.messy).not.toHaveBeenCalled();
+    expect(layoutCalls.affinity).not.toHaveBeenCalled();
+
+    layoutCalls.affinity.mockClear();
+    layoutCalls.clusters.mockClear();
+    layoutCalls.messy.mockClear();
+    rerender(<ConstellationView {...props} layoutMode="affinity" />);
+    expect(layoutCalls.affinity).toHaveBeenCalled();
+    expect(layoutCalls.messy).not.toHaveBeenCalled();
+    expect(layoutCalls.clusters).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit semanticEdges true before drawing semantic edges', () => {
+    setReducedMotion(true);
+    const getSimilar = vi.fn(id => (id === 'b' ? [{ id: 'c', score: 0.82 }] : []));
+    const props = {
+      entries: entries(),
+      onOpen: vi.fn(),
+      onBack: vi.fn(),
+      onAdd: vi.fn(),
+      onCreateFromMissing: vi.fn(),
+      semanticReady: true,
+      getSimilar,
+    };
+
+    const { container, rerender } = render(
+      <ConstellationView
+        {...props}
+        flags={{ wiki_mode: true, review_queue: true, raw_inbox: true }}
+      />
+    );
+    expect(getSimilar).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-semantic-edge="true"]')).toBeNull();
+
+    rerender(
+      <ConstellationView
+        {...props}
+        flags={{ wiki_mode: true, review_queue: true, raw_inbox: true, semanticEdges: true }}
+      />
+    );
+
+    expect(getSimilar).toHaveBeenCalled();
+    expect(container.querySelector('[data-semantic-edge="true"]')).not.toBeNull();
   });
 });

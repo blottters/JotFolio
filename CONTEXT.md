@@ -33,6 +33,7 @@ Use the left column. Don't substitute.
 
 | Concern | Source |
 |---|---|
+| Current roadmap and beta priorities | [`docs/ROADMAP.md`](./docs/ROADMAP.md) |
 | Product direction & full Karpathy plan | [`docs/karpathy-llm-wiki-handoff.md`](./docs/karpathy-llm-wiki-handoff.md) |
 | Active design specs (per release) | [`docs/superpowers/specs/`](./docs/superpowers/specs/) |
 | Architecture decisions (ADRs) | [`docs/adr/`](./docs/adr/) |

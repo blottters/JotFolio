@@ -92,6 +92,16 @@ describe('LocalAdapter', () => {
     expect(await v.read('notes/new.md')).toBe('x');
   });
 
+  it('move refuses to overwrite an existing destination', async () => {
+    const v = new LocalAdapter();
+    await v.write('notes/old.md', 'old');
+    await v.write('notes/new.md', 'new');
+
+    await expect(v.move('notes/old.md', 'notes/new.md')).rejects.toMatchObject({ code: 'invalid-path' });
+    expect(await v.read('notes/old.md')).toBe('old');
+    expect(await v.read('notes/new.md')).toBe('new');
+  });
+
   it('remove deletes file and emits delete event', async () => {
     const v = new LocalAdapter();
     await v.write('notes/a.md', 'a');
@@ -144,6 +154,21 @@ describe('LocalAdapter', () => {
     const v = new LocalAdapter();
     await expect(v.writeBinary('notes/x.md', 'a string')).rejects.toMatchObject({ code: 'invalid-path' });
     await expect(v.writeBinary('notes/x.md', [1, 2, 3])).rejects.toMatchObject({ code: 'invalid-path' });
+  });
+
+  it('writeBinary and readBinary preserve arbitrary bytes', async () => {
+    const v = new LocalAdapter();
+    const bytes = new Uint8Array([0, 1, 2, 127, 128, 255]);
+
+    await v.writeBinary('attachments/raw.bin', bytes);
+    const back = await v.readBinary('attachments/raw.bin');
+
+    expect([...back]).toEqual([...bytes]);
+    const stored = JSON.parse(localStorage.getItem('jf-vault-local'));
+    expect(stored.files['attachments/raw.bin']).toBeUndefined();
+    expect(typeof stored.binaries['attachments/raw.bin']).toBe('string');
+    const item = (await v.list()).find(f => f.path === 'attachments/raw.bin');
+    expect(item.size).toBe(bytes.length);
   });
 
   it('unsubscribe stops receiving events', async () => {

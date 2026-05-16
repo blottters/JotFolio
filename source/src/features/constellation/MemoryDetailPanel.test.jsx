@@ -229,6 +229,38 @@ describe('MemoryDetailPanel', () => {
     expect(onTrace).toHaveBeenCalledWith('mem-x');
   });
 
+  it('Close button click fires onClose', () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryDetailPanel
+        entry={makeEntry()}
+        vaultIndex={makeVaultIndex()}
+        onConfirm={noop}
+        onSplit={noop}
+        onTraceToSources={noop}
+        onClose={onClose}
+      />
+    );
+    fireEvent.click(screen.getByLabelText('Close memory detail'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape key fires onClose', () => {
+    const onClose = vi.fn();
+    render(
+      <MemoryDetailPanel
+        entry={makeEntry()}
+        vaultIndex={makeVaultIndex()}
+        onConfirm={noop}
+        onSplit={noop}
+        onTraceToSources={noop}
+        onClose={onClose}
+      />
+    );
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('middle-of-job copy switches per type + review_status', () => {
     const reviewEntry = makeEntry({ type: 'review', review_status: 'pending' });
     const { rerender } = render(

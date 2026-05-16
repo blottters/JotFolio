@@ -24,6 +24,8 @@ dist/
 # Dev-server captured logs
 **/vite-dev.out.log
 **/vite-dev.err.log
+source/dev-server-*.log
+source/dist-electron-testing/
 
 # Local agent/review artifacts
 .archive/

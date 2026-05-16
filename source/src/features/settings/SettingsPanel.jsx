@@ -168,6 +168,7 @@ function TrashReview(){
 
 function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading,error,issues,refresh}){
   const legacyCount=entries?.length||0;
+  const hasVaultBridge=typeof window!=='undefined'&&!!window.electron?.vault;
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const [exportedAt, setExportedAt] = useState(null);
@@ -203,7 +204,7 @@ function VaultPanel({entries,vaultInfo,pickVault,migrateFromLocalStorage,loading
         <MiniStatus label="Recovery path" value="Trash first, skipped-file review second, zip export for full backup" tone="neutral"/>
         <MiniStatus label="Health" value={error?`Vault error: ${error.message}`:issueCount?`${issueCount} file${issueCount===1?'':'s'} need review`:'No skipped files reported'} tone={error||issueCount?'bad':'good'}/>
       </div>
-      <VaultPicker mode="inline" vaultInfo={vaultInfo} onPick={pickVault} onMigrate={migrateFromLocalStorage} legacyCount={legacyCount}/>
+      <VaultPicker mode="inline" vaultInfo={vaultInfo} onPick={pickVault} onMigrate={migrateFromLocalStorage} legacyCount={hasVaultBridge?legacyCount:0} browserPreview={!hasVaultBridge}/>
       <div style={{display:'flex',flexDirection:'column',gap:8,padding:10,background:'var(--b2)',border:'1px solid var(--br)',borderRadius:'var(--rd)'}}>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{flex:1}}>
@@ -306,7 +307,7 @@ function AIPanel(){
         Source-grounded AI features must cite the vault material they use. Until that exists, this panel is limited to BYOK storage and a connection test.
       </div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--br)'}}>
-        <span id="ai-enabled-label" style={{fontSize:13,color:'var(--tx)'}}>Enable experimental AI helpers</span>
+        <span id="ai-enabled-label" style={{fontSize:13,color:'var(--tx)'}}>Allow AI provider calls</span>
         <button onClick={()=>update({enabled:!cfg.enabled})}
           aria-labelledby="ai-enabled-label" aria-pressed={cfg.enabled}
           style={{width:40,height:22,borderRadius:11,border:'none',cursor:'pointer',background:cfg.enabled?'var(--ac)':'var(--br)',position:'relative',transition:'background 0.2s'}}>
@@ -605,6 +606,9 @@ export function SettingsPanel({embedded=false,initialTab='appearance',theme,setT
           <span style={sH}>Keyboard Shortcuts</span>
           <div style={{display:'flex',flexDirection:'column',gap:1}}>
             {[
+              ['Ctrl/Cmd+K','Open Search / Quick Switcher'],
+              ['Ctrl/Cmd+O','Open Quick Switcher'],
+              ['Ctrl/Cmd+P','Open Command Palette'],
               ['N','New entry'],
               ['/','Focus search'],
               ['Esc','Close panel / modal'],

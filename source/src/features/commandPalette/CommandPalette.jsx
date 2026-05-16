@@ -7,13 +7,53 @@ import { rankCommands } from '../../lib/command/commandRegistry.js';
 // in the registry itself; commands fire via registry.execute(id, ctx)
 // inside onExecute so the App owns the context object.
 
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'a[href]',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusableElements(root) {
+  if (!root) return [];
+  return [...root.querySelectorAll(FOCUSABLE_SELECTOR)]
+    .filter(el => el.getAttribute('aria-hidden') !== 'true');
+}
+
+function containTabFocus(event, root) {
+  if (event.key !== 'Tab') return;
+  const focusable = getFocusableElements(root);
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+  if (event.shiftKey) {
+    if (!root.contains(active) || active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+    return;
+  }
+  if (!root.contains(active) || active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 export function CommandPalette({ open, registry, onClose, onExecute, onError }) {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
   const [version, setVersion] = useState(0); // re-render when registry changes
+  const dialogRef = useRef(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const inputId = useId();
+  const listId = `${inputId}-listbox`;
 
   // Re-render when registry contents change — picks up plugin commands
   // registered after the palette mounts.
@@ -37,6 +77,9 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
 
   const all = useMemo(() => (registry?.list?.() || []), [registry, version]);
   const filtered = useMemo(() => rankCommands(all, query), [all, query]);
+  const safeActiveIdx = filtered.length ? Math.min(activeIdx, filtered.length - 1) : -1;
+  const optionId = idx => `${inputId}-option-${idx}`;
+  const activeOptionId = safeActiveIdx >= 0 ? optionId(safeActiveIdx) : undefined;
 
   // Clamp active index whenever the filtered list changes.
   useEffect(() => {
@@ -56,9 +99,9 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
 
   const handleKey = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose?.(); return; }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(filtered.length - 1, i + 1)); return; }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(0, i - 1)); return; }
-    if (e.key === 'Enter')     { e.preventDefault(); exec(filtered[activeIdx]); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => filtered.length ? Math.min(filtered.length - 1, i + 1) : 0); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => filtered.length ? Math.max(0, i - 1) : 0); return; }
+    if (e.key === 'Enter')     { e.preventDefault(); exec(filtered[safeActiveIdx]); return; }
   };
 
   // Group filtered commands by section so the rendered list mirrors the
@@ -75,10 +118,12 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby={inputId}
+      ref={dialogRef}
       style={{
         position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.42)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 96,
       }}
+      onKeyDown={e => containTabFocus(e, dialogRef.current)}
       onMouseDown={e => { if (e.target === e.currentTarget) onClose?.(); }}>
       <div style={{
         width: 'min(560px, 92vw)', maxHeight: 'min(60vh, 480px)',
@@ -91,12 +136,16 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
           onKeyDown={handleKey}
           placeholder="Run an app command…"
           aria-label="Command palette search"
+          aria-controls={listId}
+          aria-activedescendant={activeOptionId}
+          aria-autocomplete="list"
+          aria-expanded="true"
           style={{
             padding: '14px 16px', fontSize: 15, fontFamily: 'var(--fn)',
             border: 'none', borderBottom: '1px solid var(--br)', background: 'transparent',
             color: 'var(--tx)', outline: 'none',
           }}/>
-        <div ref={listRef} role="listbox" aria-label="Commands"
+        <div id={listId} ref={listRef} role="listbox" aria-label="Commands" tabIndex={-1}
           style={{ overflowY: 'auto', flex: 1, padding: '6px 0' }}>
           {filtered.length === 0 && (
             <div style={{ padding: '20px 16px', color: 'var(--t3)', fontSize: 13, textAlign: 'center' }}>
@@ -112,9 +161,9 @@ export function CommandPalette({ open, registry, onClose, onExecute, onError }) 
               {grouped[section].map(cmd => {
                 runningIdx++;
                 const idx = runningIdx;
-                const active = idx === activeIdx;
+                const active = idx === safeActiveIdx;
                 return (
-                  <div key={cmd.id} role="option" aria-selected={active}
+                  <div key={cmd.id} id={optionId(idx)} role="option" aria-selected={active}
                     onMouseEnter={() => setActiveIdx(idx)}
                     onMouseDown={e => { e.preventDefault(); exec(cmd); }}
                     style={{

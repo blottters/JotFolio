@@ -100,9 +100,9 @@ describe('frontmatter.serialize', () => {
     expect(out).toMatch(/title: "Has: a colon"/);
   });
 
-  it('trailing newline always present', () => {
+  it('does not add a body newline when body has none', () => {
     const out = serialize({ frontmatter: { id: '1' }, body: 'no newline' });
-    expect(out.endsWith('\n')).toBe(true);
+    expect(out.endsWith('no newline')).toBe(true);
   });
 
   it('empty arrays serialize as []', () => {
@@ -158,7 +158,7 @@ Body content.
     const out = serialize({ frontmatter, body });
     const { frontmatter: again, body: againBody } = parse(out);
     expect(again).toEqual(frontmatter);
-    expect(againBody.trim()).toBe(body.trim());
+    expect(againBody).toBe(body);
   });
 });
 
@@ -178,6 +178,20 @@ describe('entryToFile + fileToEntry', () => {
     expect(back.tags).toEqual(['philosophy', 'reading']);
     expect(back.starred).toBe(true);
     expect(back.notes).toBe('# On Stoicism\n\nBody.');
+  });
+
+  it('preserves Markdown body whitespace exactly when reading files', () => {
+    const body = '\n  Leading spaces\nLine with trailing spaces  \n\n';
+    const content = [
+      '---',
+      'id: id-1',
+      'type: note',
+      'title: Whitespace',
+      '---',
+    ].join('\n') + '\n' + body;
+    const entry = fileToEntry({ path: 'notes/Whitespace.md', content });
+
+    expect(entry.notes).toBe(body);
   });
 
   it('round-trips a video entry with type-specific fields', () => {

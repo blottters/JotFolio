@@ -119,11 +119,40 @@ describe('SettingsPanel routing', () => {
     expect(screen.getByRole('button', { name: 'AI Keys' })).toBeInTheDocument();
   });
 
+  it('labels the AI toggle as provider-call permission, not a finished helper', () => {
+    renderSettingsPanel({ initialTab: 'ai' });
+
+    expect(screen.getByText('Allow AI provider calls')).toBeInTheDocument();
+    expect(screen.queryByText(/Enable experimental AI helpers/i)).not.toBeInTheDocument();
+  });
+
   it('names library card display toggles', () => {
     renderSettingsPanel({ initialTab: 'library' });
 
     expect(screen.getByRole('button', { name: 'Show notes preview' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Show date' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Show tags' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('does not offer fake browser-storage migration in browser preview', () => {
+    renderSettingsPanel({
+      initialTab: 'vault',
+      entries: [{ id: 'n-1', type: 'note', title: 'Existing browser note' }],
+      vaultInfo: { path: 'local://vault', name: 'Browser Vault' },
+    });
+
+    expect(screen.getByText(/Browser preview is already using this virtual vault/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Import into vault' })).not.toBeInTheDocument();
+  });
+
+  it('lists active command shortcuts', () => {
+    renderSettingsPanel({ initialTab: 'shortcuts' });
+
+    expect(screen.getByText('Open Search / Quick Switcher')).toBeInTheDocument();
+    expect(screen.getByText('Open Quick Switcher')).toBeInTheDocument();
+    expect(screen.getByText('Open Command Palette')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl/Cmd+K')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl/Cmd+O')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl/Cmd+P')).toBeInTheDocument();
   });
 });

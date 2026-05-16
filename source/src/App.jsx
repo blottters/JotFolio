@@ -6,7 +6,7 @@ import { ALL_ENTRY_TYPES, ICON } from './lib/types.js';
 import { DEFAULT_FEATURE_FLAGS, filterEntriesForUI, normalizeFeatureFlags } from './lib/featureFlags.js';
 import { resolveColorScheme, resolveThemeVars } from './lib/theme/resolve.js';
 import { buildThemeCss } from './lib/theme/themeCss.js';
-import { storage, uid, isStorageCorruptionError } from './lib/storage.js';
+import { storage, uid, createEntryId, isStorageCorruptionError } from './lib/storage.js';
 import { MANUAL_LINKS_FIELD, serialize as serializeFrontmatter } from './lib/frontmatter.js';
 import { exportVaultBundle, exportEntriesMD, importVaultBundle } from './lib/exports.js';
 import { getConstellationDemoEntries } from './lib/demoEntries.js';
@@ -30,6 +30,7 @@ import {
 } from './features/workstation/WorkstationViews.jsx';
 import { WorkspaceTopBar } from './features/workstation/WorkspaceTopBar.jsx';
 import { AppConfirmDialog } from './features/shell/AppConfirmDialog.jsx';
+import { EntryFileDialog } from './features/shell/EntryFileDialog.jsx';
 import { AppRouteContent } from './features/shell/AppRouteContent.jsx';
 import {
   HOME_SECTION,
@@ -150,6 +151,7 @@ export default function App(){
   const[settingsInitialTab,setSettingsInitialTab]=useState('appearance');
   const[folderDialogOpen,setFolderDialogOpen]=useState(false);
   const[folderDraft,setFolderDraft]=useState('');
+  const[entryFileDialog,setEntryFileDialog]=useState(null);
   const[trashItems,setTrashItems]=useState([]);
   const[trashBusy,setTrashBusy]=useState(false);
   const[trashError,setTrashError]=useState('');
@@ -222,7 +224,10 @@ export default function App(){
 
   // Tick counter forces re-read of isOnboarded() after localStorage writes
   const [onboardingTick,setOnboardingTick]=useState(0);
-  const bumpOnboarding=useCallback(()=>setOnboardingTick(t=>t+1),[]);
+  const bumpOnboarding=useCallback(()=>{
+    setOnboardingTick(t=>t+1);
+    setSection(current=>current==='welcome'?HOME_SECTION:current);
+  },[]);
   // void read to keep lint happy — isOnboarded() reads fresh each render
   void onboardingTick;
 
@@ -232,10 +237,14 @@ export default function App(){
   const[addQuickCapture,setAddQuickCapture]=useState(false);
   const[addProjectContext,setAddProjectContext]=useState(null);
   const[addInitialFolder,setAddInitialFolder]=useState('');
+  const[addInitialSpace,setAddInitialSpace]=useState('');
+  const[addInitialTitle,setAddInitialTitle]=useState('');
   const closeAddModal=useCallback(()=>{
     setShowAddModal(false);
     setAddProjectContext(null);
     setAddInitialFolder('');
+    setAddInitialSpace('');
+    setAddInitialTitle('');
   },[]);
   const openAdd=useCallback((arg)=>{
     const opts=typeof arg==='string'?{type:arg}:(arg||{});
@@ -245,6 +254,8 @@ export default function App(){
     setAddQuickCapture(!!opts.quickCapture);
     setAddProjectContext(opts.projectContext || null);
     setAddInitialFolder(opts.folder || '');
+    setAddInitialSpace(opts.initialSpace || '');
+    setAddInitialTitle(opts.initialTitle || '');
     setShowAddModal(true);
   },[section]);
 
@@ -485,30 +496,44 @@ export default function App(){
   const moveEntryFile=useCallback(async(entry)=>{
     if(!entry?._path){toast('No file path for this entry','error');return}
     const currentFolder=folderFromPath(entry._path);
-    const raw=window.prompt('Move entry to vault folder. Leave blank for vault root.',currentFolder);
-    if(raw==null)return;
-    try{
-      const folder=normalizeVaultFolder(raw);
-      const target=joinVaultPath(folder,fileNameFromPath(entry._path));
-      if(target===entry._path){toast('Entry is already in that folder','info');return}
-      await vaultAdapter.move(entry._path,target);
-      await refreshVault();
-      toast(`Moved to ${folder||'vault root'}`,'info');
-    }catch(err){reportError(err,'Entry move failed')}
-  },[refreshVault,toast,reportError]);
+    setEntryFileDialog({kind:'move',entry,value:currentFolder,path:entry._path});
+  },[toast]);
   const renameEntryFile=useCallback(async(entry)=>{
     if(!entry?._path){toast('No file path for this entry','error');return}
     const currentName=fileNameFromPath(entry._path);
-    const raw=window.prompt('Rename entry file. Keep it as markdown.',currentName);
-    if(raw==null)return;
+    setEntryFileDialog({kind:'rename',entry,value:currentName,path:entry._path});
+  },[toast]);
+  const updateEntryFileDialog=useCallback(value=>{
+    setEntryFileDialog(request=>request?{...request,value}:request);
+  },[]);
+  const submitEntryFileDialog=useCallback(async(rawValue)=>{
+    const request=entryFileDialog;
+    const entry=request?.entry;
+    if(!request||!entry?._path)return;
     try{
-      const target=joinVaultPath(folderFromPath(entry._path),raw);
-      if(target===entry._path){toast('Entry already has that file name','info');return}
+      let target;
+      let message;
+      if(request.kind==='move'){
+        const folder=normalizeVaultFolder(rawValue);
+        target=joinVaultPath(folder,fileNameFromPath(entry._path));
+        message=`Moved to ${folder||'vault root'}`;
+      }else{
+        const fileName=String(rawValue||'').trim();
+        if(!fileName){toast('File name is required','error');return}
+        target=joinVaultPath(folderFromPath(entry._path),fileName);
+        message=`Renamed file to ${fileNameFromPath(target)}`;
+      }
+      if(target===entry._path){
+        toast(request.kind==='move'?'Entry is already in that folder':'Entry already has that file name','info');
+        setEntryFileDialog(null);
+        return;
+      }
       await vaultAdapter.move(entry._path,target);
       await refreshVault();
-      toast(`Renamed file to ${fileNameFromPath(target)}`,'info');
-    }catch(err){reportError(err,'Entry rename failed')}
-  },[refreshVault,toast,reportError]);
+      setEntryFileDialog(null);
+      toast(message,'info');
+    }catch(err){reportError(err,entryFileDialog?.kind==='move'?'Entry move failed':'Entry rename failed')}
+  },[entryFileDialog,refreshVault,toast,reportError]);
   const handleImportAttachment=useCallback(async(file)=>{
     try{
       const path=await importAttachment(vaultAdapter,file,{nonce:uid()});
@@ -529,11 +554,19 @@ export default function App(){
   // palette is already open (so users can re-press to close).
   useEffect(()=>{
     const onKey=e=>{
+      const isK=e.key==='k'||e.key==='K';
       const isP=e.key==='p'||e.key==='P';
       const isO=e.key==='o'||e.key==='O';
       const mod=e.metaKey||e.ctrlKey;
-      if(!mod||(!isP&&!isO))return;
+      if(!mod||(!isK&&!isP&&!isO))return;
       const inField=e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.isContentEditable;
+      if(isK){
+        e.preventDefault();
+        setPaletteOpen(false);
+        setQuickSwitcherOpen(false);
+        handleSection('search');
+        return;
+      }
       // Cmd/Ctrl+P → command palette. Cmd/Ctrl+O → quick switcher.
       // Suppressed while typing in inputs unless the matching modal is
       // already open (so users can re-press to close).
@@ -551,7 +584,7 @@ export default function App(){
     };
     document.addEventListener('keydown',onKey);
     return()=>document.removeEventListener('keydown',onKey);
-  },[paletteOpen,quickSwitcherOpen]);
+  },[handleSection,paletteOpen,quickSwitcherOpen]);
 
   // CSS vars
   useEffect(()=>{
@@ -836,6 +869,12 @@ export default function App(){
   const visibleEntries=useMemo(()=>filterEntriesForUI(entries,prefs.featureFlags),[entries,prefs.featureFlags]);
   const activation=useActivation(visibleEntries.length);
 
+  useEffect(()=>{
+    if(loaded&&section===HOME_SECTION&&!isOnboarded()&&visibleEntries.length===0){
+      setSection('welcome');
+    }
+  },[loaded,section,visibleEntries.length]);
+
   // ── Semantic index (MiniLM Phase 2) ────────────────────────────────────
   // Background build runs once on vault load. Cache lives at
   // <vault>/.jotfolio/semantic-cache.json so relaunches don't re-embed
@@ -862,14 +901,15 @@ export default function App(){
 
   const addEntry=useCallback(async(entry)=>{
     const date=new Date().toISOString();
-    const next={...entry,id:uid(),date,starred:false,links:[]};
+    const next={...entry,id:createEntryId(),date,starred:false,links:[]};
     try{
       await saveEntryWithRules(next);
       const newCount=entries.length+1;
       recordEntryAdded(newCount,date);
       if(newCount===3)setCelebrating(true);
       toast(`${ICON[entry.type]} Entry saved`);
-    }catch(err){reportError(err,'Entry save failed')}
+      return next;
+    }catch(err){reportError(err,'Entry save failed');return null}
   },[entries.length,saveEntryWithRules,toast,reportError]);
 
   // Phase 7 helpers: callbacks the command palette + plugins consume
@@ -884,7 +924,7 @@ export default function App(){
     const existing=entries.find(e=>e.type==='journal'&&(e.entry_date===todayIso||e.title===todayIso));
     if(existing){setSection('all');setDetailId(existing.id);toast('Opened today’s journal','info');return existing.id}
     const date=new Date().toISOString();
-    const next={id:uid(),type:'journal',title:todayIso,notes:`# ${todayIso}\n\n`,tags:['daily'],status:'draft',entry_date:todayIso,date,starred:false,links:[]};
+    const next={id:createEntryId(),type:'journal',title:todayIso,notes:`# ${todayIso}\n\n`,tags:['daily'],status:'draft',entry_date:todayIso,date,starred:false,links:[]};
     try{
       await saveEntryWithRules(next);
       await refreshVault();
@@ -1031,7 +1071,7 @@ export default function App(){
     const cleanTitle=String(targetTitle||'').trim();
     if(!cleanTitle){toast('Empty link target','error');return null}
     const date=new Date().toISOString();
-    const next={type:'note',title:cleanTitle,notes:'',tags:[],status:'draft',id:uid(),date,starred:false,links:[]};
+    const next={type:'note',title:cleanTitle,notes:'',tags:[],status:'draft',id:createEntryId(),date,starred:false,links:[]};
     try{
       await saveEntryWithRules(next);
       await refreshVault();
@@ -1302,9 +1342,9 @@ export default function App(){
       });
       const childIds=[];
       for(const child of children){
-        const newId=uid();
+        const newId=createEntryId();
         childIds.push(newId);
-        await saveEntryWithRules({id:newId,...child.entry});
+        await saveEntryWithRules({...child.entry,id:newId});
       }
       // splitMemory returns supersedingOriginal.superseded_by as placeholder
       // {index} markers — map them to the real child ids we just minted.
@@ -1339,7 +1379,7 @@ export default function App(){
   }
   async function handleAcceptCompile(compiledEntry){
     try{
-      await saveEntryWithRules({id:uid(),...compiledEntry});
+      await saveEntryWithRules({...compiledEntry,id:createEntryId()});
       setCompilePreview(null);
       toast(compiledEntry.type==='wiki'?'Saved as wiki entry':'Saved as review entry');
     }catch(err){reportError(err,'Save compiled entry failed');}
@@ -1505,7 +1545,7 @@ export default function App(){
               bulkTrashSelected={bulkTrashSelected}
               clearSelection={clearSelection}/>
           </div>
-          {!['calendar','raw','search','projects','note'].includes(section) && <WorkspaceContextRail
+          {!['calendar','raw','search','projects','note','spaces'].includes(section) && <WorkspaceContextRail
             selectedEntry={detail}
             model={workstationModel}
             entries={visibleEntries}
@@ -1536,7 +1576,8 @@ export default function App(){
             vaultIndex={buildVaultIndex(entries)}
             onConfirm={handleConfirmMemory}
             onSplit={handleSplitMemory}
-            onTraceToSources={handleTraceToSources}/>
+            onTraceToSources={handleTraceToSources}
+            onClose={()=>setDetailId(null)}/>
         </LazyOverlay>
       ):detail&&(
         <LazyOverlay label="Loading entry detail...">
@@ -1566,9 +1607,14 @@ export default function App(){
         onChange={setFolderDraft}
         onSubmit={()=>submitNewFolder(folderDraft)}
         onClose={()=>setFolderDialogOpen(false)}/>}
+      {entryFileDialog&&<EntryFileDialog
+        request={entryFileDialog}
+        onChange={updateEntryFileDialog}
+        onSubmit={submitEntryFileDialog}
+        onClose={()=>setEntryFileDialog(null)}/>}
       {showAddModal&&(
         <LazyOverlay label="Loading capture...">
-          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={e=>{addEntry(e);closeAddModal()}} flags={prefs.featureFlags} entries={visibleEntries} suggestTagsFromText={semantic?.ready?suggestSimilarFromText:undefined}/>
+          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} initialSpace={addInitialSpace} initialTitle={addInitialTitle} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={e=>{addEntry(e);closeAddModal()}} flags={prefs.featureFlags} entries={visibleEntries} suggestTagsFromText={semantic?.ready?suggestSimilarFromText:undefined}/>
         </LazyOverlay>
       )}
       {section==='welcome'&&loaded&&!isOnboarded()&&visibleEntries.length===0&&(

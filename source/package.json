@@ -2,6 +2,8 @@
   "name": "jotfolio",
   "private": true,
   "version": "0.5.0-alpha.25",
+  "description": "Plain files, your folders, no servers.",
+  "author": "Gavin",
   "type": "module",
   "main": "src-electron/main.js",
   "scripts": {
@@ -51,6 +53,9 @@
     "vite": "^8.0.10",
     "vitest": "^4.1.5",
     "wait-on": "^9.0.5"
+  },
+  "overrides": {
+    "onnxruntime-web": "1.26.0"
   },
   "build": {
     "appId": "com.jotfolio.app",

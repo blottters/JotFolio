@@ -7,6 +7,9 @@ appId: com.jotfoliotesting.app
 productName: JotFolioTesting
 artifactName: ${productName}-Setup-${version}.${ext}
 
+extraMetadata:
+  name: jotfoliotesting
+
 directories:
   output: dist-electron-testing
 

@@ -64,13 +64,13 @@ describe('NoteBody Markdown editor', () => {
       ['Heading 1', '# Heading'],
       ['Heading 2', '## Heading'],
       ['Italic', '*text*'],
-      ['Link', '[label](https://example.com)'],
+      ['Link', '[link text]()'],
       ['Inline code', '`code`'],
       ['Bulleted list', '- List item'],
       ['Numbered list', '1. List item'],
       ['Checklist', '- [ ] Task'],
       ['Quote', '> Quote'],
-      ['Image', '![alt text](image-url)'],
+      ['Image', '![alt text]()'],
       ['Table', '| Column 1 | Column 2 |'],
     ];
 
@@ -80,6 +80,8 @@ describe('NoteBody Markdown editor', () => {
       fireEvent.click(screen.getByRole('button', { name: label }));
       expect(editor.value).toContain(expected);
     }
+    expect(editor.value).not.toContain('example.com');
+    expect(editor.value).not.toContain('image-url');
   });
 
   it('debounces saves through onUpdateEntry when provided', async () => {

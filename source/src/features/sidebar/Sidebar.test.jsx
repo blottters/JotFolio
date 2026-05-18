@@ -49,7 +49,6 @@ describe('Sidebar', () => {
       'Calendar',
       'Constellation',
       'Tasks',
-      'AI Setup',
       'Spaces',
       'Tags',
       'Settings',
@@ -61,6 +60,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Manage Tags')).toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
     expect(screen.queryByText('Media')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI Setup')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Trash'));
     expect(setSection).toHaveBeenCalledWith('trash');

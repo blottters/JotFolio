@@ -15,7 +15,7 @@ Scope: the current JotFolio shell served at `http://127.0.0.1:5174/`.
 
 ## Visual Sweep
 
-- Home route opens to Command Center with `Good morning, Gavin`.
+- Home route opens to Command Center with the local-time greeting for Gavin.
 - The app background is dark shell chrome only; no blue desktop backdrop is part of the app.
 - Left navigation routes render without shifting the top bar, context rail, or vault status bar.
 - Command Center, Search, Projects, Tasks, Calendar, Spaces, Tag Manager, Settings, and Trash each have a clear title and non-empty state.

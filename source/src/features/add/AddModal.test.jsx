@@ -52,14 +52,101 @@ describe('AddModal', () => {
     ['note', 'Create Note'],
     ['journal', 'Create Journal'],
     ['article', 'Create Article'],
-    ['podcast', 'Create Podcast'],
-    ['video', 'Create Video'],
     ['link', 'Create Link'],
   ])('labels %s creation honestly instead of saying Save to Inbox', (initialType, label) => {
     renderModal({ initialType });
 
     expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save to Inbox' })).not.toBeInTheDocument();
+  });
+
+  it('puts journal date in the form and saves it into the journal payload', () => {
+    const onAdd = vi.fn();
+    renderModal({ onAdd, initialType: 'journal' });
+
+    const dateInput = screen.getByLabelText('Journal date');
+    expect(dateInput).toBeInTheDocument();
+
+    fireEvent.change(dateInput, { target: { value: '2026-05-18' } });
+
+    expect(screen.getByLabelText('Title')).toHaveAttribute('placeholder', 'Journal 2026-05-18');
+    expect(screen.getByDisplayValue('journals/Journal 2026-05-18.md')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Journal' }));
+
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'journal',
+      title: 'Journal 2026-05-18',
+      entry_date: '2026-05-18',
+    }));
+  });
+
+  it('summarizes article and link URLs and can use the URL slug as the title', () => {
+    renderModal({ initialType: 'link' });
+
+    expect(screen.getByLabelText('Title')).toHaveAttribute('placeholder', 'Untitled Link');
+    expect(screen.getByDisplayValue('links/Untitled Link.md')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Source URL'), {
+      target: { value: 'https://example.com/research-note.html?utm_source=newsletter' },
+    });
+
+    expect(screen.getByLabelText('Source URL summary')).toHaveTextContent('Domain: example.com');
+    expect(screen.getByLabelText('Source URL summary')).toHaveTextContent('Suggested title: Research Note');
+    expect(screen.getByLabelText('Source URL summary')).toHaveTextContent('Normalized: https://example.com/research-note.html');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use title' }));
+
+    expect(screen.getByLabelText('Title')).toHaveValue('Research Note');
+    expect(screen.getByDisplayValue('links/Research Note.md')).toBeInTheDocument();
+  });
+
+  it('detects duplicate source URLs after normalization before saving', () => {
+    const onAdd = vi.fn();
+    const onOpenExistingSource = vi.fn();
+    const existing = {
+      id: 'a-1',
+      type: 'article',
+      title: 'Saved Source',
+      url: 'https://example.com/read/thing?utm_source=old',
+    };
+    renderModal({
+      onAdd,
+      onOpenExistingSource,
+      initialType: 'article',
+      entries: [existing],
+    });
+
+    fireEvent.change(screen.getByLabelText('Source URL'), {
+      target: { value: 'https://EXAMPLE.com/read/thing/?utm_source=new#section' },
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Existing source: Saved Source');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Article' }));
+
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('alert').map(node => node.textContent).join(' ')).toContain('That source is already saved as "Saved Source".');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open existing' }));
+
+    expect(onOpenExistingSource).toHaveBeenCalledWith(existing);
+    expect(onAdd).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save anyway' }));
+
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'article',
+      url: 'https://EXAMPLE.com/read/thing/?utm_source=new#section',
+    }));
+  });
+
+  it('does not offer podcast, video, or attachment capture promises before those engines exist', () => {
+    renderModal();
+
+    expect(screen.queryByRole('radio', { name: 'Podcast' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Video' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attachment' })).not.toBeInTheDocument();
   });
 
   it('keeps raw captures labeled as Save to Inbox and saves raw payloads', () => {
@@ -100,6 +187,7 @@ describe('AddModal', () => {
       initialFolder: 'Projects',
     });
 
+    expect(screen.getByText('Project: JotFolio 2.0')).toBeInTheDocument();
     expect(screen.getByDisplayValue('notes/Untitled Note.md')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save to Project' }));
 
@@ -153,6 +241,7 @@ describe('AddModal', () => {
     const onAdd = vi.fn();
     renderModal({ onAdd, initialType: 'note', initialSpace: 'Work', initialTitle: 'Work Seed' });
 
+    expect(screen.getByText('Space: Work')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Create Note' }));
 
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({

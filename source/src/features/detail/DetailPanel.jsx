@@ -111,6 +111,7 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
   const[confirmDiscard,setConfirmDiscard]=useState(null);
   const recognitionRef=useRef(null);
   const editButtonRef=useRef(null);
+  const panelRef=useRef(null);
   useAutoFocus(editButtonRef);
   useEffect(()=>{setForm(formFromEntry(entry));setEditing(false);setConfirmingDelete(false);setConfirmDelete(false);setConfirmDiscard(null);setUrlError('');setVoiceError('')},[entry.id]);
   useEffect(()=>()=>recognitionRef.current?.stop?.(),[]);
@@ -133,6 +134,15 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
   const handleVoice=()=>{if(recording){recognitionRef.current?.stop?.();setRecording(false);return;}setVoiceError('');const rec=startVoiceRecognition(t=>{setForm(p=>({...p,notes:(p.notes||'')+'\n\n🎤 '+t}));setRecording(false)},err=>{setVoiceError(String(err));setRecording(false)});if(rec){recognitionRef.current=rec;setRecording(true)}};
   const copyUrl=()=>navigator.clipboard.writeText(entry.url).then(()=>onToast('URL copied','info')).catch(()=>onToast('Copy failed','error'));
   useEscapeKey(true,()=>requestDiscard('close'));
+  useEffect(()=>{
+    const onPointerDown=event=>{
+      const panel=panelRef.current;
+      if(!panel||panel.contains(event.target))return;
+      requestDiscard('close');
+    };
+    document.addEventListener('pointerdown',onPointerDown,true);
+    return()=>document.removeEventListener('pointerdown',onPointerDown,true);
+  });
 
   // Semantic similar notes (MiniLM Phase 2). Top-5 most-similar entries by
   // cosine similarity over MiniLM embeddings. Empty when the index isn't
@@ -196,8 +206,8 @@ export function DetailPanel({entry,entries,navEntries=entries,allTags,onClose,on
   const hasNext=navIndex>=0&&navIndex<navEntries.length-1;
   const fileActionStyle={padding:'5px 9px',fontSize:11,border:'1px solid var(--br)',borderRadius:'var(--rd)',background:'transparent',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)',whiteSpace:'nowrap'};
   return(
-    <div role="dialog" aria-modal="true" aria-labelledby="detail-title" className="mgn-panel"
-      style={{position:'fixed',right:0,top:0,bottom:0,width:'min(380px,100vw)',background:'var(--bg)',borderLeft:'1px solid var(--br)',display:'flex',flexDirection:'column',zIndex:100,overflowY:'auto'}}>
+    <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="detail-title" className="mgn-panel"
+      style={{position:'fixed',right:0,top:60,bottom:34,width:430,maxWidth:'100vw',boxSizing:'border-box',background:'var(--bg)',borderLeft:'1px solid var(--br)',display:'flex',flexDirection:'column',zIndex:100,overflowY:'auto'}}>
       <div style={{padding:'14px 16px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:8,flexShrink:0,position:'sticky',top:0,background:'var(--bg)',zIndex:1}}>
         {confirmDelete?(
           <>

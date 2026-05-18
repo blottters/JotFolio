@@ -261,6 +261,29 @@ describe('MemoryDetailPanel', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('outside click fires onClose', () => {
+    const onClose = vi.fn();
+    render(
+      <>
+        <button type="button">Outside graph surface</button>
+        <MemoryDetailPanel
+          entry={makeEntry()}
+          vaultIndex={makeVaultIndex()}
+          onConfirm={noop}
+          onSplit={noop}
+          onTraceToSources={noop}
+          onClose={onClose}
+        />
+      </>
+    );
+
+    fireEvent.pointerDown(screen.getByLabelText('Memory detail panel'));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside graph surface' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it('middle-of-job copy switches per type + review_status', () => {
     const reviewEntry = makeEntry({ type: 'review', review_status: 'pending' });
     const { rerender } = render(

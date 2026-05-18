@@ -630,9 +630,23 @@ export function ConstellationView({entries,onOpen,onBack,onAdd,layoutMode:layout
       <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'var(--bg)',position:'relative'}}>
         <div style={{padding:'10px 20px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:10,flexShrink:0,background:'var(--b2)'}}>
           <button onClick={onBack} style={{padding:'6px 10px',fontSize:12,background:'transparent',border:'1px solid var(--br)',borderRadius:'var(--rd)',color:'var(--t2)',cursor:'pointer',fontFamily:'var(--fn)'}}>← Back</button>
-          <span style={{fontWeight:700,fontSize:17,letterSpacing:0}}>Constellation</span>
+          <h1 style={{margin:0,fontWeight:700,fontSize:17,letterSpacing:0}}>Constellation</h1>
+          <button type="button" onClick={()=>setScanOpen(open=>!open)} aria-pressed={scanOpen} style={{marginLeft:'auto',...controlButton(scanOpen)}}>Graph Health</button>
         </div>
-        <div style={{flex:1,position:'relative'}}>
+        {scanOpen&&(
+          <div style={{padding:'12px 20px',borderBottom:'1px solid var(--br)',background:'rgba(255,255,255,.018)'}}>
+            <RelationshipScanPanel
+              scan={relationshipScan}
+              entriesById={poolById}
+              onOpen={onOpen}
+              onCreateFromMissing={onCreateFromMissing}
+              decisions={relationshipDecisionMap}
+              onSetDecision={updateRelationshipDecision}
+              onClearDecision={removeRelationshipDecision}
+            />
+          </div>
+        )}
+        <div style={{flex:1,position:'relative',minHeight:0}}>
           <ConstellationStateOverlay state="locked" count={entries.length} onAdd={()=>{onBack();onAdd&&onAdd()}}/>
         </div>
       </div>

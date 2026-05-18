@@ -24,7 +24,7 @@ export function TrashView({items = [], busy, error, onRefresh, onRestore, onPerm
     <>
       <div style={{padding:'10px 14px',borderBottom:'1px solid var(--br)',display:'flex',alignItems:'center',gap:10,background:'var(--b2)',flexShrink:0}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:12,fontWeight:800,color:'var(--tx)'}}>JotFolio Trash</div>
+          <h1 style={{margin:0,fontSize:12,fontWeight:800,color:'var(--tx)'}}>JotFolio Trash</h1>
           <div style={{fontSize:11,color:'var(--t3)',lineHeight:1.4}}>Deleted files stay recoverable here. Restore stops if the original path is occupied; permanent delete cannot be undone.</div>
         </div>
         <button type="button" onClick={onRefresh} disabled={busy}

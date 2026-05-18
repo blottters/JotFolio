@@ -10,8 +10,6 @@ const CAPTURE_TYPES = [
   { id: 'note', label: 'Note', asset: 'entry-note.svg', accent: '#5aa7ff' },
   { id: 'journal', label: 'Journal', asset: 'entry-journal.svg', accent: '#4ade80' },
   { id: 'article', label: 'Article', asset: 'entry-article.svg', accent: '#f59e0b' },
-  { id: 'podcast', label: 'Podcast', asset: 'entry-podcast.svg', accent: '#a855f7' },
-  { id: 'video', label: 'Video', asset: 'entry-video.svg', accent: '#ef4444' },
   { id: 'link', label: 'Link', asset: 'entry-link.svg', accent: '#22c55e' },
   { id: 'project', label: 'Project', asset: 'entry-project.svg', accent: '#7ddc9e' },
   { id: 'task', label: 'Task', asset: 'entry-task.svg', accent: '#ffb86b' },
@@ -19,7 +17,7 @@ const CAPTURE_TYPES = [
   { id: 'raw', label: 'Raw', asset: 'entry-raw.svg', accent: '#94a3b8' },
 ];
 
-const CONTENT_TABS = ['Markdown', 'Link', 'Transcript', 'Attachment', 'Canvas'];
+const CONTENT_TABS = ['Markdown', 'Link', 'Transcript', 'Canvas'];
 
 const TEMPLATE_OPTIONS = {
   'Research Note': title => `# ${title || 'Research Note'}\n\n## Summary\n\n\n## Key points\n- \n\n## Source\n\n\n## Next action\n- `,
@@ -35,12 +33,14 @@ function supportedType(type) {
   return CAPTURE_TYPES.some(item => item.id === type) ? type : 'note';
 }
 
-function defaultTitleFor(type) {
+function defaultTitleFor(type, entryDate = today()) {
   if (type === 'project') return 'Untitled Project';
   if (type === 'task') return 'Untitled Task';
   if (type === 'canvas') return 'New Canvas';
   if (type === 'raw') return 'Untitled Capture';
-  if (type === 'journal') return `Journal ${today()}`;
+  if (type === 'journal') return `Journal ${entryDate || today()}`;
+  if (type === 'article') return 'Untitled Article';
+  if (type === 'link') return 'Untitled Link';
   return 'Untitled Note';
 }
 
@@ -56,8 +56,8 @@ function bucketLabelFor(type) {
   return bucket.charAt(0).toUpperCase() + bucket.slice(1);
 }
 
-function sanitizeFileName(value, type) {
-  const fallback = defaultTitleFor(type);
+function sanitizeFileName(value, type, entryDate) {
+  const fallback = defaultTitleFor(type, entryDate);
   const clean = String(value || fallback)
     .replace(/[<>:"/\\|?*]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -65,10 +65,53 @@ function sanitizeFileName(value, type) {
   return clean || fallback;
 }
 
-function pathFor(title, type) {
+function pathFor(title, type, entryDate) {
   const extension = type === 'canvas' ? '.canvas.json' : '.md';
   const bucket = type === 'canvas' ? 'canvases' : TYPE_FOLDER[type] || 'notes';
-  return `${bucket}/${sanitizeFileName(title, type)}${extension}`;
+  return `${bucket}/${sanitizeFileName(title, type, entryDate)}${extension}`;
+}
+
+function normalizeSourceUrl(value) {
+  if (!value || !isSafeUrl(value)) return '';
+  try {
+    const parsed = new URL(value.trim());
+    parsed.protocol = parsed.protocol.toLowerCase();
+    parsed.hostname = parsed.hostname.toLowerCase();
+    parsed.hash = '';
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (/^(utm_|fbclid$|gclid$|mc_cid$|mc_eid$)/i.test(key)) parsed.searchParams.delete(key);
+    }
+    parsed.searchParams.sort();
+    if (parsed.pathname !== '/') parsed.pathname = parsed.pathname.replace(/\/+$/, '');
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+function titleFromSourceUrl(value) {
+  if (!value || !isSafeUrl(value)) return '';
+  try {
+    const parsed = new URL(value.trim());
+    const slug = parsed.pathname.split('/').filter(Boolean).pop() || parsed.hostname.replace(/^www\./, '');
+    return slug
+      .replace(/\.[a-z0-9]{2,5}$/i, '')
+      .replace(/[-_+]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, char => char.toUpperCase());
+  } catch {
+    return '';
+  }
+}
+
+function sourceHost(value) {
+  if (!value || !isSafeUrl(value)) return '';
+  try {
+    return new URL(value.trim()).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
 }
 
 function normalizeProjectContext(projectContext) {
@@ -149,10 +192,12 @@ export function AddModal({
   onClose,
   onAdd,
   onCreateCanvas,
+  onOpenExistingSource,
   entries,
   suggestTagsFromText,
 }) {
   const projectTarget = normalizeProjectContext(projectContext);
+  const spaceTarget = String(initialSpace || '').trim();
   const startingType = supportedType(initialType);
   const quickNote = quickCapture && startingType === 'note';
   const [type, setType] = useState(startingType);
@@ -161,6 +206,7 @@ export function AddModal({
     url: '',
     notes: '',
   });
+  const [entryDate, setEntryDate] = useState(today());
   const [tags, setTags] = useState(DEFAULT_TAGS);
   const [tagDraft, setTagDraft] = useState('');
   const [template, setTemplate] = useState(defaultTemplateFor(startingType));
@@ -182,9 +228,17 @@ export function AddModal({
   }, [allTags]);
 
   const localPathPreview = useMemo(
-    () => pathFor(form.title, type),
-    [form.title, type]
+    () => pathFor(form.title, type, entryDate),
+    [entryDate, form.title, type]
   );
+
+  const normalizedUrl = useMemo(() => normalizeSourceUrl(form.url), [form.url]);
+  const duplicateSourceEntry = useMemo(() => {
+    if (!normalizedUrl) return null;
+    return (entries || []).find(entry => normalizeSourceUrl(entry?.url) === normalizedUrl) || null;
+  }, [entries, normalizedUrl]);
+  const sourceTitleSuggestion = useMemo(() => titleFromSourceUrl(form.url), [form.url]);
+  const sourceDomain = useMemo(() => sourceHost(form.url), [form.url]);
 
   const setField = key => event => {
     setDirty(true);
@@ -210,6 +264,18 @@ export function AddModal({
     setConfirmDiscard(false);
     setStatusMessage('');
     setTemplate(defaultTemplateFor(nextType));
+  };
+
+  const setJournalDate = event => {
+    setEntryDate(event.target.value || today());
+    setDirty(true);
+    setConfirmDiscard(false);
+  };
+
+  const useSourceTitle = () => {
+    if (!sourceTitleSuggestion) return;
+    setForm(previous => ({ ...previous, title: previous.title.trim() ? previous.title : sourceTitleSuggestion }));
+    setDirty(true);
   };
 
   const addTag = value => {
@@ -331,7 +397,7 @@ export function AddModal({
     if (!file) return;
     const importedPath = onImportFile ? await onImportFile(file) : null;
     const attachmentLine = importedPath ? `[${file.name}](${importedPath})` : file.name;
-    setContentTab('Attachment');
+    setContentTab('Markdown');
     setForm(previous => ({
       ...previous,
       title: previous.title || file.name.replace(/\.[^.]+$/, ''),
@@ -352,12 +418,12 @@ export function AddModal({
     const spaceValue = String(initialSpace || '').trim();
     const projectTags = projectTarget ? ['project', ...projectTarget.tags] : [];
     const safeForm = {
-      title: form.title.trim() || defaultTitleFor(type),
+      title: form.title.trim() || defaultTitleFor(type, entryDate),
       url: form.url.trim(),
       notes: body,
       tags: normalizeTags(projectTarget ? [...tags, ...projectTags] : tags),
       status,
-      entry_date: today(),
+      entry_date: type === 'journal' ? entryDate : today(),
       project: projectValue,
       space: spaceValue,
     };
@@ -386,12 +452,18 @@ export function AddModal({
       setUrlError('URL must start with http:// or https://.');
       return;
     }
-    if (!ignoreDuplicate && url && existingUrls?.has(url)) {
+    const exactDuplicate = url && existingUrls?.has(url);
+    if (!ignoreDuplicate && url && (exactDuplicate || duplicateSourceEntry)) {
       setDupWarning(destination);
       return;
     }
 
-    onAdd(buildPayload(destination));
+    await onAdd(buildPayload(destination));
+  };
+
+  const openExistingSource = () => {
+    if (!duplicateSourceEntry || typeof onOpenExistingSource !== 'function') return;
+    onOpenExistingSource(duplicateSourceEntry);
   };
 
   const onFormKeyDown = event => {
@@ -453,6 +525,27 @@ export function AddModal({
           <h2 id="capture-modal-title" style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: 0 }}>
             Capture / New Entry
           </h2>
+          {(projectTarget || spaceTarget) && (
+            <span
+              aria-label="Capture context"
+              style={{
+                marginLeft: 12,
+                maxWidth: 280,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                border: '1px solid rgba(118, 137, 160, 0.24)',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.045)',
+                color: 'var(--t2)',
+                fontSize: 11,
+                fontWeight: 750,
+                padding: '4px 9px',
+              }}
+            >
+              {projectTarget ? `Project: ${projectTarget.title}` : `Space: ${spaceTarget}`}
+            </span>
+          )}
           {dirty && (
             <span aria-live="polite" style={{ marginLeft: 12, fontSize: 11, color: 'var(--t3)', fontWeight: 700 }}>
               Unsaved
@@ -535,10 +628,23 @@ export function AddModal({
                 id="capture-title"
                 value={form.title}
                 onChange={setField('title')}
-                placeholder={defaultTitleFor(type)}
+                placeholder={defaultTitleFor(type, entryDate)}
                 style={inputStyle()}
               />
             </div>
+
+            {type === 'journal' && (
+              <div>
+                <label htmlFor="capture-journal-date" style={fieldLabelStyle()}>Journal date</label>
+                <input
+                  id="capture-journal-date"
+                  type="date"
+                  value={entryDate}
+                  onChange={setJournalDate}
+                  style={inputStyle({ colorScheme: 'dark' })}
+                />
+              </div>
+            )}
 
             {!quickNote && (
               <div>
@@ -568,6 +674,38 @@ export function AddModal({
                   </button>
                 </div>
                 {urlError && <div role="alert" style={{ marginTop: 6, color: '#f87171', fontSize: 12 }}>{urlError}</div>}
+                {(sourceDomain || normalizedUrl || duplicateSourceEntry) && (
+                  <div
+                    aria-label="Source URL summary"
+                    style={{
+                      marginTop: 8,
+                      display: 'grid',
+                      gap: 5,
+                      border: '1px solid rgba(118, 137, 160, 0.18)',
+                      borderRadius: 7,
+                      background: 'rgba(10, 15, 21, 0.42)',
+                      padding: '8px 10px',
+                      color: 'var(--t2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {sourceDomain && <div><strong style={{ color: 'var(--tx)' }}>Domain:</strong> {sourceDomain}</div>}
+                    {sourceTitleSuggestion && !form.title.trim() && ['article', 'link'].includes(type) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ flex: 1 }}><strong style={{ color: 'var(--tx)' }}>Suggested title:</strong> {sourceTitleSuggestion}</span>
+                        <button type="button" onClick={useSourceTitle} style={{ ...modalButtonStyle('quiet'), minHeight: 28, padding: '0 10px', fontSize: 12 }}>
+                          Use title
+                        </button>
+                      </div>
+                    )}
+                    {normalizedUrl && <div><strong style={{ color: 'var(--tx)' }}>Normalized:</strong> {normalizedUrl}</div>}
+                    {duplicateSourceEntry && (
+                      <div role="alert" style={{ color: '#fbbf24' }}>
+                        Existing source: {duplicateSourceEntry.title || duplicateSourceEntry.url}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -808,7 +946,6 @@ export function AddModal({
                   contentTab === 'Markdown' ? 'Start writing or paste your content...' :
                   contentTab === 'Link' ? 'Paste the key excerpt or link notes...' :
                   contentTab === 'Transcript' ? 'Paste or dictate the transcript...' :
-                  contentTab === 'Attachment' ? 'Drop a file here or describe the attachment...' :
                   'Sketch the canvas idea, nodes, or relationships...'
                 }
                 style={inputStyle({
@@ -835,8 +972,15 @@ export function AddModal({
                 fontSize: 12,
               }}
             >
-              <span style={{ flex: 1 }}>That source URL is already in the vault.</span>
+              <span style={{ flex: 1 }}>
+                {duplicateSourceEntry
+                  ? `That source is already saved as "${duplicateSourceEntry.title || duplicateSourceEntry.url}".`
+                  : 'That source URL is already in the vault.'}
+              </span>
               <button type="button" onClick={() => setDupWarning(null)} style={modalButtonStyle('quiet')}>Dismiss</button>
+              {duplicateSourceEntry && typeof onOpenExistingSource === 'function' && (
+                <button type="button" onClick={openExistingSource} style={modalButtonStyle('quiet')}>Open existing</button>
+              )}
               <button type="button" onClick={() => saveEntry(dupWarning, true)} style={modalButtonStyle('primary')}>Save anyway</button>
             </div>
           )}

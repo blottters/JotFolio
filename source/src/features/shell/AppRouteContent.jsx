@@ -66,41 +66,6 @@ function RouteLoading({ label = 'Loading workspace...' }) {
   );
 }
 
-function AIAssistantView({ onOpenAIKeys, onSearch }) {
-  return (
-    <section
-      role="region"
-      aria-label="AI Setup"
-      style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 28, background: 'var(--bg)' }}>
-      <div style={{ maxWidth: 760 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 850, color: 'var(--tx)' }}>AI Setup</h1>
-        <p style={{ margin: '8px 0 0', color: 'var(--t2)', fontSize: 14, lineHeight: 1.6 }}>
-          Source-grounded AI is not enabled as a chat route yet. JotFolio will only ship chat-style answers once responses cite the exact vault material they used.
-        </p>
-        <div
-          role="status"
-          style={{ marginTop: 18, padding: 14, border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--b2)', color: 'var(--t2)', fontSize: 13, lineHeight: 1.55 }}>
-          Current safe surface: configure bring-your-own-key provider settings in AI Keys, then use normal Search when you need to find notes, projects, tags, and memory without sending vault content to a model.
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18 }}>
-          <button
-            type="button"
-            onClick={onOpenAIKeys}
-            style={{ padding: '8px 13px', fontSize: 12, border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--ac)', color: 'var(--act)', cursor: 'pointer', fontFamily: 'var(--fn)', fontWeight: 800 }}>
-            Open AI Keys
-          </button>
-          <button
-            type="button"
-            onClick={onSearch}
-            style={{ padding: '8px 13px', fontSize: 12, border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'transparent', color: 'var(--t2)', cursor: 'pointer', fontFamily: 'var(--fn)', fontWeight: 750 }}>
-            Search vault instead
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function AppRouteContent({
   section,
   currentCanvasId,
@@ -137,9 +102,11 @@ export function AppRouteContent({
   onRevealEntry,
   onOpenInConstellation,
   projectRows,
+  onActiveProjectCaptureChange,
   taskRows,
   calendarDays,
   spaces,
+  onActiveSpaceCaptureChange,
   setSection,
   openSettingsTab,
   setFilterTag,
@@ -263,7 +230,8 @@ export function AppRouteContent({
       onNewCanvas={onNewCanvas}
       onCreateSmartView={openProjectSmartView}
       onRevealEntry={onRevealEntry}
-      onUpdateEntry={updateEntry}/>
+      onUpdateEntry={updateEntry}
+      onActiveProjectChange={onActiveProjectCaptureChange}/>
   );
   if(section==='note')return(
     <NotesWorkspaceView
@@ -285,7 +253,8 @@ export function AppRouteContent({
       onOpenEntry={setDetailId}
       onAdd={openAdd}
       onNavigate={handleWorkstationNavigate}
-      onUpdateEntry={updateEntry}/>
+      onUpdateEntry={updateEntry}
+      onActiveSpaceChange={onActiveSpaceCaptureChange}/>
   );
   if(section==='tags')return <TagManagerView tags={tagRows} onSelectTag={tag=>{setFilterTag(tag);setSection('all')}}/>;
   if(section==='settings')return(
@@ -294,9 +263,9 @@ export function AppRouteContent({
     </div>
   );
   if(section==='ai')return(
-    <AIAssistantView
-      onOpenAIKeys={() => openSettingsTab ? openSettingsTab('ai') : setSection('settings')}
-      onSearch={() => setSection('search')}/>
+    <div style={{flex:1,minHeight:0,overflow:'hidden'}}>
+      {renderSettingsPanel(true,'ai')}
+    </div>
   );
   if(currentCanvasId)return lazy(
     <CanvasExplorer

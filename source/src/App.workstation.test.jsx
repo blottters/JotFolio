@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
     pickVault: vi.fn(async () => null),
     watch: vi.fn(() => () => {}),
   },
+  semanticHook: vi.fn(() => ({ ready: false, building: false, done: 0, total: 0, getSimilar: () => [] })),
 }));
 
 vi.mock('./features/vault/useVault.js', () => ({
@@ -53,13 +54,13 @@ vi.mock('./adapters/index.js', () => ({
 }));
 
 vi.mock('./lib/hooks/useSemanticIndex.js', () => ({
-  useSemanticIndex: () => ({ ready: false, building: false, done: 0, total: 0, getSimilar: () => [] }),
+  useSemanticIndex: (...args) => mocks.semanticHook(...args),
 }));
 
 function renderWorkstationApp() {
   mocks.vaultHook.entries = workstationEntries;
   render(<App />);
-  return screen.findByRole('heading', { name: 'Good morning, Gavin' });
+  return screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Gavin/ });
 }
 
 const creationCases = [
@@ -89,7 +90,39 @@ describe('App workstation shell', () => {
     render(<App />);
 
     expect(await screen.findByRole('heading', { name: 'Your local-first synthesis vault' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create your first entry' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create first note' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Capture raw thought' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create project' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load sample vault' })).toBeInTheDocument();
+  });
+
+  it('does not start MiniLM semantic indexing unless semanticEdges is explicitly enabled', async () => {
+    await renderWorkstationApp();
+
+    expect(mocks.semanticHook).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.anything(),
+      expect.objectContaining({ enabled: false }),
+    );
+  });
+
+  it('resets stale semanticEdges true prefs before MiniLM can start', async () => {
+    localStorage.setItem('mgn-p', JSON.stringify({
+      prefs: {
+        featureFlags: { semanticEdges: true },
+        featureFlagsResetAlpha18: true,
+      },
+    }));
+
+    await renderWorkstationApp();
+
+    await waitFor(() => {
+      expect(mocks.semanticHook).toHaveBeenLastCalledWith(
+        expect.any(Array),
+        expect.anything(),
+        expect.objectContaining({ enabled: false }),
+      );
+    });
   });
 
   it('renders workstation routes from the left navigation without dropping shell chrome', async () => {
@@ -129,17 +162,58 @@ describe('App workstation shell', () => {
   it('wires top-bar utility controls to real shell destinations', async () => {
     await renderWorkstationApp();
 
-    fireEvent.focus(screen.getByLabelText(/Search notes, projects, people, tags/i));
+    const topSearch = screen.getByLabelText(/Search notes, projects, people, tags/i);
+    fireEvent.focus(topSearch);
+    fireEvent.change(topSearch, { target: { value: 'Roadmap' } });
+    expect(await screen.findByRole('listbox', { name: 'Top search results' })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('option', { name: /Local-first Roadmap/ }));
+    expect(await screen.findByRole('dialog', { name: 'Local-first Roadmap' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+
+    fireEvent.keyDown(topSearch, { key: 'k', ctrlKey: true });
     expect(await screen.findByRole('heading', { name: 'Search / Quick Switcher' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Notifications/i }));
-    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Notifications/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /User profile/i }));
     expect(await screen.findByRole('region', { name: 'Settings' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Quick Actions/i }));
     expect(await screen.findByLabelText('Quick switcher entry search')).toBeInTheDocument();
+  });
+
+  it('defaults top-bar Capture from the active workstation route', async () => {
+    await renderWorkstationApp();
+    const sidebar = screen.getByText('Command Center').closest('aside');
+    const captureButton = screen.getByRole('button', { name: 'Capture' });
+
+    fireEvent.click(within(sidebar).getByText('Inbox'));
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    fireEvent.click(captureButton);
+    expect(await screen.findByRole('radio', { name: 'Raw' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Close capture' }));
+
+    fireEvent.click(within(sidebar).getByText('Calendar'));
+    expect(await screen.findByRole('heading', { name: 'Calendar' })).toBeInTheDocument();
+    fireEvent.click(captureButton);
+    expect(await screen.findByRole('radio', { name: 'Journal' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Close capture' }));
+
+    fireEvent.click(within(sidebar).getByText('Projects'));
+    expect(await screen.findByRole('heading', { name: 'Projects' })).toBeInTheDocument();
+    expect((await screen.findAllByText('JotFolio Phase 2')).length).toBeGreaterThan(0);
+    fireEvent.click(captureButton);
+    expect(await screen.findByRole('radio', { name: 'Note' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('Project: JotFolio Phase 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save to Project' })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Close capture' }));
+
+    fireEvent.click(within(sidebar).getByText('Spaces'));
+    expect(await screen.findByRole('heading', { name: 'Spaces' })).toBeInTheDocument();
+    await screen.findByText('Create note in work');
+    fireEvent.click(captureButton);
+    expect(await screen.findByRole('radio', { name: 'Note' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('Space: work')).toBeInTheDocument();
   });
 
   it('opens Notes as a full markdown editor workspace', async () => {
@@ -193,7 +267,7 @@ describe('App workstation shell', () => {
     expect(await screen.findByRole('heading', { name: 'Search / Quick Switcher' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Command Center'));
-    expect(await screen.findByRole('heading', { name: 'Good morning, Gavin' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Gavin/ })).toBeInTheDocument();
 
     fireEvent.keyDown(document, { key: '/' });
     const topSearch = document.querySelector('input[placeholder="Search notes, projects, people, tags..."]');
@@ -214,7 +288,7 @@ describe('App workstation shell', () => {
     const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
     await renderWorkstationApp();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Current' }));
+    fireEvent.click(screen.getByRole('button', { name: /Resume last note/ }));
     expect(await screen.findByRole('dialog', { name: 'Local-first Roadmap' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Rename file' }));
@@ -259,13 +333,29 @@ describe('App workstation shell', () => {
     expect(saved.id).toMatch(UUID_V4_RE);
   });
 
+  it('routes newly captured journals into Calendar after saving', async () => {
+    await renderWorkstationApp();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Capture / New Entry' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Journal' }));
+    fireEvent.change(within(dialog).getByLabelText('Journal date'), { target: { value: '2026-05-18' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create Journal' }));
+
+    await waitFor(() => expect(mocks.vaultHook.saveEntry).toHaveBeenCalled());
+    expect(await screen.findByRole('heading', { name: 'Calendar' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Capture / New Entry' })).not.toBeInTheDocument();
+  });
+
   it('saves compiled entries with UUID v4 ids', async () => {
     await renderWorkstationApp();
 
-    fireEvent.click(screen.getByRole('button', { name: /Notifications/i }));
+    const sidebar = screen.getByText('Command Center').closest('aside');
+    fireEvent.click(within(sidebar).getByText('Inbox'));
     expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compile Memory from Inbox capture from meeting' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open Inbox capture from meeting' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Compile this raw entry into a wiki or review memory' }));
     const dialog = await screen.findByRole('dialog', { name: /Compile preview:/ });
     fireEvent.click(within(dialog).getByRole('button', { name: /Save as review entry|Save as wiki entry/ }));
 

@@ -1,0 +1,398 @@
+name	defined	refCount	sampleRef
+OR_VERIFIER_KEY	C:\Dev\Projects\JotFolio\source\src\lib\ai\openrouter.js:3	2	C:\Dev\Projects\JotFolio\source\src\lib\appHooks.js:3
+startOpenRouterLogin	C:\Dev\Projects\JotFolio\source\src\lib\ai\openrouter.js:11	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:6
+exchangeOpenRouterCode	C:\Dev\Projects\JotFolio\source\src\lib\ai\openrouter.js:17	2	C:\Dev\Projects\JotFolio\source\src\lib\appHooks.js:3
+AI_PROVIDERS	C:\Dev\Projects\JotFolio\source\src\lib\ai\providers.js:3	4	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:5
+getAIConfig	C:\Dev\Projects\JotFolio\source\src\lib\ai\providers.js:12	4	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:5
+setAIConfig	C:\Dev\Projects\JotFolio\source\src\lib\ai\providers.js:13	4	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:5
+hasAIKey	C:\Dev\Projects\JotFolio\source\src\lib\ai\providers.js:14	0
+aiComplete	C:\Dev\Projects\JotFolio\source\src\lib\ai\providers.js:18	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:5
+BASE_FILE_VERSION	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:48	0
+BASE_FILE_EXT	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:49	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:22
+BASE_DIR	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:50	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:22
+FILTER_OPS	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:52	2	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:3
+VIEW_TYPES	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:53	2	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:3
+DEFAULT_COLUMNS	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:57	4	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:3
+createEmptyBase	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:67	5	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseExplorer.jsx:3
+makeBaseId	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:94	0
+basePath	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:109	9	C:\Dev\Projects\JotFolio\source\src\App.jsx:22
+normalizeBase	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:121	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:22
+serializeBase	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:161	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:22
+evalFilter	C:\Dev\Projects\JotFolio\source\src\lib\base\queryBase.js:44	0
+evalSort	C:\Dev\Projects\JotFolio\source\src\lib\base\queryBase.js:101	0
+applyBase	C:\Dev\Projects\JotFolio\source\src\lib\base\queryBase.js:134	2	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:2
+getPropertyKeys	C:\Dev\Projects\JotFolio\source\src\lib\base\queryBase.js:154	4	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:2
+addNode	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:22	4	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:3
+removeNode	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:53	2	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:4
+moveNode	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:72	5	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:5
+resizeNode	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:85	0
+updateNode	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:99	2	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:6
+addEdge	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:118	2	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:7
+removeEdge	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:134	1	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:8
+updateEdge	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:148	3	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:9
+CANVAS_FILE_VERSION	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:34	0
+CANVAS_FILE_EXT	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:35	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+CANVAS_DIR	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:36	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+NODE_TYPES	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:38	0
+KNOWN_NODE_TYPES	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:39	0
+makeCanvasId	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:67	0
+createEmptyCanvas	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:83	9	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasExplorer.jsx:3
+canvasPath	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:100	8	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+normalizeCanvas	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:163	11	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+serializeCanvas	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:202	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+nextNodeId	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:236	2	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:9
+nextEdgeId	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasTypes.js:246	2	C:\Dev\Projects\JotFolio\source\src\lib\canvas\canvasOps.js:9
+createCommandRegistry	C:\Dev\Projects\JotFolio\source\src\lib\command\commandRegistry.js:19	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:19
+rankCommands	C:\Dev\Projects\JotFolio\source\src\lib\command\commandRegistry.js:89	3	C:\Dev\Projects\JotFolio\source\src\features\commandPalette\CommandPalette.jsx:2
+compileDeterministic	C:\Dev\Projects\JotFolio\source\src\lib\compile\compilers\deterministicStub.js:157	4	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:5
+compile	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:115	57	C:\Dev\Projects\JotFolio\source\src\App.jsx:61
+hashSourceEntry	C:\Dev\Projects\JotFolio\source\src\lib\compile\hash.js:51	12	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:4
+hashCompiledArtifact	C:\Dev\Projects\JotFolio\source\src\lib\compile\hash.js:72	4	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:4
+compositeSourceHash	C:\Dev\Projects\JotFolio\source\src\lib\compile\hash.js:83	4	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:4
+compile	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:5	78	C:\Dev\Projects\JotFolio\source\src\App.jsx:61
+compileDeterministic	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:19	18	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:5
+EMPTY_MANIFEST	C:\Dev\Projects\JotFolio\source\src\lib\compile\manifest.js:27	6	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:12
+loadManifest	C:\Dev\Projects\JotFolio\source\src\lib\compile\manifest.js:39	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:61
+saveManifest	C:\Dev\Projects\JotFolio\source\src\lib\compile\manifest.js:65	3	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:3
+recordCompilation	C:\Dev\Projects\JotFolio\source\src\lib\compile\manifest.js:75	3	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:3
+findStale	C:\Dev\Projects\JotFolio\source\src\lib\compile\manifest.js:129	3	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:3
+isCompiledEntry	C:\Dev\Projects\JotFolio\source\src\lib\compile\manifest.js:176	3	C:\Dev\Projects\JotFolio\source\src\lib\compile\index.js:3
+buildFullDemoVaultStore	C:\Dev\Projects\JotFolio\source\src\lib\demo\fullDemoVault.js:467	0
+maybeSeedFullDemoVaultFromUrl	C:\Dev\Projects\JotFolio\source\src\lib\demo\fullDemoVault.js:516	2	C:\Dev\Projects\JotFolio\source\src\main.jsx:15
+BUNDLE_VERSION	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:10	0
+BUNDLE_KIND	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:11	0
+CANVAS_DIR	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:17	6	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+CANVAS_FILE_EXT	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:18	6	C:\Dev\Projects\JotFolio\source\src\App.jsx:23
+validateCanvas	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:24	0
+validateBase	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:37	0
+buildBundle	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:48	2	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:4
+parseBundle	C:\Dev\Projects\JotFolio\source\src\lib\exports\bundle.js:66	6	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:4
+useSemanticIndex	C:\Dev\Projects\JotFolio\source\src\lib\hooks\useSemanticIndex.js:22	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:14
+RELATIONSHIP_DECISIONS_STORAGE_KEY	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:1	0
+RELATIONSHIP_DECISION_STATUSES	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:2	0
+relationshipDecisionKey	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:12	0
+setRelationshipDecision	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:25	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:9
+clearRelationshipDecision	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:44	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:5
+relationshipDecisionStatus	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:51	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:7
+parseRelationshipDecisions	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:55	0
+serializeRelationshipDecisions	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:66	0
+loadRelationshipDecisions	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:70	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:6
+saveRelationshipDecisions	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipDecisions.js:78	3	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:8
+RELATIONSHIP_REVIEW_STORAGE_KEY	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:3	0
+RELATIONSHIP_REVIEW_STATUSES	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:4	0
+RELATIONSHIP_REVIEW_KINDS	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:5	0
+relationshipReviewKey	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:31	0
+createRelationshipReview	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:72	0
+applyRelationshipReview	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:121	0
+undoRelationshipReview	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:156	0
+rejectRelationshipReview	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:172	0
+parseRelationshipReviewLedger	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:186	0
+serializeRelationshipReviewLedger	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:197	0
+loadRelationshipReviewLedger	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:201	0
+saveRelationshipReviewLedger	C:\Dev\Projects\JotFolio\source\src\lib\index\relationshipReview.js:209	0
+createLookupMaps	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:50	2	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:2
+resolveEntryLinks	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:85	0
+buildVaultIndex	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:114	30	C:\Dev\Projects\JotFolio\source\src\App.jsx:62
+getUnresolvedTargets	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:192	0
+getBacklinks	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:206	11	C:\Dev\Projects\JotFolio\source\src\features\constellation\MemoryDetailPanel.jsx:3
+getNeighbors	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:210	0
+getCluster	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:229	4	C:\Dev\Projects\JotFolio\source\src\lib\compile\compile.js:6
+searchWiki	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:235	0
+searchRaw	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:245	0
+getAffinityMatches	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:255	0
+getMemoryHealth	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:269	0
+getRelationshipScan	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:282	4	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:3
+escapeRegex	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\applyRules.js:7	0
+applyRules	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\applyRules.js:43	10	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:4
+OPT_OUTS_PATH	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\optOutTracker.js:25	0
+loadOptOuts	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\optOutTracker.js:36	3	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:3
+saveOptOuts	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\optOutTracker.js:81	3	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:3
+addOptOut	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\optOutTracker.js:120	3	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:3
+removeOptOut	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\optOutTracker.js:146	0
+getOptOutsForEntry	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\optOutTracker.js:167	3	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:3
+parseRules	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\parseRules.js:27	4	C:\Dev\Projects\JotFolio\source\src\features\settings\KeywordRulesPanel.jsx:12
+RULES_PATH	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\rulesStorage.js:19	0
+RULES_DIR	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\rulesStorage.js:22	0
+loadRules	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\rulesStorage.js:32	4	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:2
+saveRules	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\rulesStorage.js:58	3	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:2
+useKeywordRules	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:25	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:54
+confirmMemory	C:\Dev\Projects\JotFolio\source\src\lib\memory\confirmMemory.js:26	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:58
+graduateTied	C:\Dev\Projects\JotFolio\source\src\lib\memory\graduateTied.js:48	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:60
+parseFacts	C:\Dev\Projects\JotFolio\source\src\lib\memory\parseFacts.js:29	3	C:\Dev\Projects\JotFolio\source\src\features\constellation\MemoryDetailPanel.jsx:2
+splitMemory	C:\Dev\Projects\JotFolio\source\src\lib\memory\splitMemory.js:37	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:59
+parseBlockRefs	C:\Dev\Projects\JotFolio\source\src\lib\parser\blocks.js:12	6	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:7
+findCodeRanges	C:\Dev\Projects\JotFolio\source\src\lib\parser\codeMask.js:15	18	C:\Dev\Projects\JotFolio\source\src\lib\parser\blocks.js:8
+isInside	C:\Dev\Projects\JotFolio\source\src\lib\parser\codeMask.js:70	16	C:\Dev\Projects\JotFolio\source\src\lib\parser\blocks.js:8
+lineAt	C:\Dev\Projects\JotFolio\source\src\lib\parser\codeMask.js:77	9	C:\Dev\Projects\JotFolio\source\src\lib\parser\embeds.js:8
+parseEmbeds	C:\Dev\Projects\JotFolio\source\src\lib\parser\embeds.js:12	5	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:6
+isImageEmbed	C:\Dev\Projects\JotFolio\source\src\lib\parser\embeds.js:42	6	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:6
+slugify	C:\Dev\Projects\JotFolio\source\src\lib\parser\headings.js:16	13	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:258
+parseHeadings	C:\Dev\Projects\JotFolio\source\src\lib\parser\headings.js:25	6	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:4
+parseInlineTags	C:\Dev\Projects\JotFolio\source\src\lib\parser\tags.js:21	8	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:5
+parseFrontmatterTags	C:\Dev\Projects\JotFolio\source\src\lib\parser\tags.js:45	4	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:5
+mergeTags	C:\Dev\Projects\JotFolio\source\src\lib\parser\tags.js:56	3	C:\Dev\Projects\JotFolio\source\src\lib\parser\parser.test.js:5
+parseWikilinks	C:\Dev\Projects\JotFolio\source\src\lib\parser\wikilinks.js:21	19	C:\Dev\Projects\JotFolio\source\src\lib\index\vaultIndex.js:1
+wordCountPlugin	C:\Dev\Projects\JotFolio\source\src\lib\plugin\builtinPlugins\wordCount.js:11	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:52
+renderWordCountPanel	C:\Dev\Projects\JotFolio\source\src\lib\plugin\builtinPlugins\WordCountPanel.jsx:7	2	C:\Dev\Projects\JotFolio\source\src\lib\plugin\builtinPlugins\wordCount.js:9
+countWords	C:\Dev\Projects\JotFolio\source\src\lib\plugin\builtinPlugins\wordCountStats.js:7	2	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:23
+wordCountSummary	C:\Dev\Projects\JotFolio\source\src\lib\plugin\builtinPlugins\wordCountStats.js:14	4	C:\Dev\Projects\JotFolio\source\src\lib\plugin\builtinPlugins\wordCount.js:8
+createPluginHost	C:\Dev\Projects\JotFolio\source\src\lib\plugin\pluginHost.js:17	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:25
+rankNotes	C:\Dev\Projects\JotFolio\source\src\lib\quickSwitcher\quickSwitcherSearch.js:80	2	C:\Dev\Projects\JotFolio\source\src\features\quickSwitcher\QuickSwitcher.jsx:2
+findExactMatch	C:\Dev\Projects\JotFolio\source\src\lib\quickSwitcher\quickSwitcherSearch.js:107	2	C:\Dev\Projects\JotFolio\source\src\features\quickSwitcher\QuickSwitcher.jsx:2
+pickRandomEntry	C:\Dev\Projects\JotFolio\source\src\lib\random\randomNote.js:5	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:51
+parseSearchQuery	C:\Dev\Projects\JotFolio\source\src\lib\search\searchVault.js:57	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:21
+matchesQuery	C:\Dev\Projects\JotFolio\source\src\lib\search\searchVault.js:167	9	C:\Dev\Projects\JotFolio\source\src\features\shell\appShellState.js:2
+searchEntries	C:\Dev\Projects\JotFolio\source\src\lib\search\searchVault.js:191	0
+loadModel	C:\Dev\Projects\JotFolio\source\src\lib\semantic\embed.js:55	0
+embedText	C:\Dev\Projects\JotFolio\source\src\lib\semantic\embed.js:75	7	C:\Dev\Projects\JotFolio\source\src\App.jsx:891
+_resetModelForTests	C:\Dev\Projects\JotFolio\source\src\lib\semantic\embed.js:88	1	C:\Dev\Projects\JotFolio\source\src\lib\semantic\index.test.js:20
+buildSemanticIndex	C:\Dev\Projects\JotFolio\source\src\lib\semantic\index.js:94	4	C:\Dev\Projects\JotFolio\source\src\lib\hooks\useSemanticIndex.js:56
+reembedEntry	C:\Dev\Projects\JotFolio\source\src\lib\semantic\index.js:147	4	C:\Dev\Projects\JotFolio\source\src\lib\hooks\useSemanticIndex.js:94
+getSimilarEntries	C:\Dev\Projects\JotFolio\source\src\lib\semantic\index.js:180	5	C:\Dev\Projects\JotFolio\source\src\lib\hooks\useSemanticIndex.js:86
+_internals	C:\Dev\Projects\JotFolio\source\src\lib\semantic\index.js:190	0
+cosineSimilarity	C:\Dev\Projects\JotFolio\source\src\lib\semantic\similarity.js:5	0
+findTopK	C:\Dev\Projects\JotFolio\source\src\lib\semantic\similarity.js:20	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:892
+TEMPLATE_REFS_FIELD	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:5	0
+templateReferenceKeys	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:15	0
+getEntryTemplateRefs	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:30	0
+addTemplateUsageToEntry	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:41	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:50
+getTemplateIncoming	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:56	2	C:\Dev\Projects\JotFolio\source\src\features\templates\TemplatesPanel.jsx:2
+getTemplateOutgoing	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateBacklinks.js:74	2	C:\Dev\Projects\JotFolio\source\src\features\templates\TemplatesPanel.jsx:2
+TEMPLATE_DIR	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateStore.js:15	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:49
+TEMPLATE_EXT	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateStore.js:16	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:49
+loadTemplates	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateStore.js:35	6	C:\Dev\Projects\JotFolio\source\src\App.jsx:49
+resolveVariables	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateStore.js:101	0
+applyTemplateToNote	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateStore.js:179	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:49
+insertTemplateAtCursor	C:\Dev\Projects\JotFolio\source\src\lib\templates\templateStore.js:197	0
+getThemeDefaults	C:\Dev\Projects\JotFolio\source\src\lib\theme\defaults.js:4	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:4
+resolveColorScheme	C:\Dev\Projects\JotFolio\source\src\lib\theme\resolve.js:4	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:7
+resolveThemeVars	C:\Dev\Projects\JotFolio\source\src\lib\theme\resolve.js:10	7	C:\Dev\Projects\JotFolio\source\src\App.jsx:7
+assertThemeModePairs	C:\Dev\Projects\JotFolio\source\src\lib\theme\resolve.js:26	0
+buildThemeCss	C:\Dev\Projects\JotFolio\source\src\lib\theme\themeCss.js:3	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:8
+THEMES	C:\Dev\Projects\JotFolio\source\src\lib\theme\themes.js:1	16	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\ThemeDropdown.jsx:2
+THEME_VAR_CONTRACT	C:\Dev\Projects\JotFolio\source\src\lib\theme\themes.js:63	0
+getThemeContractIssues	C:\Dev\Projects\JotFolio\source\src\lib\theme\themes.js:107	2	C:\Dev\Projects\JotFolio\source\src\lib\theme\resolve.test.js:2
+FONTS	C:\Dev\Projects\JotFolio\source\src\lib\theme\themes.js:123	3	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\FontDropdown.jsx:2
+DEFAULT_VICTORY_COLORS	C:\Dev\Projects\JotFolio\source\src\lib\theme\themes.js:133	0
+hexToRgb	C:\Dev\Projects\JotFolio\source\src\lib\theme\victoryTheme.js:2	0
+mixHex	C:\Dev\Projects\JotFolio\source\src\lib\theme\victoryTheme.js:3	0
+luminance	C:\Dev\Projects\JotFolio\source\src\lib\theme\victoryTheme.js:4	0
+deriveVictoryTheme	C:\Dev\Projects\JotFolio\source\src\lib\theme\victoryTheme.js:5	2	C:\Dev\Projects\JotFolio\source\src\lib\theme\resolve.js:2
+buildProjectRows	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:183	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:44
+buildTaskRows	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:224	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:47
+buildCalendarDays	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:245	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:41
+buildTagRows	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:286	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:46
+buildSpaceRows	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:349	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:45
+buildGlobalSearchResults	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:409	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:43
+buildCommandCenterModel	C:\Dev\Projects\JotFolio\source\src\lib\workstation\workstationData.js:456	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:42
+useOpenRouterCallback	C:\Dev\Projects\JotFolio\source\src\lib\appHooks.js:6	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:15
+useAppShortcuts	C:\Dev\Projects\JotFolio\source\src\lib\appHooks.js:29	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:15
+getConstellationDemoEntries	C:\Dev\Projects\JotFolio\source\src\lib\demoEntries.js:41	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:12
+exportEntriesJSON	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:16	0
+exportVaultBundle	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:23	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:11
+exportEntriesMD	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:31	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:11
+importVaultBundle	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:70	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:11
+importEntriesJSON	C:\Dev\Projects\JotFolio\source\src\lib\exports.js:98	0
+DEFAULT_FEATURE_FLAGS	C:\Dev\Projects\JotFolio\source\src\lib\featureFlags.js:1	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:6
+normalizeFeatureFlags	C:\Dev\Projects\JotFolio\source\src\lib\featureFlags.js:16	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:6
+shouldShowEntryType	C:\Dev\Projects\JotFolio\source\src\lib\featureFlags.js:33	0
+filterEntriesForUI	C:\Dev\Projects\JotFolio\source\src\lib\featureFlags.js:41	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:6
+FrontmatterError	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:20	4	C:\Dev\Projects\JotFolio\source\src\security\__tests__\hardening.test.js:3
+parse	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:34	127	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:76
+FRONTMATTER_EXTRAS_FIELD	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:176	17	C:\Dev\Projects\JotFolio\source\src\features\notes\NotesWorkspaceView.jsx:3
+MANUAL_LINKS_FIELD	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:177	23	C:\Dev\Projects\JotFolio\source\src\App.jsx:10
+serialize	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:208	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:10
+stripFrontmatter	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:250	0
+slugify	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:258	7	C:\Dev\Projects\JotFolio\source\src\lib\parser\headings.js:16
+TYPE_FOLDER	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:269	3	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:3
+entryToFile	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:288	7	C:\Dev\Projects\JotFolio\source\src\features\vault\useVault.js:6
+fileToEntry	C:\Dev\Projects\JotFolio\source\src\lib\frontmatter.js:351	5	C:\Dev\Projects\JotFolio\source\src\features\vault\useVault.js:17
+useDebouncedCallback	C:\Dev\Projects\JotFolio\source\src\lib\hooks.js:4	2	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:5
+useSystemDark	C:\Dev\Projects\JotFolio\source\src\lib\hooks.js:17	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:13
+useEscapeKey	C:\Dev\Projects\JotFolio\source\src\lib\hooks.js:38	16	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:5
+useAutoFocus	C:\Dev\Projects\JotFolio\source\src\lib\hooks.js:52	8	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:5
+NOTE_MD_CSS	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:2	0
+injectNoteCss	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:23	2	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:6
+renderWikiLinks	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:32	4	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:6
+escapeHtml	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:40	2	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:6
+sanitizeHtml	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:58	13	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:6
+getCaretCoords	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:117	2	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:6
+detectWikiTrigger	C:\Dev\Projects\JotFolio\source\src\lib\markdown.js:148	2	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:6
+CORRUPT_STORAGE_CODE	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:10	0
+StorageCorruptionError	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:12	0
+isStorageCorruptionError	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:25	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:9
+storageQuarantineKey	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:30	0
+storage	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:58	37	C:\Dev\Projects\JotFolio\source\src\adapters\VaultAdapter.js:10
+uid	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:87	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:9
+createEntryId	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:88	6	C:\Dev\Projects\JotFolio\source\src\App.jsx:9
+formatDate	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:102	12	C:\Dev\Projects\JotFolio\source\src\features\card\Card.jsx:3
+withAlpha	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:103	8	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:4
+isSafeUrl	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:108	10	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:4
+normalizeTags	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:109	15	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:4
+pickEntryFields	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:113	5	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:4
+startVoiceRecognition	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:117	2	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:3
+userOptedIn	C:\Dev\Projects\JotFolio\source\src\lib\telemetry.js:15	3	C:\Dev\Projects\JotFolio\source\src\features\settings\PrivacyPanel.jsx:4
+setOptIn	C:\Dev\Projects\JotFolio\source\src\lib\telemetry.js:23	4	C:\Dev\Projects\JotFolio\source\src\features\settings\PrivacyPanel.jsx:4
+hasDecided	C:\Dev\Projects\JotFolio\source\src\lib\telemetry.js:31	4	C:\Dev\Projects\JotFolio\source\src\features\settings\PrivacyPanel.jsx:4
+hydrateOptInFromMain	C:\Dev\Projects\JotFolio\source\src\lib\telemetry.js:35	3	C:\Dev\Projects\JotFolio\source\src\features\settings\PrivacyPanel.jsx:4
+init	C:\Dev\Projects\JotFolio\source\src\lib\telemetry.js:71	5	C:\Dev\Projects\JotFolio\source\src\lib\ai\openrouter.test.js:34
+captureError	C:\Dev\Projects\JotFolio\source\src\lib\telemetry.js:99	0
+TYPES	C:\Dev\Projects\JotFolio\source\src\lib\types.js:1	0
+KNOWLEDGE_TYPES	C:\Dev\Projects\JotFolio\source\src\lib\types.js:2	1	C:\Dev\Projects\JotFolio\source\src\lib\keywordRules\useKeywordRules.js:84
+ALL_ENTRY_TYPES	C:\Dev\Projects\JotFolio\source\src\lib\types.js:3	16	C:\Dev\Projects\JotFolio\source\src\App.jsx:5
+ICON	C:\Dev\Projects\JotFolio\source\src\lib\types.js:4	48	C:\Dev\Projects\JotFolio\source\src\App.jsx:5
+LABEL	C:\Dev\Projects\JotFolio\source\src\lib\types.js:5	19	C:\Dev\Projects\JotFolio\source\src\features\constellation\CompilePreviewModal.jsx:3
+STATUSES	C:\Dev\Projects\JotFolio\source\src\lib\types.js:6	6	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:2
+STATUS_LABELS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:13	0
+displayStatus	C:\Dev\Projects\JotFolio\source\src\lib\types.js:39	23	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:4
+NO_URL_TYPES	C:\Dev\Projects\JotFolio\source\src\lib\types.js:41	2	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:2
+COMMON_FIELDS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:42	2	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:1
+TYPE_FIELDS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:43	2	C:\Dev\Projects\JotFolio\source\src\lib\storage.js:1
+STATUS_DONE	C:\Dev\Projects\JotFolio\source\src\lib\types.js:58	0
+STATUS_BROKEN	C:\Dev\Projects\JotFolio\source\src\lib\types.js:59	0
+statusTone	C:\Dev\Projects\JotFolio\source\src\lib\types.js:60	6	C:\Dev\Projects\JotFolio\source\src\features\card\Card.jsx:2
+statusBg	C:\Dev\Projects\JotFolio\source\src\lib\types.js:65	6	C:\Dev\Projects\JotFolio\source\src\features\card\Card.jsx:2
+ALL_STATUS_VALUES	C:\Dev\Projects\JotFolio\source\src\lib\types.js:66	2	C:\Dev\Projects\JotFolio\source\src\features\toolbar\Toolbar.jsx:2
+today	C:\Dev\Projects\JotFolio\source\src\lib\types.js:67	87	C:\Dev\Projects\JotFolio\source\src\App.jsx:925
+TYPE_TOKENS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:88	0
+MEMORY_TOKENS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:99	0
+TYPE_THEME_LEVELS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:105	0
+TYPE_SATURATION_LEVELS	C:\Dev\Projects\JotFolio\source\src\lib\types.js:108	0
+migrateTypeSatToTheme	C:\Dev\Projects\JotFolio\source\src\lib\types.js:118	0
+applyTypeSat	C:\Dev\Projects\JotFolio\source\src\lib\types.js:131	4	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:2
+attachmentPathFor	C:\Dev\Projects\JotFolio\source\src\lib\vaultAttachments.js:7	0
+importAttachment	C:\Dev\Projects\JotFolio\source\src\lib\vaultAttachments.js:13	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:57
+VaultExportError	C:\Dev\Projects\JotFolio\source\src\lib\vaultExportZip.js:5	0
+crc32	C:\Dev\Projects\JotFolio\source\src\lib\vaultExportZip.js:24	0
+buildZip	C:\Dev\Projects\JotFolio\source\src\lib\vaultExportZip.js:61	0
+exportVaultAsZip	C:\Dev\Projects\JotFolio\source\src\lib\vaultExportZip.js:142	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:21
+normalizeVaultFolder	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:1	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:56
+normalizeMarkdownFileName	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:13	0
+joinVaultPath	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:22	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:56
+folderFromPath	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:28	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:56
+fileNameFromPath	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:34	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:56
+folderContainsPath	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:40	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:56
+isInternalVaultPath	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:47	3	C:\Dev\Projects\JotFolio\source\src\features\vault\useVault.js:21
+buildFolderTree	C:\Dev\Projects\JotFolio\source\src\lib\vaultPaths.js:55	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:56
+TRASH_DIR	C:\Dev\Projects\JotFolio\source\src\lib\vaultTrash.js:1	7	C:\Dev\Projects\JotFolio\source\src\App.jsx:55
+trashPathFor	C:\Dev\Projects\JotFolio\source\src\lib\vaultTrash.js:12	0
+originalPathFromTrashPath	C:\Dev\Projects\JotFolio\source\src\lib\vaultTrash.js:19	9	C:\Dev\Projects\JotFolio\source\src\App.jsx:55
+moveToTrash	C:\Dev\Projects\JotFolio\source\src\lib\vaultTrash.js:29	7	C:\Dev\Projects\JotFolio\source\src\App.jsx:55
+restoreFromTrash	C:\Dev\Projects\JotFolio\source\src\lib\vaultTrash.js:39	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:55
+vault	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:21	424	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:4
+VaultError	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:22	83	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:11
+LocalAdapter	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:23	29	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:1
+NodeFsAdapter	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:23	15	C:\Dev\Projects\JotFolio\source\src\adapters\NodeFsAdapter.js:1
+VaultAdapter	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:24	22	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:10
+LocalAdapter	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:105	35	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:5
+NodeFsAdapter	C:\Dev\Projects\JotFolio\source\src\adapters\NodeFsAdapter.js:24	10	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:4
+VaultAdapter	C:\Dev\Projects\JotFolio\source\src\adapters\VaultAdapter.js:51	18	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:24
+VaultError	C:\Dev\Projects\JotFolio\source\src\adapters\VaultError.js:14	62	C:\Dev\Projects\JotFolio\source\src\adapters\index.js:22
+SOURCES	C:\Dev\Projects\JotFolio\source\src\parsers\index.js:7	2	C:\Dev\Projects\JotFolio\source\src\onboarding\WelcomePanel.jsx:2
+parse	C:\Dev\Projects\JotFolio\source\src\parsers\jotfolio.js:12	148	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:76
+parse	C:\Dev\Projects\JotFolio\source\src\parsers\kindle.js:3	149	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:76
+parseMarkdown	C:\Dev\Projects\JotFolio\source\src\parsers\obsidian.js:3	6	C:\Dev\Projects\JotFolio\source\src\parsers\__tests__\obsidian.test.js:2
+parseVault	C:\Dev\Projects\JotFolio\source\src\parsers\obsidian.js:62	3	C:\Dev\Projects\JotFolio\source\src\parsers\__tests__\obsidian.test.js:2
+parse	C:\Dev\Projects\JotFolio\source\src\parsers\obsidian.js:75	149	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:76
+parse	C:\Dev\Projects\JotFolio\source\src\parsers\pocket.js:4	149	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:76
+parse	C:\Dev\Projects\JotFolio\source\src\parsers\readwise.js:3	148	C:\Dev\Projects\JotFolio\source\src\adapters\LocalAdapter.js:76
+CommandRegistry	C:\Dev\Projects\JotFolio\source\src\plugins\CommandRegistry.js:4	7	C:\Dev\Projects\JotFolio\source\src\plugins\PluginAPI.js:13
+commands	C:\Dev\Projects\JotFolio\source\src\plugins\CommandRegistry.js:45	94	C:\Dev\Projects\JotFolio\source\src\App.jsx:199
+EventBus	C:\Dev\Projects\JotFolio\source\src\plugins\EventBus.js:6	4	C:\Dev\Projects\JotFolio\source\src\plugins\PluginAPI.js:14
+appBus	C:\Dev\Projects\JotFolio\source\src\plugins\EventBus.js:42	7	C:\Dev\Projects\JotFolio\source\src\plugins\PluginAPI.js:14
+OFFICIAL_PLUGINS	C:\Dev\Projects\JotFolio\source\src\plugins\officialPlugins.js:23	3	C:\Dev\Projects\JotFolio\source\src\features\settings\PluginsPanel.jsx:7
+installOfficial	C:\Dev\Projects\JotFolio\source\src\plugins\officialPlugins.js:46	4	C:\Dev\Projects\JotFolio\source\src\features\settings\PluginsPanel.jsx:3
+createPluginAPI	C:\Dev\Projects\JotFolio\source\src\plugins\PluginAPI.js:20	8	C:\Dev\Projects\JotFolio\source\src\security\__tests__\hardening.test.js:5
+PluginBridge	C:\Dev\Projects\JotFolio\source\src\plugins\PluginBridge.js:32	9	C:\Dev\Projects\JotFolio\source\src\plugins\PluginAPI.js:80
+PluginHost	C:\Dev\Projects\JotFolio\source\src\plugins\PluginHost.js:43	10	C:\Dev\Projects\JotFolio\source\src\features\settings\PluginsPanel.jsx:6
+pluginHost	C:\Dev\Projects\JotFolio\source\src\plugins\PluginHost.js:320	11	C:\Dev\Projects\JotFolio\source\src\App.jsx:25
+ownManifest	C:\Dev\Projects\JotFolio\source\src\plugins\PluginHost.js:324	0
+AddModal	C:\Dev\Projects\JotFolio\source\src\features\add\AddModal.jsx:140	6	C:\Dev\Projects\JotFolio\source\src\App.jsx:64
+BaseExplorer	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseExplorer.jsx:9	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:21
+BaseView	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:337	7	C:\Dev\Projects\JotFolio\source\src\App.jsx:700
+VIEW_TYPES	C:\Dev\Projects\JotFolio\source\src\features\bases\BaseView.jsx:413	2	C:\Dev\Projects\JotFolio\source\src\lib\base\baseTypes.js:53
+CanvasExplorer	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasExplorer.jsx:13	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:22
+CanvasView	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:57	3	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasExplorer.jsx:2
+Card	C:\Dev\Projects\JotFolio\source\src\features\card\Card.jsx:7	6	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:397
+Row	C:\Dev\Projects\JotFolio\source\src\features\card\Row.jsx:5	3	C:\Dev\Projects\JotFolio\source\src\features\card\Card.jsx:5
+registerBuiltinCommands	C:\Dev\Projects\JotFolio\source\src\features\commandPalette\builtinCommands.js:18	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:20
+CommandPalette	C:\Dev\Projects\JotFolio\source\src\features\commandPalette\CommandPalette.jsx:48	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:65
+CompilePreviewModal	C:\Dev\Projects\JotFolio\source\src\features\constellation\CompilePreviewModal.jsx:12	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:66
+ConstellationStateOverlay	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationStateOverlay.jsx:104	3	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:11
+ConstellationView	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:53	6	C:\Dev\Projects\JotFolio\source\src\App.jsx:1362
+CONSTELLATION_ROLE_LABELS	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:3	0
+graphDegree	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:13	0
+getNodeRole	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:17	0
+nodeRoleLabel	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:27	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:17
+getNodePalette	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:33	0
+getNodeVisualState	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:81	6	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:16
+getEdgeVisualState	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:109	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:15
+summarizeGraph	C:\Dev\Projects\JotFolio\source\src\features\constellation\constellationVisuals.js:127	2	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:18
+computeAffinityLayout	C:\Dev\Projects\JotFolio\source\src\features\constellation\layout.js:10	4	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:13
+computeClusterLayout	C:\Dev\Projects\JotFolio\source\src\features\constellation\layout.js:79	4	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:13
+computeMessyLayout	C:\Dev\Projects\JotFolio\source\src\features\constellation\layout.js:175	4	C:\Dev\Projects\JotFolio\source\src\features\constellation\ConstellationView.jsx:13
+MemoryDetailPanel	C:\Dev\Projects\JotFolio\source\src\features\constellation\MemoryDetailPanel.jsx:22	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:69
+MemoryNode	C:\Dev\Projects\JotFolio\source\src\features\constellation\MemoryNode.jsx:19	0
+StarNode	C:\Dev\Projects\JotFolio\source\src\features\constellation\nodeRenderers.jsx:40	0
+BoardNode	C:\Dev\Projects\JotFolio\source\src\features\constellation\nodeRenderers.jsx:144	0
+EditorialNode	C:\Dev\Projects\JotFolio\source\src\features\constellation\nodeRenderers.jsx:253	0
+NODE_VARIANTS	C:\Dev\Projects\JotFolio\source\src\features\constellation\nodeRenderers.jsx:350	0
+SplitMemoryModal	C:\Dev\Projects\JotFolio\source\src\features\constellation\SplitMemoryModal.jsx:9	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:72
+DetailPanel	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:103	8	C:\Dev\Projects\JotFolio\source\src\App.jsx:67
+_dropdownBus	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\bus.js:6	0
+useSingleOpenDropdown	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\bus.js:7	6	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\FontDropdown.jsx:3
+useClickOutside	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\bus.js:17	4	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\FontDropdown.jsx:3
+FontDropdown	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\FontDropdown.jsx:5	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:11
+HexInput	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\HexInput.jsx:3	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:12
+Select	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\Select.jsx:7	46	C:\Dev\Projects\JotFolio\source\src\features\card\Card.jsx:18
+themePreview	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\ThemeDropdown.jsx:6	0
+ThemeSwatch	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\ThemeDropdown.jsx:18	0
+ThemeDropdown	C:\Dev\Projects\JotFolio\source\src\features\dropdowns\ThemeDropdown.jsx:28	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:10
+NoteBody	C:\Dev\Projects\JotFolio\source\src\features\editor\NoteBody.jsx:81	3	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:9
+EmptyState	C:\Dev\Projects\JotFolio\source\src\features\emptystate\EmptyState.jsx:6	9	C:\Dev\Projects\JotFolio\source\src\features\settings\KeywordRulesPanel.jsx:229
+NotesWorkspaceView	C:\Dev\Projects\JotFolio\source\src\features\notes\NotesWorkspaceView.jsx:208	5	C:\Dev\Projects\JotFolio\source\src\features\notes\NotesWorkspaceView.regression.test.jsx:3
+PluginPanelSlot	C:\Dev\Projects\JotFolio\source\src\features\plugins\PluginPanelSlot.jsx:7	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:53
+createPanelStore	C:\Dev\Projects\JotFolio\source\src\features\plugins\PluginPanelSlot.jsx:39	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:53
+IconButton	C:\Dev\Projects\JotFolio\source\src\features\primitives\IconButton.jsx:1	7	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:5
+Pressable	C:\Dev\Projects\JotFolio\source\src\features\primitives\Pressable.jsx:1	5	C:\Dev\Projects\JotFolio\source\src\features\sidebar\Sidebar.jsx:2
+SR_ONLY	C:\Dev\Projects\JotFolio\source\src\features\primitives\SrOnly.jsx:1	0
+SrOnly	C:\Dev\Projects\JotFolio\source\src\features\primitives\SrOnly.jsx:2	4	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:6
+TagSuggestions	C:\Dev\Projects\JotFolio\source\src\features\primitives\TagSuggestions.jsx:3	2	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:7
+Toasts	C:\Dev\Projects\JotFolio\source\src\features\primitives\Toasts.jsx:1	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:16
+PropertiesPanel	C:\Dev\Projects\JotFolio\source\src\features\properties\PropertiesPanel.jsx:178	3	C:\Dev\Projects\JotFolio\source\src\features\detail\DetailPanel.jsx:10
+__test__	C:\Dev\Projects\JotFolio\source\src\features\properties\PropertiesPanel.jsx:211	0
+QuickSwitcher	C:\Dev\Projects\JotFolio\source\src\features\quickSwitcher\QuickSwitcher.jsx:96	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:70
+Ribbon	C:\Dev\Projects\JotFolio\source\src\features\ribbon\Ribbon.jsx:55	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:942
+KeywordRulesPanel	C:\Dev\Projects\JotFolio\source\src\features\settings\KeywordRulesPanel.jsx:244	4	C:\Dev\Projects\JotFolio\source\src\App.jsx:855
+PluginsPanel	C:\Dev\Projects\JotFolio\source\src\features\settings\PluginsPanel.jsx:9	3	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:14
+PrivacyPanel	C:\Dev\Projects\JotFolio\source\src\features\settings\PrivacyPanel.jsx:6	3	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:15
+SettingsPanel	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:363	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:71
+UpdatesPanel	C:\Dev\Projects\JotFolio\source\src\features\settings\UpdatesPanel.jsx:34	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:17
+AppConfirmDialog	C:\Dev\Projects\JotFolio\source\src\features\shell\AppConfirmDialog.jsx:1	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:32
+AppRouteContent	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:104	11	C:\Dev\Projects\JotFolio\source\src\App.jsx:34
+HOME_SECTION	C:\Dev\Projects\JotFolio\source\src\features\shell\appShellState.js:5	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:36
+WORKSTATION_SECTIONS	C:\Dev\Projects\JotFolio\source\src\features\shell\appShellState.js:7	0
+filterShellEntries	C:\Dev\Projects\JotFolio\source\src\features\shell\appShellState.js:9	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:37
+getShellSectionTitle	C:\Dev\Projects\JotFolio\source\src\features\shell\appShellState.js:34	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:38
+EntryFileDialog	C:\Dev\Projects\JotFolio\source\src\features\shell\EntryFileDialog.jsx:3	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:33
+Sidebar	C:\Dev\Projects\JotFolio\source\src\features\sidebar\Sidebar.jsx:6	3	C:\Dev\Projects\JotFolio\source\src\App.jsx:17
+TagManageDialog	C:\Dev\Projects\JotFolio\source\src\features\tags\TagManageDialog.jsx:90	2	C:\Dev\Projects\JotFolio\source\src\features\sidebar\Sidebar.jsx:3
+InsertTemplateModal	C:\Dev\Projects\JotFolio\source\src\features\templates\InsertTemplateModal.jsx:16	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:68
+TemplatesPanel	C:\Dev\Projects\JotFolio\source\src\features\templates\TemplatesPanel.jsx:7	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:24
+Toolbar	C:\Dev\Projects\JotFolio\source\src\features\toolbar\Toolbar.jsx:7	3	C:\Dev\Projects\JotFolio\source\src\features\canvas\CanvasView.jsx:360
+TrashView	C:\Dev\Projects\JotFolio\source\src\features\trash\TrashView.jsx:22	3	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.safety.test.js:14
+UpdateBanner	C:\Dev\Projects\JotFolio\source\src\features\updater\UpdateBanner.jsx:12	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:26
+useVault	C:\Dev\Projects\JotFolio\source\src\features\vault\useVault.js:25	14	C:\Dev\Projects\JotFolio\source\src\App.jsx:18
+VaultPicker	C:\Dev\Projects\JotFolio\source\src\features\vault\VaultPicker.jsx:12	2	C:\Dev\Projects\JotFolio\source\src\features\settings\SettingsPanel.jsx:13
+NotesRail	C:\Dev\Projects\JotFolio\source\src\features\workstation\NotesRail.jsx:171	3	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkspaceContextRail.notes.test.jsx:25
+WorkspaceTopBar	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkspaceTopBar.jsx:60	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:31
+CommandCenterView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:657	7	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:12
+GlobalSearchView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:2082	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:13
+InboxView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:2315	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:14
+ProjectsView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:3222	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:15
+TasksView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:3380	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:18
+CalendarView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:3620	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:11
+SpacesView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:4018	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:16
+TagManagerView	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:4346	2	C:\Dev\Projects\JotFolio\source\src\features\shell\AppRouteContent.jsx:17
+VaultStatusBar	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:4396	2	C:\Dev\Projects\JotFolio\source\src\App.jsx:29
+WorkspaceContextRail	C:\Dev\Projects\JotFolio\source\src\features\workstation\WorkstationViews.jsx:4452	5	C:\Dev\Projects\JotFolio\source\src\App.jsx:28

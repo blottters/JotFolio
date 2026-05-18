@@ -2,6 +2,7 @@ import { entryToFile, MANUAL_LINKS_FIELD } from '../frontmatter.js';
 
 const LOCAL_VAULT_KEY = 'jf-vault-local';
 const DEMO_STATUS_KEY = 'jf-demo-seed-status';
+const DEV_RESET_STATUS_KEY = 'jf-dev-vault-reset-status';
 
 function localDay(offset = 0) {
   const date = new Date();
@@ -491,6 +492,52 @@ function shouldSeedDemo(params) {
   return params.get('demo') === 'full' || params.get('mock') === 'full' || params.get('seed') === 'full';
 }
 
+function shouldKeepDevVault(params) {
+  return shouldSeedDemo(params)
+    || params.get('test') === '1'
+    || params.get('e2e') === '1'
+    || params.get('smoke') === '1'
+    || params.get('stress') === '1'
+    || params.get('keepVault') === '1'
+    || params.get('preserveVault') === '1';
+}
+
+function localVaultFileCount(raw) {
+  try {
+    const existing = raw ? JSON.parse(raw) : null;
+    return existing && typeof existing.files === 'object'
+      ? Object.keys(existing.files).length
+      : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function maybeResetBrowserDevVaultFromUrl({ isDev = false } = {}) {
+  if (!isDev) return;
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  if (window.electron?.vault) return;
+
+  const params = new URLSearchParams(window.location.search);
+  if (shouldKeepDevVault(params)) return;
+
+  const existingRaw = window.localStorage.getItem(LOCAL_VAULT_KEY);
+  const legacyRaw = window.localStorage.getItem('mgn-e');
+  const existingFileCount = localVaultFileCount(existingRaw);
+  const hadLegacyEntries = Boolean(legacyRaw);
+
+  window.localStorage.removeItem(LOCAL_VAULT_KEY);
+  window.localStorage.removeItem('mgn-e');
+  window.localStorage.removeItem(DEMO_STATUS_KEY);
+  window.localStorage.setItem('mgn-vault-migrated', JSON.stringify(true));
+  window.localStorage.setItem(DEV_RESET_STATUS_KEY, JSON.stringify({
+    status: 'blanked',
+    existingFileCount,
+    hadLegacyEntries,
+    resetAt: new Date().toISOString(),
+  }));
+}
+
 function setFullDemoPreferences() {
   let existing = {};
   try {
@@ -522,15 +569,7 @@ export function maybeSeedFullDemoVaultFromUrl() {
 
   const reset = params.get('reset') === '1' || params.get('resetDemo') === '1';
   const existingRaw = window.localStorage.getItem(LOCAL_VAULT_KEY);
-  let existingFileCount = 0;
-  try {
-    const existing = existingRaw ? JSON.parse(existingRaw) : null;
-    existingFileCount = existing && typeof existing.files === 'object'
-      ? Object.keys(existing.files).length
-      : 0;
-  } catch {
-    existingFileCount = 0;
-  }
+  const existingFileCount = localVaultFileCount(existingRaw);
 
   if (existingFileCount > 0 && !reset) {
     window.localStorage.setItem(DEMO_STATUS_KEY, JSON.stringify({

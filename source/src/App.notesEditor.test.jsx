@@ -77,7 +77,7 @@ const notes = [
 function renderApp() {
   mocks.vaultHook.entries = notes;
   render(<App />);
-  return screen.findByRole('heading', { name: 'Good morning, Gavin' });
+  return screen.findByRole('heading', { name: /Good (morning|afternoon|evening), Gavin/ });
 }
 
 describe('App notes editor route regressions', () => {

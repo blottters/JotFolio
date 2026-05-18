@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppRouteContent } from './AppRouteContent.jsx';
 
@@ -10,6 +10,13 @@ function renderRoute(overrides = {}) {
     searchResults: {},
     visibleEntries: [],
     openSettingsTab: vi.fn(),
+    renderSettingsPanel: vi.fn((embedded, initialTab) => (
+      <section aria-label="Settings">
+        <button type="button">AI Keys</button>
+        <p>Provider settings only.</p>
+        <p data-testid="settings-render-args">{String(embedded)}:{initialTab}</p>
+      </section>
+    )),
     setDetailId: vi.fn(),
     onQuickSwitcher: vi.fn(),
     onCommandPalette: vi.fn(),
@@ -24,17 +31,14 @@ function renderRoute(overrides = {}) {
 }
 
 describe('AppRouteContent AI route', () => {
-  it('renders an honest AI Setup route instead of the global search view', () => {
+  it('routes legacy AI navigation to Settings AI Keys instead of a fake main route', () => {
     const props = renderRoute();
 
-    expect(screen.getByRole('region', { name: 'AI Setup' })).toBeInTheDocument();
-    expect(screen.getByText(/Source-grounded AI/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Quick Switcher' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open AI Keys' }));
-    expect(props.openSettingsTab).toHaveBeenCalledWith('ai');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Search vault instead' }));
-    expect(props.setSection).toHaveBeenCalledWith('search');
+    expect(screen.queryByRole('region', { name: 'AI Setup' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'AI Keys' })).toBeInTheDocument();
+    expect(screen.getByText(/Provider settings only/i)).toBeInTheDocument();
+    expect(screen.getByTestId('settings-render-args')).toHaveTextContent('true:ai');
+    expect(props.renderSettingsPanel).toHaveBeenCalledWith(true, 'ai');
+    expect(props.openSettingsTab).not.toHaveBeenCalled();
   });
 });

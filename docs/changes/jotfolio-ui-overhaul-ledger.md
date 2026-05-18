@@ -8,9 +8,14 @@ This ledger tracks the approved workstation UI changes and the real functions at
 
 - Rebuilt the app around a desktop-style workstation shell: top app bar, primary left sidebar, main content pane, right dashboard rail, pane dividers, and bottom vault status bar.
 - Blank first-run vaults now open the welcome workflow instead of landing on an empty workstation dashboard.
-- Added the macOS-style window controls, JotFolio brand mark, back/forward navigation buttons, global search field, Capture button, quick action icon, notification icon, and Gavin avatar.
+- Blank first-run vaults now show exactly four starter actions: Create first note, Capture raw thought, Create project, and Load sample vault.
+- Normal Vite dev-server opens now clear the browser fallback vault before app mount, so entries appear only after user creation or explicit demo/test/stress URLs.
+- Added the macOS-style window controls, JotFolio brand mark, back/forward navigation buttons, global search field, Capture button, quick action icon, and Gavin avatar.
 - Wired the top back/forward arrows to real in-app route history across the main ribbon/sidebar sections.
-- Wired the top search field to activate the Search route, Quick Actions to open the real Quick Switcher, Notifications to open Inbox, and the avatar to open Settings.
+- Wired the top search field to activate the Search route, Quick Actions to open the real Quick Switcher, and the avatar to open Settings.
+- Top search now behaves as an immediate vault search field: typing opens top matching entries/tags/spaces/canvases/smart views/templates below the field, arrow keys move selection, Enter opens the selected result, and Open full Search still routes to the full search workspace.
+- Top-bar Capture now respects the active workspace route: Inbox opens Raw, Calendar opens Journal, Tasks opens Task, Projects passes the selected project, and Spaces passes the selected space.
+- Removed the unfinished AI Setup sidebar route and top-bar notification bell from the main shell until those surfaces have real engines behind them.
 - Sidebar Spaces and Tags now render from the live vault-derived spaces/tags instead of hard-coded labels.
 - Footer vault status now shows the active vault label, entry count, trash count, and vault issue state.
 - Set the default workstation identity to Gavin and uses the current local date for date-sensitive surfaces.
@@ -23,6 +28,8 @@ This ledger tracks the approved workstation UI changes and the real functions at
 - Made the focus selector persistent in local storage so the selected mode returns on reload.
 - Added mode-specific Command Center content: planning overview, capture workflow, deep work hub, and review overview.
 - Changed Review mode to use blue styling instead of orange.
+- Replaced the focus-mode dashboard with a real Home Queue: Resume last note, Process Inbox, Open active project, and Continue today's task. The old session-goal, planning, reflection, and duplicate quick-capture surfaces no longer render from Command Center.
+- Command Center greeting now derives from the browser's local time zone, so the header uses morning, afternoon, or evening correctly for the user.
 
 ### Right Dashboard Rail
 
@@ -48,6 +55,7 @@ This ledger tracks the approved workstation UI changes and the real functions at
 - Inbox rows can now convert raw captures into notes, tasks, or links in place while preserving the same saved entry id and adding a `capture` tag.
 - Inbox row Archive and Trash actions are wired directly from each row; Trash uses the existing vault trash flow.
 - Inbox rows can now attach a raw capture to a real Project through an app-owned picker. The action writes real `project` metadata, shows the attached project on the row, and preserves that project link when the capture is converted into a note, task, or link.
+- Inbox rows no longer expose Compile as a primary triage action. The row-level choices are now Make Note, Make Task, Make Link, Archive, and Trash; memory compile is only reachable from the selected raw entry detail.
 
 ### Projects, Tasks, Spaces, Tags
 
@@ -113,17 +121,26 @@ This ledger tracks the approved workstation UI changes and the real functions at
 ### Capture / New Entry Modal
 
 - Rebuilt the Capture / New Entry modal to match the approved screenshot.
-- Added entry types: Note, Journal, Article, Podcast, Video, Link, Project, Task, Canvas, and Raw.
+- Added entry types: Note, Journal, Article, Link, Project, Task, Canvas, and Raw.
 - Imported and used the approved SVG asset kit icons from `JotFolio_App_Assets_Icon_Graphics_Kit`.
 - Added working fields for title, source URL, tags, template, vault bucket, local path preview, and content capture tabs.
 - Added working actions: Apply Template, Save to Project, Save to Inbox, Copy Local Path, Open Source URL, add/remove tags, attach dropped files, and create Canvas.
 - Top-bar Capture now opens this full modal instead of the old raw quick-capture dialog.
+- Capture / New Entry now shows a visible project or space context chip in the modal header when opened from a contextual workspace.
+- Removed Podcast and Video from the visible Capture type picker, and removed the Attachment content tab, so the modal no longer advertises media-specific or attachment-management surfaces that are not finished.
 - Capture / New Entry now closes through the normal close/discard flow when Escape is pressed from focused editable fields, including the title field.
 - Capture / New Entry now starts clean with no fake title, fake URL, or preselected tags.
 - Local path preview now mirrors the real vault bucket for the selected type, such as `notes/`, `projects/`, `tasks/`, `inbox/`, or `canvases/`.
 - New Project creates a `project` entry and New Task creates a `task` entry through the normal vault save path instead of pretending they are notes.
 - Save to Project is disabled unless a real selected project context is present.
 - Capture / New Entry now uses type-honest primary labels: Raw saves to Inbox, while Note/Journal/Article/Podcast/Video/Link/Project/Task/Canvas create that selected entry type.
+- Journal capture now has an explicit date field that drives the fallback title, local path preview, and saved `entry_date`.
+- Article and Link capture now show a source summary with domain, normalized URL, local title suggestion, and existing-entry duplicate warning before save.
+- Saving a Journal from Capture now lands the user in Calendar instead of leaving them on the previous route.
+- Duplicate Article/Link warnings now include an `Open existing` action when JotFolio knows the matching entry.
+- Entry detail and memory detail panels now dismiss on the next outside click; dirty entry edits still show the discard guard before closing.
+- Entry detail panels now match the workstation right-rail width and shell top/status-bar offsets so the left divider aligns with the underlying app grid instead of leaving a visible strip.
+- Workstation responsive behavior now protects readable content at narrow widths: the context rail hides under 1240px, Home Queue switches to two columns and then one, and the top bar/sidebar compress before text becomes unusable.
 
 ### Constellation
 
@@ -139,6 +156,8 @@ This ledger tracks the approved workstation UI changes and the real functions at
 - Memory-only filtering now shows the no-match recovery overlay instead of leaving a blank graph.
 - Keyboard layout shortcuts now toggle from the latest selected layout.
 - MiniLM semantic indexing is now explicit opt-in and lazy-loaded by the semantic hook instead of starting on default vault load.
+- App-level MiniLM gating now matches the explicit opt-in contract: the semantic index hook only starts when `semanticEdges` is exactly `true`.
+- Stale local `semanticEdges: true` prefs from earlier builds are reset once during alpha.26 prefs migration so default startup stays MiniLM-free.
 - Constellation now computes the active heavy layout only, so affinity layout work does not run when another layout is selected.
 
 ### Settings, Safety, Trash, Export

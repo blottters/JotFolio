@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CommandCenterView } from './WorkstationViews.jsx';
+import { CommandCenterView, getLocalGreeting } from './WorkstationViews.jsx';
 
 const baseModel = {
   metrics: { entries: 12, openTasks: 3, dueToday: 1, memory: 2, inbox: 4 },
@@ -17,7 +17,7 @@ describe('CommandCenterView reference shell', () => {
     localStorage.clear();
   });
 
-  it('shows date stepping and a real focus selector like the reference screen', () => {
+  it('shows date stepping and a real home queue', () => {
     render(
       <CommandCenterView
         model={baseModel}
@@ -28,24 +28,26 @@ describe('CommandCenterView reference shell', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Good morning, Alex' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Good (morning|afternoon|evening), Alex/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous day' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next day' })).toBeInTheDocument();
-
-    const focusSelect = screen.getByRole('combobox', { name: 'Focus mode' });
-    expect(focusSelect).toHaveValue('deep-work');
-
-    fireEvent.change(focusSelect, { target: { value: 'planning' } });
-    expect(focusSelect).toHaveValue('planning');
-    expect(screen.getByText('Planning Overview')).toBeInTheDocument();
+    expect(screen.getByText('Home Queue')).toBeInTheDocument();
+    expect(screen.getByText('Resume last note')).toBeInTheDocument();
+    expect(screen.getByText('Process Inbox')).toBeInTheDocument();
+    expect(screen.getByText('Open active project')).toBeInTheDocument();
+    expect(screen.getByText("Continue today's task")).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Focus mode' })).not.toBeInTheDocument();
   });
 
-  it('makes mode panels interactive instead of static mockups', () => {
+  it('opens real queue targets instead of static mode panels', () => {
     const onNavigate = vi.fn();
     const onAdd = vi.fn();
-    const onQuickCapture = vi.fn();
+    const onOpenEntry = vi.fn();
     const liveModel = {
       ...baseModel,
+      recentEntries: [{ id: 'note-live', type: 'note', title: 'Live Note', _path: 'notes/Live Note.md', modified: '2026-05-14T10:00:00.000Z' }],
+      recentCaptures: [{ id: 'raw-live', type: 'raw', title: 'Raw thought' }],
+      tasksDueToday: [{ id: 'task-live', type: 'task', title: 'Ship test update', due: '2026-05-17', status: 'open' }],
       projectRows: [{
         entry: { id: 'p-live', type: 'project', title: 'JotFolio 2.0', status: 'active' },
         progress: 68,
@@ -59,70 +61,50 @@ describe('CommandCenterView reference shell', () => {
       <CommandCenterView
         model={liveModel}
         userName="Alex"
-        onOpenEntry={vi.fn()}
+        onOpenEntry={onOpenEntry}
         onNavigate={onNavigate}
         onAdd={onAdd}
-        onQuickCapture={onQuickCapture}
       />,
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Active Projects' }));
-    // Real project row should render with computed progress + relative time.
-    expect(screen.getByText(/68% ·/)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /JotFolio 2.0/ })[0]);
-    expect(onNavigate).toHaveBeenCalledWith('projects');
-
-    const focusSelect = screen.getByRole('combobox', { name: 'Focus mode' });
-    fireEvent.change(focusSelect, { target: { value: 'planning' } });
-    expect(screen.getByText('No priorities yet.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Save Priorities' }));
-    expect(screen.getByRole('status')).toHaveTextContent('Priorities saved');
-    fireEvent.click(screen.getByRole('button', { name: 'Start Review' }));
-    expect(focusSelect).toHaveValue('review');
-    expect(screen.getByText('Review Overview')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Reflection' }));
-    fireEvent.click(screen.getAllByRole('button', { name: 'Add note' })[0]);
-    expect(screen.getByRole('status')).toHaveTextContent('Reflection note added');
-    fireEvent.change(screen.getByLabelText('What went well item 1'), { target: { value: 'PRD draft shipped' } });
-    expect(screen.getByDisplayValue('PRD draft shipped')).toBeInTheDocument();
-
-    fireEvent.change(focusSelect, { target: { value: 'capture' } });
-    expect(screen.getByText('Quick Capture')).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: /^Task/ })[0]);
-    fireEvent.change(screen.getByLabelText('Quick capture text'), { target: { value: 'Follow up with Jamie' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Capture/ }));
-    expect(onQuickCapture).toHaveBeenCalledWith(expect.objectContaining({ type: 'task', title: 'Follow up with Jamie' }));
-    expect(screen.getByText('Follow up with Jamie')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open Capture Inbox' }));
+    fireEvent.click(screen.getByRole('button', { name: /Resume last note/ }));
+    expect(onOpenEntry).toHaveBeenCalledWith('note-live');
+    fireEvent.click(screen.getByRole('button', { name: /Process Inbox/ }));
     expect(onNavigate).toHaveBeenCalledWith('raw');
+    fireEvent.click(screen.getByRole('button', { name: /Open active project/ }));
+    expect(onOpenEntry).toHaveBeenCalledWith('p-live');
+    fireEvent.click(screen.getByRole('button', { name: /Continue today's task/ }));
+    expect(onOpenEntry).toHaveBeenCalledWith('task-live');
+
+    expect(screen.queryByText('Planning Overview')).not.toBeInTheDocument();
+    expect(screen.queryByText('Weekly Reflection')).not.toBeInTheDocument();
+    expect(screen.queryByText('Quick Capture')).not.toBeInTheDocument();
   });
 
-  it('surfaces real recent captures in capture mode and opens the entry', () => {
-    const onOpenEntry = vi.fn();
+  it('creates missing queue targets when the vault is empty', () => {
+    const onAdd = vi.fn();
     render(
       <CommandCenterView
-        model={{
-          ...baseModel,
-          recentCaptures: [{
-            id: 'raw-real',
-            type: 'raw',
-            title: 'Actual voice memo from vault',
-            notes: 'Imported interview memo.',
-            source: 'Voice Memos',
-            date: '2026-05-14T09:15:00.000Z',
-          }],
-        }}
+        model={baseModel}
         userName="Alex"
-        focusMode="capture"
-        onOpenEntry={onOpenEntry}
         onNavigate={vi.fn()}
-        onAdd={vi.fn()}
-        onQuickCapture={vi.fn()}
+        onAdd={onAdd}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Actual voice memo from vault' }));
-    expect(onOpenEntry).toHaveBeenCalledWith('raw-real');
+    fireEvent.click(screen.getByRole('button', { name: /Resume last note/ }));
+    expect(onAdd).toHaveBeenCalledWith({ type: 'note' });
+    fireEvent.click(screen.getByRole('button', { name: /Open active project/ }));
+    expect(onAdd).toHaveBeenCalledWith({ type: 'project' });
+    fireEvent.click(screen.getByRole('button', { name: /Continue today's task/ }));
+    expect(onAdd).toHaveBeenCalledWith({ type: 'task' });
+  });
+
+  it('chooses the greeting from the supplied time zone hour', () => {
+    const instant = new Date('2026-05-18T13:00:00.000Z');
+
+    expect(getLocalGreeting(instant, 'America/New_York')).toBe('Good morning');
+    expect(getLocalGreeting(instant, 'Europe/London')).toBe('Good afternoon');
+    expect(getLocalGreeting(instant, 'Asia/Tokyo')).toBe('Good evening');
   });
 });

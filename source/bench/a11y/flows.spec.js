@@ -16,6 +16,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 const BASE_URL = process.env.A11Y_BASE_URL || 'http://127.0.0.1:5174';
+const TEST_URL = BASE_URL.includes('?') ? `${BASE_URL}&test=1` : `${BASE_URL}?test=1`;
 
 const KNOWN_GAPS = {};
 
@@ -41,7 +42,7 @@ function expectNoUnexpectedViolations(results, knownGaps = []) {
 }
 
 async function seedApp(page) {
-  await page.goto(BASE_URL);
+  await page.goto(TEST_URL);
   await page.evaluate(() => {
     const note = [
       '---',
@@ -91,7 +92,7 @@ async function seedApp(page) {
     localStorage.setItem('mgn-vault-migrated', JSON.stringify(true));
   });
   await page.reload();
-  await page.getByRole('heading', { name: /Good morning/i }).waitFor({ timeout: 7000 });
+  await page.getByRole('heading', { name: /Good (morning|afternoon|evening)/i }).waitFor({ timeout: 7000 });
 }
 
 test.describe('JotFolio WCAG AA flows', () => {
@@ -105,7 +106,7 @@ test.describe('JotFolio WCAG AA flows', () => {
 
   test('global search route', async ({ page }) => {
     await seedApp(page);
-    await page.getByRole('button', { name: /Search/ }).click();
+    await page.getByRole('navigation').getByRole('button', { name: /Search/ }).click();
     await page.getByRole('heading', { name: 'Search / Quick Switcher' }).waitFor();
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])

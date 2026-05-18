@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { parseFacts } from '../../lib/memory/parseFacts.js';
 import { getBacklinks } from '../../lib/index/vaultIndex.js';
 import { useEscapeKey } from '../../lib/hooks.js';
@@ -28,7 +28,18 @@ export function MemoryDetailPanel({
   onTraceToSources,
   onClose,
 }) {
+  const panelRef = useRef(null);
   useEscapeKey(typeof onClose === 'function', onClose);
+  useEffect(() => {
+    if (typeof onClose !== 'function') return undefined;
+    const onPointerDown = (event) => {
+      const panel = panelRef.current;
+      if (!panel || panel.contains(event.target)) return;
+      onClose();
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [onClose]);
 
   const confidencePct = Math.round((entry?.confidence ?? 0) * 100);
   const isReview = entry?.type === 'review';
@@ -196,7 +207,7 @@ export function MemoryDetailPanel({
   };
 
   return (
-    <aside data-memory-detail-panel style={panelStyle} aria-label="Memory detail panel">
+    <aside ref={panelRef} data-memory-detail-panel style={panelStyle} aria-label="Memory detail panel">
       <header>
         <div style={headerRowStyle}>
           <div style={headerTextStyle}>

@@ -33,6 +33,7 @@ describe('WorkstationViews', () => {
           tasksDueToday: [task],
           memoryReviewsDue: [memory],
           overdueTasks: [{ ...task, id: 't-overdue', title: 'Overdue item', due: '2026-05-13' }],
+          recentCaptures: [{ id: 'raw-one', type: 'raw', title: 'Inbox capture' }],
           recentEntries: [starredNote, note],
           projectRows: [{ entry: { ...project, starred: true }, entryCount: 3, taskCount: 2, openTaskCount: 1, backlinkCount: 4, progress: 50, lastActivity: Date.now() }],
         }}
@@ -43,26 +44,28 @@ describe('WorkstationViews', () => {
       />,
     );
 
-    expect(screen.getByText('Good morning, Gavin')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Good (morning|afternoon|evening), Gavin/ })).toBeInTheDocument();
     expect(screen.getByText(todayLabel)).toBeInTheDocument();
-    expect(screen.getByText('Pinned')).toBeInTheDocument();
-    // Real pinned card from starred entry.
     expect(screen.getAllByText('Pinned Note').length).toBeGreaterThan(0);
-    expect(screen.getByText('Deep Work Hub')).toBeInTheDocument();
-    expect(screen.getByText('Current Focus')).toBeInTheDocument();
-    expect(screen.getByText('Session Goals')).toBeInTheDocument();
+    expect(screen.getByText('Home Queue')).toBeInTheDocument();
+    expect(screen.getByText('Resume last note')).toBeInTheDocument();
+    expect(screen.getByText('Resume last note').closest('.jf-home-queue-grid')).not.toBeNull();
+    expect(screen.getByText('Resume last note').closest('.jf-home-queue-card')).not.toBeNull();
+    expect(screen.getByText('Process Inbox')).toBeInTheDocument();
+    expect(screen.getByText('Open active project')).toBeInTheDocument();
+    expect(screen.getByText("Continue today's task")).toBeInTheDocument();
     expect(screen.queryByText('Refine core principle statements')).not.toBeInTheDocument();
-    expect(screen.getByText('Create real tasks or review notes to define this session.')).toBeInTheDocument();
+    expect(screen.queryByText('Create real tasks or review notes to define this session.')).not.toBeInTheDocument();
     // Most-recently-modified note appears as the current focus.
     expect(screen.getAllByText('Pinned Note').length).toBeGreaterThan(0);
-    expect(screen.getByText('Quick Actions')).toBeInTheDocument();
+    expect(screen.getByText('Recent Work')).toBeInTheDocument();
     expect(screen.queryByText('Needs Attention')).not.toBeInTheDocument();
-    expect(screen.getByText(/focus is active/)).toBeInTheDocument();
+    expect(screen.getByText(/Pick up real vault work/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'New Note' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Templates' }));
-    expect(onAdd).toHaveBeenCalledWith('note');
-    expect(onNavigate).toHaveBeenCalledWith('templates');
+    fireEvent.click(screen.getByRole('button', { name: /Resume last note/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Process Inbox/ }));
+    expect(onOpenEntry).toHaveBeenCalledWith('n-starred');
+    expect(onNavigate).toHaveBeenCalledWith('raw');
   });
 
   it('scrubs old fake command-center defaults from saved browser state', () => {
@@ -80,7 +83,8 @@ describe('WorkstationViews', () => {
     render(<CommandCenterView model={{ recentEntries: [] }} userName="Gavin" />);
 
     expect(screen.queryByText('Refine core principle statements')).not.toBeInTheDocument();
-    expect(screen.getByText('Create real tasks or review notes to define this session.')).toBeInTheDocument();
+    expect(screen.getByText('Home Queue')).toBeInTheDocument();
+    expect(screen.getByText('Resume last note')).toBeInTheDocument();
     window.localStorage.removeItem('jf-command-center-mode-state');
   });
 
@@ -103,17 +107,16 @@ describe('WorkstationViews', () => {
       />,
     );
 
-    expect(screen.getAllByText('Backlinks').length).toBeGreaterThan(0);
+    expect(screen.getByText('Home Queue')).toBeInTheDocument();
+    expect(screen.getAllByText('JotFolio Command Center').length).toBeGreaterThan(0);
     expect(consoleError.mock.calls.some(call => String(call[0]).includes('same key'))).toBe(false);
 
     consoleError.mockRestore();
     window.localStorage.removeItem('jf-command-center-mode-state');
   });
 
-  it('opens the newly saved quick capture from Captured Today', async () => {
+  it('does not render the old duplicate quick-capture composer in Command Center', async () => {
     const onQuickCapture = vi.fn(async payload => ({ ...payload, id: 'capture-new' }));
-    const onOpenEntry = vi.fn();
-    const onNavigate = vi.fn();
 
     render(
       <CommandCenterView
@@ -121,24 +124,14 @@ describe('WorkstationViews', () => {
         focusMode="capture"
         userName="Gavin"
         onQuickCapture={onQuickCapture}
-        onOpenEntry={onOpenEntry}
-        onNavigate={onNavigate}
+        onOpenEntry={vi.fn()}
+        onNavigate={vi.fn()}
       />,
     );
 
-    fireEvent.change(screen.getByLabelText('Quick capture text'), { target: { value: 'Follow up with design notes' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Capture\s+⌘↵$/ }));
-
-    await waitFor(() => {
-      expect(onQuickCapture).toHaveBeenCalledWith(expect.objectContaining({
-        type: 'note',
-        title: 'Follow up with design notes',
-      }));
-    });
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Open Follow up with design notes' }));
-    expect(onOpenEntry).toHaveBeenCalledWith('capture-new');
-    expect(onNavigate).not.toHaveBeenCalledWith('raw');
+    expect(screen.queryByLabelText('Quick capture text')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Capture\s+⌘↵$/ })).not.toBeInTheDocument();
+    expect(onQuickCapture).not.toHaveBeenCalled();
   });
 
   it('renders project and task routes from derived rows', () => {
@@ -393,7 +386,6 @@ describe('WorkstationViews', () => {
   it('renders inbox triage controls for raw captures', () => {
     const onOpenEntry = vi.fn();
     const onUpdateEntry = vi.fn();
-    const onCompileRaw = vi.fn();
     const onBulkTrash = vi.fn();
     const captures = [
       {
@@ -426,14 +418,13 @@ describe('WorkstationViews', () => {
         entries={captures}
         onOpenEntry={onOpenEntry}
         onUpdateEntry={onUpdateEntry}
-        onCompileRaw={onCompileRaw}
         onBulkTrash={onBulkTrash}
         onAdd={vi.fn()}
       />,
     );
 
     expect(screen.getByText('Inbox')).toBeInTheDocument();
-    expect(screen.getByText('New captures and imports. Review, tag, route, or compile.')).toBeInTheDocument();
+    expect(screen.getByText('New captures and imports. Make them notes, tasks, links, archived items, or trash.')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /All 2/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Unreviewed 1/ })).toBeInTheDocument();
     expect(screen.getByText('Voice Note — Interview Jamie Park')).toBeInTheDocument();
@@ -442,6 +433,7 @@ describe('WorkstationViews', () => {
     expect(screen.getByRole('button', { name: 'Edit tags for Voice Note — Interview Jamie Park' })).toHaveTextContent('Tags');
     expect(screen.getByRole('button', { name: 'Make Note from Voice Note — Interview Jamie Park' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Make Task from Voice Note — Interview Jamie Park' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Compile Memory from Voice Note — Interview Jamie Park' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Archive Voice Note — Interview Jamie Park' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Move Voice Note — Interview Jamie Park to Trash' })).toBeInTheDocument();
 
@@ -452,9 +444,6 @@ describe('WorkstationViews', () => {
     fireEvent.change(screen.getByLabelText('Tags for Voice Note — Interview Jamie Park'), { target: { value: 'research, urgent' } });
     fireEvent.click(screen.getByText('Save tags'));
     expect(onUpdateEntry).toHaveBeenCalledWith('raw-voice', { tags: ['research', 'urgent'] });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Compile Memory from Voice Note — Interview Jamie Park' }));
-    expect(onCompileRaw).toHaveBeenCalledWith('raw-voice');
 
     fireEvent.click(screen.getByLabelText('Select Voice Note — Interview Jamie Park'));
     fireEvent.click(screen.getByText(/Bulk actions/));

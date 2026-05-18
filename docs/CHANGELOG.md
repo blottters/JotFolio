@@ -40,6 +40,7 @@ Bump rules:
 - The left sidebar now links to Spaces as a main page instead of listing every space under the navigation.
 - Search now owns its right detail rail instead of using the generic Today/tasks rail.
 - Top-bar Capture opens the full Capture / New Entry workflow.
+- Top-bar search now shows immediate vault results below the field with keyboard selection, Enter-to-open, and an Open full Search action instead of routing away on focus.
 - Projects now owns its project detail rail and no longer shows the generic Today/tasks dashboard rail.
 - Notes now opens directly into the editor workspace instead of the generic card/list library route.
 - Notes editor chrome now matches the approved reference more closely: tab and editor controls share one header row, Markdown toolbar groups use thin dividers/icons, and the duplicate note title above the editor was removed.
@@ -48,6 +49,18 @@ Bump rules:
 - Constellation Relationship Scan is now presented as Graph Health with real open/create actions for disconnected notes, missing wiki targets, and metadata gaps.
 - Capture / New Entry now starts blank instead of pre-filling a research title, example URL, default tags, and capture metadata into new entries.
 - Inbox row actions now use readable action labels instead of symbol-only buttons for triage and conversion.
+- Blank-vault onboarding now starts with four concrete actions: Create first note, Capture raw thought, Create project, and Load sample vault, instead of import/theme/graph setup choices.
+- Vite dev-server opens now blank the browser fallback vault by default; demo, smoke, stress, and test data only load when the URL explicitly opts in.
+- Command Center greeting now uses the browser's local time zone, showing morning, afternoon, or evening instead of always saying `Good morning`.
+- Top-bar Capture is now route-aware: Inbox opens Raw, Calendar opens Journal, Tasks opens Task, Projects carries the selected project, and Spaces carries the selected space.
+- Capture / New Entry now shows visible project or space context in the modal header before saving.
+- Capture / New Entry now exposes Journal date as a real field, uses it for the journal title/path fallback, and saves it as the entry date.
+- Capture / New Entry now normalizes source URLs for duplicate detection, shows the source domain/normalized URL inline, and can fill blank Article/Link titles from the URL slug.
+- New Journal captures now close Capture and route directly into Calendar after saving.
+- Duplicate Article/Link source warnings now offer `Open existing` when the matching entry can be identified.
+- Entry detail and memory detail panels now close on outside click while preserving the existing unsaved-edit discard guard.
+- Entry detail panels now use the workstation right-rail width and shell frame offsets, closing the visible gap and aligning the left divider with the rest of the app.
+- Workstation shell now adapts at narrow widths: the secondary context rail hides before it crushes the page, Home Queue cards switch from four cramped columns to readable two/one-column layouts, and the top bar/sidebar compress to preserve legibility.
 
 ### Fixed
 - Desktop vault moves now reject existing destination paths instead of allowing overwrite-by-rename behavior.
@@ -62,6 +75,7 @@ Bump rules:
 - Testing builds now override package metadata name to avoid reusing the production app data identity.
 - Electron external-link handling now allows only `https://` and `mailto:` targets, and the Help menu issue link points at the real GitHub repo.
 - First-run blank vaults now open the welcome workflow instead of dropping users into an empty workstation dashboard.
+- Welcome no longer exposes Readwise import, theme picking, or Constellation as first-run blank-vault actions before the user has any entries.
 - Capture / New Entry now honors Escape while a text field is focused, so the modal close/discard flow works from the title field and other editable fields.
 - New Project and New Task entry points now create `project` and `task` entries instead of falling back to `note`.
 - Save to Project is disabled unless a real project context exists, preventing project-less saves from stamping fake project metadata.
@@ -71,12 +85,22 @@ Bump rules:
 - Inbox raw captures can now be attached to a real existing Project through an in-app picker, writing `project` metadata and preserving that project link when the capture is later converted into a Note, Task, or Link.
 - The `⌘K` / `Ctrl+K` shortcut now opens Search / Quick Switcher globally, matching the top search field and sidebar hint instead of doing nothing from the main shell.
 - Entry detail Rename file and Move folder actions now use app-owned dialogs instead of browser `prompt()` calls while preserving the same vault move path.
+- MiniLM semantic indexing now stays off unless `semanticEdges` is explicitly enabled, matching the opt-in feature flag contract and preventing default-load ONNX asset requests.
+- A one-time alpha.26 prefs migration resets stale saved `semanticEdges: true` values from earlier local builds so MiniLM does not start without a real opt-in path.
 - Constellation info help no longer opens as an overlapping floating popover; it now renders inline below the toolbar.
 - Command Center and Tasks no longer emit duplicate React key warnings when different rows or metadata chips share the same visible title.
 - Notes Properties no longer shows empty duplicate metadata rows that push File and Actions out of view.
 - Notes Markdown toolbar link and image actions no longer insert fake `example.com` or `image-url` placeholders; they create blank Markdown destinations for the user to fill.
 - Graph Health review decisions now persist across reloads, so accepted/rejected/ignored relationship issues stay remembered until cleared.
 - Memory detail panels now have an explicit Close button and Escape-key exit path instead of trapping users in the selected-memory view.
+- Command Center now opens as a real Home Queue with Resume last note, Process Inbox, Open active project, and Continue today's task actions instead of focus-mode panels, session-goal filler, weekly reflection UI, or a second quick-capture composer.
+- Inbox triage no longer shows Compile as a row-level primary action; raw captures now focus on Make Note, Make Task, Make Link, Archive, and Trash, while compile remains behind the selected raw entry detail.
+
+### Removed
+- Removed the unfinished AI Setup main navigation item; legacy AI route rendering now falls through to Settings → AI Keys instead of presenting a fake assistant page.
+- Removed the top-bar Notifications bell until JotFolio has a real notification source and panel.
+- Removed Podcast and Video from the Capture / New Entry type picker while preserving existing podcast/video entry compatibility in parsers, imports, search, and demo vaults.
+- Removed the Attachment content tab from Capture / New Entry until attachment management has a visible open/reveal/remove surface.
 
 ## [0.5.0-alpha.25] — 2026-05-07
 
@@ -251,4 +275,3 @@ Below the export button, a short paragraph: *"Want continuous sync across device
 
 ### Security
 - Started the post-alpha.13 dependency-alert remediation line for production runtime dependencies.
-

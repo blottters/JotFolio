@@ -496,6 +496,8 @@ const captureFilterOptions = [
   ['screenshots', 'Screenshots', '□'],
 ];
 
+const ACTIVE_PROJECT_STATUSES = new Set(['active', 'open', 'in-progress', 'planning', 'current']);
+
 function formatCommandCenterDate(date) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 }
@@ -635,6 +637,24 @@ function readCommandCenterState() {
   }
 }
 
+export function getLocalGreeting(date = new Date(), timeZone) {
+  let hour = date.getHours();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hourCycle: 'h23',
+      timeZone,
+    }).formatToParts(date);
+    const hourPart = parts.find(part => part.type === 'hour');
+    if (hourPart) hour = Number(hourPart.value);
+  } catch {
+    hour = date.getHours();
+  }
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 function useCommandCenterModeState() {
   const [state, setState] = useState(readCommandCenterState);
   useEffect(() => {
@@ -654,17 +674,9 @@ function useCommandCenterModeState() {
   return [state, updateMode];
 }
 
-export function CommandCenterView({ model = {}, userName = 'Gavin', focusMode = 'deep-work', onFocusModeChange, onNavigate, onAdd, onQuickCapture, onOpenEntry }) {
-  const [localFocusMode, setLocalFocusMode] = useState(focusMode);
-  const modeKey = resolveFocusMode(onFocusModeChange ? focusMode : localFocusMode);
-  const mode = focusModes[modeKey];
-  const intro = focusIntroParts(modeKey, mode);
-  const [modeState, updateModeState] = useCommandCenterModeState();
-  const handleFocusModeChange = value => {
-    setLocalFocusMode(value);
-    onFocusModeChange?.(value);
-  };
+export function CommandCenterView({ model = {}, userName = 'Gavin', onNavigate, onAdd, onOpenEntry }) {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const greeting = getLocalGreeting();
   const shiftDate = days => {
     setSelectedDate(current => {
       const next = new Date(current);
@@ -674,40 +686,121 @@ export function CommandCenterView({ model = {}, userName = 'Gavin', focusMode = 
   };
 
   return (
-    <div style={{ ...pageStyle, padding: '30px 32px 36px', background: 'var(--bg)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 26, paddingBottom: 22, borderBottom: '1px solid var(--br)' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, lineHeight: 1.14, fontWeight: 760, letterSpacing: 0, color: 'var(--tx)' }}>
-            Good morning, {userName}
+    <div className="jf-command-center" style={{ ...pageStyle, padding: '30px 32px 36px', background: 'var(--bg)' }}>
+      <div className="jf-command-center-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 26, paddingBottom: 22, borderBottom: '1px solid var(--br)' }}>
+        <div className="jf-command-center-intro">
+          <h1 className="jf-command-center-title" style={{ margin: 0, fontSize: 26, lineHeight: 1.14, fontWeight: 760, letterSpacing: 0, color: 'var(--tx)' }}>
+            {greeting}, {userName}
           </h1>
           <div style={{ marginTop: 9, fontSize: 14, fontWeight: 400, color: 'var(--t2)' }}>
-            <strong style={{ color: mode.accent, fontWeight: 800 }}>{intro.lead}</strong> {intro.rest}
+            Pick up real vault work from one place.
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, color: 'var(--t2)', fontSize: 13 }}>
+        <div className="jf-command-center-date" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, color: 'var(--t2)', fontSize: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button type="button" aria-label="Previous day" onClick={() => shiftDate(-1)} style={dateStepButtonStyle()}>‹</button>
             <span style={{ minWidth: 112, textAlign: 'center', color: 'var(--tx)' }}>{formatCommandCenterDate(selectedDate)}</span>
             <button type="button" aria-label="Next day" onClick={() => shiftDate(1)} style={dateStepButtonStyle()}>›</button>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 99, background: mode.dot, boxShadow: `0 0 0 3px ${mode.dot}22` }} />
-            <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Focus mode</span>
-            <select aria-label="Focus mode" value={modeKey} onChange={event => handleFocusModeChange(event.target.value)} style={{ height: 30, border: '1px solid var(--br)', borderRadius: 'var(--rd)', background: 'var(--b1)', color: 'var(--t2)', fontFamily: 'var(--fn)', fontSize: 12, padding: '0 8px', outline: 'none' }}>
-              <option value="deep-work">Focus: Deep Work</option>
-              <option value="planning">Focus: Planning</option>
-              <option value="capture">Focus: Capture</option>
-              <option value="review">Focus: Review</option>
-            </select>
-          </label>
         </div>
       </div>
 
-      {modeKey === 'planning' && <PlanningCommandCenter accent={mode.accent} state={modeState.planning} model={model} onStateChange={updater => updateModeState('planning', updater)} onModeChange={handleFocusModeChange} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />}
-      {modeKey === 'capture' && <CaptureCommandCenter accent={mode.accent} state={modeState.capture} recentCaptures={model.recentCaptures || []} onStateChange={updater => updateModeState('capture', updater)} onNavigate={onNavigate} onAdd={onAdd} onQuickCapture={onQuickCapture} onOpenEntry={onOpenEntry} />}
-      {modeKey === 'review' && <ReviewCommandCenter accent={mode.accent} state={modeState.review} model={model} onStateChange={updater => updateModeState('review', updater)} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />}
-      {modeKey === 'deep-work' && <DeepWorkCommandCenter accent={mode.accent} state={modeState.deepWork} model={model} onStateChange={updater => updateModeState('deepWork', updater)} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />}
+      <CommandCenterHomeQueue model={model} onNavigate={onNavigate} onAdd={onAdd} onOpenEntry={onOpenEntry} />
     </div>
+  );
+}
+
+function CommandCenterHomeQueue({ model = {}, onNavigate, onAdd, onOpenEntry }) {
+  const recentEntries = Array.isArray(model.recentEntries) ? model.recentEntries : [];
+  const recentCaptures = Array.isArray(model.recentCaptures) ? model.recentCaptures : [];
+  const projectRows = Array.isArray(model.projectRows) ? model.projectRows : [];
+  const taskEntries = [
+    ...(Array.isArray(model.overdueTasks) ? model.overdueTasks : []),
+    ...(Array.isArray(model.tasksDueToday) ? model.tasksDueToday : []),
+    ...(Array.isArray(model.nextTasks) ? model.nextTasks : []),
+  ].filter(Boolean);
+  const resumeNote = recentEntries.find(entry => entry.type === 'note') || recentEntries[0] || null;
+  const activeProjectRow = projectRows.find(row => ACTIVE_PROJECT_STATUSES.has(String(row.entry?.status || 'active').toLowerCase())) || projectRows[0] || null;
+  const activeProject = activeProjectRow?.entry || null;
+  const nextTask = taskEntries.find(entry => entry.type === 'task') || null;
+  const metrics = model.metrics || {};
+
+  const queue = [
+    {
+      title: 'Resume last note',
+      detail: resumeNote ? `${resumeNote.title || 'Untitled'}${resumeNote._path ? ` · ${resumeNote._path}` : ''}` : 'No note yet',
+      meta: resumeNote ? formatRelativeTime(resumeNote.modified || resumeNote.date || resumeNote.entry_date) : 'Create one',
+      action: resumeNote ? 'Open note' : 'Create note',
+      color: '#5aa7ff',
+      onClick: () => resumeNote?.id ? onOpenEntry?.(resumeNote.id) : onAdd?.({ type: 'note' }),
+    },
+    {
+      title: 'Process Inbox',
+      detail: recentCaptures.length ? `${recentCaptures.length} raw capture${recentCaptures.length === 1 ? '' : 's'} waiting` : 'Inbox is clear',
+      meta: metrics.inbox ? `${metrics.inbox} total` : '',
+      action: recentCaptures.length ? 'Open Inbox' : 'Capture raw thought',
+      color: '#c084fc',
+      onClick: () => recentCaptures.length ? onNavigate?.('raw') : onAdd?.({ type: 'raw' }),
+    },
+    {
+      title: 'Open active project',
+      detail: activeProject ? activeProject.title || 'Untitled project' : 'No active project yet',
+      meta: activeProjectRow ? `${activeProjectRow.openTaskCount || 0} open task${activeProjectRow.openTaskCount === 1 ? '' : 's'}` : 'Create one',
+      action: activeProject ? 'Open project' : 'Create project',
+      color: '#7ddc9e',
+      onClick: () => activeProject?.id ? onOpenEntry?.(activeProject.id) : onAdd?.({ type: 'project' }),
+    },
+    {
+      title: "Continue today's task",
+      detail: nextTask ? nextTask.title || 'Untitled task' : 'No due task queued',
+      meta: nextTask?.due ? `Due ${nextTask.due}` : nextTask?.priority || '',
+      action: nextTask ? 'Open task' : 'Create task',
+      color: '#ffb86b',
+      onClick: () => nextTask?.id ? onOpenEntry?.(nextTask.id) : onAdd?.({ type: 'task' }),
+    },
+  ];
+
+  return (
+    <>
+      <SectionHeader title="Home Queue" />
+      <div className="jf-home-queue-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 14, marginBottom: 22 }}>
+        {queue.map(item => <HomeQueueCard key={item.title} item={item} />)}
+      </div>
+      <SectionHeader title="Recent Work" action={<TextActionButton onClick={() => onNavigate?.('search')}>Open Search</TextActionButton>} />
+      {recentEntries.length === 0 ? (
+        <div style={{ marginTop: 12, padding: '16px', border: '1px dashed var(--br)', borderRadius: 'var(--rd)', color: 'var(--t3)', fontSize: 13 }}>
+          Create a note, project, task, or link to start filling this workspace.
+        </div>
+      ) : (
+        <div className="jf-recent-work-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10, marginTop: 12 }}>
+          {recentEntries.slice(0, 6).map(entry => (
+            <button key={entry.id} type="button" onClick={() => onOpenEntry?.(entry.id)} style={{ ...cardStyle, textAlign: 'left', cursor: 'pointer', color: 'var(--tx)', fontFamily: 'var(--fn)' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <span aria-hidden="true" style={{ color: 'var(--t3)' }}>{ICON[entry.type] || '▤'}</span>
+                <span style={{ minWidth: 0 }}>
+                  <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title || 'Untitled'}</strong>
+                  <span style={{ display: 'block', marginTop: 4, color: 'var(--t3)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry._path || entry.type || 'entry'}</span>
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function HomeQueueCard({ item }) {
+  return (
+    <button className="jf-home-queue-card" type="button" onClick={item.onClick} style={{ ...cardStyle, minHeight: 138, textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--fn)', color: 'var(--tx)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: 99, background: `${item.color}1f`, color: item.color, display: 'grid', placeItems: 'center', boxShadow: `0 0 0 1px ${item.color}33 inset` }}>→</span>
+      <span className="jf-home-queue-title" style={{ display: 'block', fontSize: 14, fontWeight: 800 }}>{item.title}</span>
+      <span style={{ display: 'block', minHeight: 34, color: 'var(--t2)', fontSize: 12, lineHeight: 1.45, overflow: 'hidden' }}>{item.detail}</span>
+      <span className="jf-home-queue-action-row" style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ color: 'var(--t3)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.meta}</span>
+        <span style={{ color: item.color, fontSize: 12, fontWeight: 800 }}>{item.action}</span>
+      </span>
+    </button>
   );
 }
 
@@ -2312,7 +2405,7 @@ function inboxProjectTitle(entry, projects) {
   return project?.title || ref;
 }
 
-export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileRaw, onBulkTrash, onAdd }) {
+export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onBulkTrash, onAdd }) {
   const [tab, setTab] = useState('all');
   const [sortMode, setSortMode] = useState('newest');
   const [showFilters, setShowFilters] = useState(false);
@@ -2430,7 +2523,7 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
         <div>
           <h1 style={{ ...titleStyle, fontSize: 24, fontWeight: 760, marginBottom: 7 }}>Inbox</h1>
-          <div style={{ ...subStyle, fontSize: 13 }}>New captures and imports. Review, tag, route, or compile.</div>
+          <div style={{ ...subStyle, fontSize: 13 }}>New captures and imports. Make them notes, tasks, links, archived items, or trash.</div>
         </div>
         <SmallButton onClick={() => onAdd?.('raw')}>New Capture</SmallButton>
       </div>
@@ -2519,7 +2612,7 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
           <div style={{ padding: 26 }}>
             <EmptyStateCard
               title={captures.length ? 'No captures match this view' : 'Inbox is clear'}
-              detail={captures.length ? 'Change the tab, sort, or tag filter to bring captures back into view.' : 'New captures land here first so you can review, tag, route, or compile them before they become durable notes or memory.'}
+              detail={captures.length ? 'Change the tab, sort, or tag filter to bring captures back into view.' : 'New captures land here first so you can review, tag, and route them before they become durable work.'}
               action={<SmallButton onClick={() => onAdd?.('raw')}>New Capture</SmallButton>}
             />
           </div>
@@ -2536,7 +2629,6 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
             onMakeNote={() => makeNote(entry)}
             onMakeTask={() => makeTask(entry)}
             onMakeLink={() => makeLink(entry)}
-            onCompile={() => onCompileRaw?.(entry.id)}
             onArchive={() => archiveCapture(entry)}
             onTrash={() => onBulkTrash?.([entry.id])}
             editingTags={tagEditorId === entry.id}
@@ -2561,7 +2653,7 @@ export function InboxView({ entries = [], onOpenEntry, onUpdateEntry, onCompileR
   );
 }
 
-function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, onAttachProject, onMakeNote, onMakeTask, onMakeLink, onCompile, onArchive, onTrash, editingTags, tagDraft, onTagDraft, onSaveTags, onCancelTags, projectTitle }) {
+function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, onAttachProject, onMakeNote, onMakeTask, onMakeLink, onArchive, onTrash, editingTags, tagDraft, onTagDraft, onSaveTags, onCancelTags, projectTitle }) {
   const source = captureSource(entry);
   const icon = captureIcon(entry);
   const linkUrl = captureUrl(entry);
@@ -2605,7 +2697,6 @@ function InboxCaptureRow({ entry, selected, onSelected, onOpen, onFlag, onTag, o
           <button type="button" onClick={onMakeNote} aria-label={`Make Note from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false, 'primary')}>Make Note</button>
           <button type="button" onClick={onMakeTask} aria-label={`Make Task from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Make Task</button>
           <button type="button" onClick={onMakeLink} disabled={!linkUrl} aria-label={`Make Link from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false, 'default', !linkUrl)}>Make Link</button>
-          <button type="button" onClick={onCompile} aria-label={`Compile Memory from ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Compile</button>
           <button type="button" onClick={onArchive} aria-label={`Archive ${entry.title || 'capture'}`} style={inboxActionButtonStyle(false)}>Archive</button>
           <button type="button" onClick={onTrash} aria-label={`Move ${entry.title || 'capture'} to Trash`} style={inboxActionButtonStyle(false, 'danger')}>Trash</button>
         </span>
@@ -3219,7 +3310,7 @@ function ProjectDetailRail({ row, canvases, tab, open = true, onTab, onClose, on
   );
 }
 
-export function ProjectsView({ rows = [], canvases = [], onOpenEntry, onAdd, onNavigate, onNewCanvas, onCreateSmartView, onRevealEntry, onUpdateEntry }) {
+export function ProjectsView({ rows = [], canvases = [], onOpenEntry, onAdd, onNavigate, onNewCanvas, onCreateSmartView, onRevealEntry, onUpdateEntry, onActiveProjectChange }) {
   const [tab, setTab] = useState('all');
   const [sort, setSort] = useState('name-asc');
   const [layout, setLayout] = useState('grid');
@@ -3257,6 +3348,9 @@ export function ProjectsView({ rows = [], canvases = [], onOpenEntry, onAdd, onN
   }, [selectedId, visibleRows]);
 
   const selectedRow = visibleRows.find(row => row.entry.id === selectedId) || visibleRows[0] || projectRows[0] || null;
+  useEffect(() => {
+    onActiveProjectChange?.(selectedRow ? projectContext(selectedRow) : null);
+  }, [onActiveProjectChange, selectedRow?.entry?.id, selectedRow?.entry?.title, selectedRow?.path]);
   const selectProject = id => {
     setSelectedId(id);
     setRailTab('Overview');
@@ -4015,7 +4109,7 @@ function calendarActionStyle() {
   };
 }
 
-export function SpacesView({ spaces = [], onSelectSpace, onOpenEntry, onAdd, onNavigate, onUpdateEntry }) {
+export function SpacesView({ spaces = [], onSelectSpace, onOpenEntry, onAdd, onNavigate, onUpdateEntry, onActiveSpaceChange }) {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [sortMode, setSortMode] = useState('activity');
@@ -4046,6 +4140,9 @@ export function SpacesView({ spaces = [], onSelectSpace, onOpenEntry, onAdd, onN
   }, [selectedId, visibleSpaces]);
 
   const selectedSpace = visibleSpaces.find(space => space.id === selectedId) || visibleSpaces[0] || null;
+  useEffect(() => {
+    onActiveSpaceChange?.(selectedSpace?.name || '');
+  }, [onActiveSpaceChange, selectedSpace?.name]);
   const selectedColor = selectedSpace ? (colorBySpace[selectedSpace.id] || selectedSpace.color) : '#4d8dff';
   const selectedEntries = selectedSpace?.entries || [];
   const selectedProjects = selectedEntries.filter(entry => entry.type === 'project');
@@ -4499,7 +4596,7 @@ export function WorkspaceContextRail({ selectedEntry, entries = [], model = {}, 
   };
 
   return (
-    <aside style={{
+    <aside className="mgn-context-rail" style={{
       width: 392,
       flexShrink: 0,
       borderLeft: '1px solid var(--br)',

@@ -275,3 +275,92 @@ body {
   margin: 0;
   border-radius: 0;
 }
+
+@media (max-width: 1240px) {
+  .mgn-context-rail {
+    display: none !important;
+  }
+
+  .jf-command-center {
+    padding: 26px 28px 32px !important;
+  }
+
+  .jf-home-queue-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .mgn-topbar {
+    gap: 10px !important;
+    padding: 0 16px !important;
+  }
+
+  .mgn-topbar-brand {
+    min-width: 84px !important;
+  }
+
+  .mgn-topbar-search {
+    flex: 1 1 220px !important;
+    width: auto !important;
+    min-width: 220px !important;
+  }
+
+  .mgn-topbar-actions {
+    gap: 8px !important;
+  }
+
+  .mgn-topbar-capture {
+    padding: 0 10px !important;
+  }
+
+  .jf-command-center-header {
+    align-items: flex-start !important;
+  }
+
+  .jf-command-center-title {
+    font-size: 24px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .mgn-sb {
+    width: 58px !important;
+  }
+
+  .mgn-topbar-window-controls,
+  .mgn-topbar-brand,
+  .mgn-topbar-nav {
+    display: none !important;
+  }
+
+  .mgn-topbar-search {
+    min-width: 0 !important;
+  }
+
+  .jf-command-center {
+    padding: 22px 20px 28px !important;
+  }
+
+  .jf-command-center-header {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .jf-command-center-date {
+    align-items: flex-start !important;
+  }
+
+  .jf-home-queue-grid,
+  .jf-recent-work-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .jf-home-queue-card {
+    min-height: 0 !important;
+  }
+
+  .jf-home-queue-action-row {
+    flex-wrap: wrap !important;
+  }
+}

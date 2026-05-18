@@ -24,7 +24,6 @@ export function Sidebar({open,width,onToggle,section,setSection,counts,allTags,t
         <NavItem icon="⌘" label="Constellation" active={section==='graph'} open={open} onClick={()=>setSection('graph')}/>
         <NavItem icon="☑" label="Tasks" active={section==='tasks'} open={open} onClick={()=>setSection('tasks')}/>
         <NavItem icon="▣" label="Spaces" active={section==='spaces'||section?.startsWith?.('space:')} open={open} onClick={()=>setSection('spaces')}/>
-        <NavItem icon="✧" label="AI Setup" active={section==='ai'} open={open} onClick={()=>setSection('ai')}/>
 
         {open?<SectionDivider/>:<div style={{height:1,background:'var(--br)',margin:'12px 6px 8px'}}/>}
         {open&&<>

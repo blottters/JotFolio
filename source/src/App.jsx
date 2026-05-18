@@ -72,6 +72,79 @@ const SettingsPanel = lazy(() => import('./features/settings/SettingsPanel.jsx')
 const SplitMemoryModal = lazy(() => import('./features/constellation/SplitMemoryModal.jsx').then(mod => ({ default: mod.SplitMemoryModal })));
 const FOCUS_MODE_KEY = 'jf-command-center-focus-mode';
 
+function topSearchEntrySubtitle(entry = {}) {
+  return entry._path || [entry.type, entry.status, entry.project].filter(Boolean).join(' / ') || 'Entry';
+}
+
+function topSearchItems(results = {}) {
+  const entryItem = (entry, group = 'entry') => ({
+    id: `${group}:${entry.id}`,
+    kind: 'entry',
+    source: entry,
+    title: entry.title || 'Untitled',
+    subtitle: topSearchEntrySubtitle(entry),
+    typeLabel: entry.type || 'entry',
+    icon: ICON[entry.type] || '▣',
+    color: entry.type === 'project' ? '#7ddc9e' : entry.type === 'task' ? '#ffb86b' : '#5aa7ff',
+  });
+  return [
+    ...(results.entries || []).map(entry => entryItem(entry, 'entry')),
+    ...(results.projects || []).map(entry => entryItem(entry, 'project')),
+    ...(results.tasks || []).map(entry => entryItem(entry, 'task')),
+    ...(results.memories || []).map(entry => entryItem(entry, 'memory')),
+    ...(results.tags || []).map(tag => ({
+      id: `tag:${tag.id || tag.name}`,
+      kind: 'tag',
+      source: tag,
+      title: `#${tag.name}`,
+      subtitle: `${tag.count || 0} entr${tag.count === 1 ? 'y' : 'ies'}`,
+      typeLabel: 'tag',
+      icon: '#',
+      color: '#dbeafe',
+    })),
+    ...(results.spaces || []).map(space => ({
+      id: `space:${space.id || space.name}`,
+      kind: 'space',
+      source: space,
+      title: space.name || space.id || 'Untitled Space',
+      subtitle: `${space.count || space.entries?.length || 0} entr${(space.count || space.entries?.length || 0) === 1 ? 'y' : 'ies'}`,
+      typeLabel: 'space',
+      icon: '▧',
+      color: '#c084fc',
+    })),
+    ...(results.smartViews || []).map(base => ({
+      id: `base:${base.id}`,
+      kind: 'smartView',
+      source: base,
+      title: base.name || 'Untitled Smart View',
+      subtitle: base.description || base.path || 'Saved filtered list',
+      typeLabel: 'smart view',
+      icon: '⌕',
+      color: '#93c5fd',
+    })),
+    ...(results.canvases || []).map(canvas => ({
+      id: `canvas:${canvas.id}`,
+      kind: 'canvas',
+      source: canvas,
+      title: canvas.name || 'Untitled Canvas',
+      subtitle: canvas.path || 'Canvas',
+      typeLabel: 'canvas',
+      icon: '◇',
+      color: '#fbbf24',
+    })),
+    ...(results.templates || []).map(template => ({
+      id: `template:${template.id || template.name}`,
+      kind: 'template',
+      source: template,
+      title: template.name || 'Untitled Template',
+      subtitle: template.path || template.description || 'Template',
+      typeLabel: 'template',
+      icon: '◇',
+      color: '#a3adb9',
+    })),
+  ].slice(0, 8);
+}
+
 function LazyOverlay({ children, label = 'Loading...' }) {
   return (
     <Suspense fallback={
@@ -239,6 +312,8 @@ export default function App(){
   const[addInitialFolder,setAddInitialFolder]=useState('');
   const[addInitialSpace,setAddInitialSpace]=useState('');
   const[addInitialTitle,setAddInitialTitle]=useState('');
+  const[activeProjectCaptureContext,setActiveProjectCaptureContext]=useState(null);
+  const[activeSpaceCaptureContext,setActiveSpaceCaptureContext]=useState('');
   const closeAddModal=useCallback(()=>{
     setShowAddModal(false);
     setAddProjectContext(null);
@@ -631,6 +706,12 @@ export default function App(){
         if(sp.prefs.featureFlagsResetAlpha18!==true){
           p={...p,featureFlags:{...p.featureFlags,raw_inbox:true,wiki_mode:true,review_queue:true},featureFlagsResetAlpha18:true};
         }
+        // alpha.26 migration: semantic edges were accidentally able to persist
+        // from earlier local builds without a real user-facing opt-in. Reset
+        // stale true values once so MiniLM does not load on default app start.
+        if(sp.prefs.featureFlagsResetSemanticEdgesAlpha26!==true){
+          p={...p,featureFlags:{...p.featureFlags,semanticEdges:false},featureFlagsResetSemanticEdgesAlpha26:true};
+        }
         setPrefs(p);setView(p.defaultView);setSort(p.defaultSort);
       }
       setPrefsLoaded(true);
@@ -879,7 +960,7 @@ export default function App(){
   // Background build runs once on vault load. Cache lives at
   // <vault>/.jotfolio/semantic-cache.json so relaunches don't re-embed
   // unchanged entries. Per-entry re-embed fires after save (further down).
-  const semantic=useSemanticIndex(visibleEntries,vaultAdapter,{enabled:!vaultLoading&&prefs.featureFlags?.semanticEdges!==false});
+  const semantic=useSemanticIndex(visibleEntries,vaultAdapter,{enabled:!vaultLoading&&prefs.featureFlags?.semanticEdges===true});
 
   // Embed an arbitrary text snippet and return the top-K most-similar entries
   // from the existing semantic index. Used by AddModal "Suggest tags" — runs
@@ -911,6 +992,21 @@ export default function App(){
       return next;
     }catch(err){reportError(err,'Entry save failed');return null}
   },[entries.length,saveEntryWithRules,toast,reportError]);
+
+  const handleCaptureAdd=useCallback(async(entry)=>{
+    const saved=await addEntry(entry);
+    closeAddModal();
+    if(saved?.type==='journal'){
+      setSection('calendar');
+      setDetailId(saved.id);
+    }
+  },[addEntry,closeAddModal]);
+
+  const handleOpenExistingSource=useCallback((entry)=>{
+    if(!entry?.id)return;
+    closeAddModal();
+    setDetailId(entry.id);
+  },[closeAddModal]);
 
   // Phase 7 helpers: callbacks the command palette + plugins consume
   // through appCtx. Defined here so they close over the freshest state.
@@ -1211,6 +1307,33 @@ export default function App(){
     spaces,
     query:deferredQuery,
   }),[visibleEntries,bases,canvases,templates,tagRows,spaces,deferredQuery]);
+  const topSearchResults=useMemo(()=>topSearchItems(searchResults),[searchResults]);
+  const sectionSpaceContext=useMemo(()=>{
+    if(section.startsWith('space:')){
+      const id=section.slice(6);
+      const match=spaces.find(space => {
+        const candidates = [space.id, space.name].filter(Boolean).map(value => String(value).toLowerCase());
+        return candidates.includes(String(id).toLowerCase());
+      });
+      return match?.name || id;
+    }
+    if(section==='spaces')return activeSpaceCaptureContext;
+    return '';
+  },[activeSpaceCaptureContext,section,spaces]);
+  const topBarCaptureOptions=useMemo(()=>{
+    if(section==='raw')return{type:'raw'};
+    if(section==='calendar')return{type:'journal'};
+    if(section==='tasks')return{type:'task'};
+    if(section==='projects'){
+      return activeProjectCaptureContext
+        ? {type:'note',folder:'Projects',projectContext:activeProjectCaptureContext}
+        : {type:'project'};
+    }
+    if(section==='spaces'||section.startsWith('space:')){
+      return sectionSpaceContext ? {type:'note',initialSpace:sectionSpaceContext} : {type:'note'};
+    }
+    return{type:'note'};
+  },[activeProjectCaptureContext,section,sectionSpaceContext]);
   const handleWorkstationNavigate=useCallback((next)=>{
     if(!next)return;
     if(next==='inbox'){
@@ -1224,6 +1347,44 @@ export default function App(){
     }
     handleSection(next);
   },[handleSection]);
+  const handleTopSearchResult=useCallback(result=>{
+    if(!result)return;
+    if(result.kind==='entry'){
+      const entry=result.source;
+      if(entry?.type==='project')handleSection('projects');
+      else if(entry?.type==='task')handleSection('tasks');
+      else if(entry?.type==='raw')handleSection('raw');
+      else if(['note','journal','article','link','wiki','review'].includes(entry?.type))handleSection('note');
+      else handleSection('all');
+      if(entry?.id)setDetailId(entry.id);
+      return;
+    }
+    if(result.kind==='tag'){
+      const tag=result.source?.name || result.source?.id;
+      if(tag){
+        setFilterTag(tag);
+        handleSection('all');
+      }
+      return;
+    }
+    if(result.kind==='space'){
+      const id=result.source?.id || result.source?.name;
+      if(id)handleSection(`space:${id}`);
+      return;
+    }
+    if(result.kind==='smartView'&&result.source?.id){
+      handleSection(`base:${result.source.id}`);
+      return;
+    }
+    if(result.kind==='canvas'&&result.source?.id){
+      handleSection(`canvas:${result.source.id}`);
+      return;
+    }
+    if(result.kind==='template'){
+      setSelectedTemplateId(result.source?.id || result.source?.path || null);
+      handleSection('templates');
+    }
+  },[handleSection,setFilterTag,setSelectedTemplateId]);
   const openInConstellation=useCallback(entry=>{
     const id=typeof entry==='string'?entry:entry?.id;
     handleSection('graph');
@@ -1422,11 +1583,12 @@ export default function App(){
       <WorkspaceTopBar
         query={query}
         setQuery={setQuery}
-        onCapture={()=>openAdd({type:'note'})}
+        searchResults={topSearchResults}
+        onOpenSearchResult={handleTopSearchResult}
+        onCapture={()=>openAdd(topBarCaptureOptions)}
         onQuickSwitcher={openQuickSwitcher}
         onCommandPalette={()=>setPaletteOpen(o=>!o)}
         onSearchActivate={()=>handleSection('search')}
-        onNotifications={()=>handleSection('raw')}
         onSettings={()=>openSettingsTab('appearance')}
         onBack={goBackSection}
         onForward={goForwardSection}
@@ -1434,7 +1596,7 @@ export default function App(){
         canGoForward={navForwardStack.length>0}
         userName={prefs.userName || 'Gavin'}/>
 
-      <div style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>
+      <div className="mgn-workspace-body" style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>
         <Sidebar open={sidebarOpen} width={sidebarOpen?Math.max(prefs.sidebarWidth,260):58} onToggle={()=>setSidebarOpen(o=>!o)}
           section={section} setSection={handleSection} counts={counts}
           allTags={allTags} tagCounts={tagCounts} filterTag={filterTag} setFilterTag={setFilterTag}
@@ -1464,9 +1626,9 @@ export default function App(){
           entries={entries}
           onUpdateEntry={updateEntry}/>
 
-        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
-          <div style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>
-          <div style={{flex:1,minWidth:0,minHeight:0,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+        <div className="mgn-workspace-main" style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}}>
+          <div className="mgn-workspace-content" style={{flex:1,minHeight:0,display:'flex',overflow:'hidden'}}>
+          <div className="mgn-workspace-route" style={{flex:1,minWidth:0,minHeight:0,display:'flex',flexDirection:'column',overflow:'hidden'}}>
             <AppRouteContent
               section={section}
               currentCanvasId={currentCanvasId}
@@ -1503,9 +1665,11 @@ export default function App(){
               onRevealEntry={revealEntryFile}
               onOpenInConstellation={openInConstellation}
               projectRows={projectRows}
+              onActiveProjectCaptureChange={setActiveProjectCaptureContext}
               taskRows={taskRows}
               calendarDays={calendarDays}
               spaces={spaces}
+              onActiveSpaceCaptureChange={setActiveSpaceCaptureContext}
               setSection={handleSection}
               openSettingsTab={openSettingsTab}
               setFilterTag={setFilterTag}
@@ -1614,15 +1778,13 @@ export default function App(){
         onClose={()=>setEntryFileDialog(null)}/>}
       {showAddModal&&(
         <LazyOverlay label="Loading capture...">
-          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} initialSpace={addInitialSpace} initialTitle={addInitialTitle} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={e=>{addEntry(e);closeAddModal()}} flags={prefs.featureFlags} entries={visibleEntries} suggestTagsFromText={semantic?.ready?suggestSimilarFromText:undefined}/>
+          <AddModal initialType={addInitialType} quickCapture={addQuickCapture} existingUrls={existingUrls} allTags={allTags} initialFolder={addInitialFolder} initialSpace={addInitialSpace} initialTitle={addInitialTitle} projectContext={addProjectContext} onImportFile={handleImportAttachment} onCreateCanvas={handleNewCanvas} onClose={closeAddModal} onAdd={handleCaptureAdd} onOpenExistingSource={handleOpenExistingSource} flags={prefs.featureFlags} entries={visibleEntries} suggestTagsFromText={semantic?.ready?suggestSimilarFromText:undefined}/>
         </LazyOverlay>
       )}
       {section==='welcome'&&loaded&&!isOnboarded()&&visibleEntries.length===0&&(
         <WelcomePanel
-          onImport={async items=>{await Promise.all(items.map(e=>saveEntryWithRules(e)));toast(`Imported ${items.length} entries`);bumpOnboarding()}}
-          onPickTheme={()=>{setSettingsInitialTab('appearance');setSettingsOpen(true);bumpOnboarding()}}
-          onOpenAdd={()=>{openAdd();bumpOnboarding()}}
-          onOpenGraph={()=>{setSection('graph');bumpOnboarding()}}
+          onOpenAdd={opts=>{openAdd(opts);bumpOnboarding()}}
+          onLoadSample={()=>{bumpOnboarding();window.location.assign(`${window.location.pathname}?demo=full&reset=1`)}}
           onClose={bumpOnboarding}
         />
       )}

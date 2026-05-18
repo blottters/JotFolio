@@ -7,10 +7,8 @@ function renderPanel(props = {}) {
     <>
       <button type="button">Outside</button>
       <WelcomePanel
-        onImport={vi.fn()}
-        onPickTheme={vi.fn()}
         onOpenAdd={vi.fn()}
-        onOpenGraph={vi.fn()}
+        onLoadSample={vi.fn()}
         onClose={vi.fn()}
         {...props}
       />
@@ -26,23 +24,35 @@ describe('WelcomePanel accessibility', () => {
   it('moves initial focus into the dialog', async () => {
     renderPanel()
 
-    const firstImport = screen.getByRole('button', { name: /Readwise/ })
-    await waitFor(() => expect(firstImport).toHaveFocus())
+    const firstAction = screen.getByRole('button', { name: 'Create first note' })
+    await waitFor(() => expect(firstAction).toHaveFocus())
     expect(screen.getByRole('button', { name: 'Outside' })).not.toHaveFocus()
   })
 
   it('keeps Tab focus inside the dialog', async () => {
     renderPanel()
 
-    const firstImport = screen.getByRole('button', { name: /Readwise/ })
+    const firstAction = screen.getByRole('button', { name: 'Create first note' })
     const skip = screen.getByRole('button', { name: /Skip/ })
-    await waitFor(() => expect(firstImport).toHaveFocus())
+    await waitFor(() => expect(firstAction).toHaveFocus())
 
     skip.focus()
     fireEvent.keyDown(skip, { key: 'Tab' })
-    expect(firstImport).toHaveFocus()
+    expect(firstAction).toHaveFocus()
 
-    fireEvent.keyDown(firstImport, { key: 'Tab', shiftKey: true })
+    fireEvent.keyDown(firstAction, { key: 'Tab', shiftKey: true })
     expect(skip).toHaveFocus()
+  })
+
+  it('shows exactly the four blank-vault starter actions', () => {
+    renderPanel()
+
+    expect(screen.getByRole('button', { name: 'Create first note' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Capture raw thought' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create project' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Load sample vault' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Readwise/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Pick a theme/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open Constellation/ })).not.toBeInTheDocument()
   })
 })

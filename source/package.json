@@ -24,11 +24,11 @@
     "@fontsource-variable/lora": "^5.2.8",
     "@fontsource/caveat": "^5.2.8",
     "chokidar": "^5.0.0",
-    "electron-updater": "^6.3.9",
-    "js-yaml": "^4.1.1",
-    "marked": "^18.0.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "electron-updater": "^6.8.9",
+    "js-yaml": "^4.2.0",
+    "marked": "^18.0.5",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
